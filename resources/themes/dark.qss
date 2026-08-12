@@ -1,0 +1,389 @@
+/* Dark Theme for Hello KSP Launcher */
+
+QWidget {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 10pt;
+}
+
+QMainWindow {
+    background-color: #1e1e1e;
+}
+
+/* Sidebar */
+#sidebarWidget {
+    background-color: #252526;
+    border: none;
+}
+
+#sidebarTitle {
+    color: #ffffff;
+    font-size: 12pt;
+    font-weight: bold;
+    padding: 10px;
+}
+
+#sidebarSectionLabel {
+    color: #858585;
+    font-size: 9pt;
+    padding: 8px 15px 4px 15px;
+}
+
+QPushButton#navButton {
+    background-color: transparent;
+    border: none;
+    color: #cccccc;
+    text-align: left;
+    padding: 10px 15px;
+    border-left: 3px solid transparent;
+}
+
+QPushButton#navButton:hover {
+    background-color: #2a2d2e;
+    color: #ffffff;
+}
+
+QPushButton#navButton:checked {
+    background-color: #37373d;
+    color: #ffffff;
+    border-left: 3px solid #007acc;
+}
+
+/* Back button */
+QPushButton#backButton {
+    background-color: transparent;
+    border: none;
+    color: #cccccc;
+    padding: 8px;
+    font-size: 16pt;
+}
+
+QPushButton#backButton:hover {
+    background-color: #2a2d2e;
+    color: #ffffff;
+    border-radius: 4px;
+}
+
+/* Content area */
+#contentStack {
+    background-color: #1e1e1e;
+}
+
+#pageTitle {
+    color: #ffffff;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 15px;
+}
+
+/* Instance list */
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollBar:vertical {
+    background-color: #2d2d30;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #4a4a4a;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #5a5a5a;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QWidget#instanceItem {
+    background-color: #2d2d30;
+    border-radius: 6px;
+    margin: 4px 10px;
+}
+
+QWidget#instanceItem:hover {
+    background-color: #333337;
+}
+
+QWidget#instanceItem[selected="true"] {
+    background-color: #094771;
+    border: 1px solid #007acc;
+}
+
+QLabel#instanceName {
+    color: #ffffff;
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+QLabel#instancePath {
+    color: #969696;
+    font-size: 9pt;
+}
+
+QCheckBox#instanceCheckbox {
+    spacing: 8px;
+}
+
+QCheckBox#instanceCheckbox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #555555;
+    border-radius: 3px;
+    background-color: #3c3c3c;
+}
+
+QCheckBox#instanceCheckbox::indicator:hover {
+    border-color: #007acc;
+}
+
+QCheckBox#instanceCheckbox::indicator:checked {
+    background-color: #007acc;
+    border-color: #007acc;
+    image: none;
+}
+
+QPushButton#instanceMenuButton {
+    background-color: transparent;
+    border: none;
+    color: #969696;
+    padding: 5px 10px;
+    font-size: 14pt;
+    border-radius: 4px;
+}
+
+QPushButton#instanceMenuButton:hover {
+    background-color: #3c3c3c;
+    color: #ffffff;
+}
+
+/* Add instance button */
+QPushButton#addInstanceButton {
+    background-color: #0e639c;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 4px 10px;
+    font-size: 20pt;
+}
+
+QPushButton#addInstanceButton:hover {
+    background-color: #1177bb;
+}
+
+/* Launch bar */
+#launchBar {
+    background-color: #252526;
+    border-top: 1px solid #3e3e42;
+}
+
+QPushButton#launchButton {
+    background-color: #0e639c;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 12px 30px;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QPushButton#launchButton:hover {
+    background-color: #1177bb;
+}
+
+QPushButton#launchButton:pressed {
+    background-color: #0a4c78;
+}
+
+QPushButton#launchSwitchButton {
+    background-color: #3c3c3c;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 12px 15px;
+    font-size: 12pt;
+}
+
+QPushButton#launchSwitchButton:hover {
+    background-color: #4a4a4a;
+}
+
+QLabel#currentInstanceLabel {
+    color: #cccccc;
+    font-size: 10pt;
+}
+
+/* Settings page */
+QGroupBox {
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    margin-top: 15px;
+    padding-top: 15px;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 15px;
+    padding: 0 5px;
+}
+
+QLabel#settingLabel {
+    color: #cccccc;
+}
+
+QComboBox {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #ffffff;
+    min-width: 150px;
+}
+
+QComboBox:hover {
+    border-color: #007acc;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 25px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2d2d30;
+    border: 1px solid #555555;
+    selection-background-color: #094771;
+    selection-color: #ffffff;
+    color: #ffffff;
+}
+
+/* Instance detail sidebar tabs */
+QPushButton#detailNavButton {
+    background-color: transparent;
+    border: none;
+    color: #cccccc;
+    text-align: left;
+    padding: 10px 15px;
+    border-left: 3px solid transparent;
+}
+
+QPushButton#detailNavButton:hover {
+    background-color: #2a2d2e;
+    color: #ffffff;
+}
+
+QPushButton#detailNavButton:checked {
+    background-color: #37373d;
+    color: #ffffff;
+    border-left: 3px solid #007acc;
+}
+
+/* Settings list in game settings */
+QTreeWidget {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    alternate-background-color: #2d2d30;
+    color: #e0e0e0;
+}
+
+QTreeWidget::item {
+    padding: 5px;
+}
+
+QTreeWidget::item:selected {
+    background-color: #094771;
+    color: #ffffff;
+}
+
+QHeaderView::section {
+    background-color: #333337;
+    color: #ffffff;
+    border: none;
+    padding: 8px;
+    border-right: 1px solid #3e3e42;
+}
+
+/* DLC and Mod lists */
+QListWidget {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    color: #e0e0e0;
+}
+
+QListWidget::item {
+    padding: 8px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+QListWidget::item:selected {
+    background-color: #094771;
+    color: #ffffff;
+}
+
+/* Menu for instance actions */
+QMenu {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 5px 0px;
+}
+
+QMenu::item {
+    padding: 8px 25px;
+    color: #cccccc;
+}
+
+QMenu::item:selected {
+    background-color: #094771;
+    color: #ffffff;
+}
+
+/* Input dialog */
+QLineEdit {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #ffffff;
+}
+
+QLineEdit:focus {
+    border-color: #007acc;
+}
+
+QPushButton {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 6px 15px;
+    color: #ffffff;
+}
+
+QPushButton:hover {
+    background-color: #4a4a4a;
+}
+
+QDialog {
+    background-color: #252526;
+}
+
+QLabel#dlcInstalled {
+    color: #4ec9b0;
+}
+
+QLabel#dlcNotInstalled {
+    color: #f44747;
+}

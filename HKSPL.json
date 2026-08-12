@@ -1,0 +1,26 @@
+{
+    "currentInstance": "06542daf-ce70-4957-acda-9170efa2f624",
+    "instances": [
+        {
+            "exePath": "D:/Game/KSP/KSP_x64.exe",
+            "id": "137f7525-3f62-44a4-94a5-76a8c3e38e88",
+            "name": "KSP 1.12.5 Sol",
+            "path": "D:/Game/KSP"
+        },
+        {
+            "exePath": "D:/Game/Kerbal Space Program/KSP_x64.exe",
+            "id": "0cd50d8e-fa96-486f-8e52-cb1db50f32a7",
+            "name": "KSP 1.12.5",
+            "path": "D:/Game/Kerbal Space Program"
+        },
+        {
+            "exePath": "D:/Game/Kerbal Space Program-Sol/KSP_x64.exe",
+            "id": "06542daf-ce70-4957-acda-9170efa2f624",
+            "name": "KSP RSS RO RP-1",
+            "path": "D:/Game/Kerbal Space Program-Sol"
+        }
+    ],
+    "language": "zh_CN",
+    "launchBehavior": 1,
+    "theme": "dark"
+}
