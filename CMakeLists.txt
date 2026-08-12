@@ -19,6 +19,7 @@ set(SOURCES
     src/mainwindow.cpp
     src/configmanager.cpp
     src/instancemanager.cpp
+    src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
     src/pages/settingspage.cpp
@@ -29,6 +30,7 @@ set(HEADERS
     src/mainwindow.h
     src/configmanager.h
     src/instancemanager.h
+    src/pages/homepage.h
     src/pages/instancelistpage.h
     src/pages/instancedetailpage.h
     src/pages/settingspage.h

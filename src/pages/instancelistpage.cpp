@@ -3,6 +3,7 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <QIcon>
+#include <QHBoxLayout>
 #include "../instancemanager.h"
 
 InstanceListPage::InstanceListPage(QWidget *parent)
@@ -12,9 +13,25 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    QLabel* titleLabel = new QLabel("实例列表", this);
-    titleLabel->setObjectName("pageTitle");
-    mainLayout->addWidget(titleLabel);
+    // Top bar with back button
+    QWidget* topBar = new QWidget(this);
+    topBar->setObjectName("pageTopBar");
+    QHBoxLayout* topLayout = new QHBoxLayout(topBar);
+    topLayout->setContentsMargins(15, 10, 15, 10);
+
+    m_backButton = new QPushButton(QIcon(":/icons/arrow-left.svg"), " 返回", topBar);
+    m_backButton->setObjectName("backButton");
+    connect(m_backButton, &QPushButton::clicked, this, &InstanceListPage::onBackClicked);
+
+    m_titleLabel = new QLabel("实例列表", topBar);
+    m_titleLabel->setObjectName("pageTitle");
+
+    topLayout->addWidget(m_backButton);
+    topLayout->addSpacing(10);
+    topLayout->addWidget(m_titleLabel);
+    topLayout->addStretch();
+
+    mainLayout->addWidget(topBar);
 
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
@@ -22,7 +39,7 @@ InstanceListPage::InstanceListPage(QWidget *parent)
 
     m_listContainer = new QWidget(m_scrollArea);
     m_listLayout = new QVBoxLayout(m_listContainer);
-    m_listLayout->setContentsMargins(0, 0, 0, 10);
+    m_listLayout->setContentsMargins(15, 5, 15, 10);
     m_listLayout->setSpacing(0);
     m_listLayout->addStretch();
 
@@ -80,6 +97,11 @@ void InstanceListPage::doRefresh()
 void InstanceListPage::onAddInstanceClicked()
 {
     emit addInstanceRequested();
+}
+
+void InstanceListPage::onBackClicked()
+{
+    emit backClicked();
 }
 
 void InstanceListPage::onInstanceClicked(const QString &id)

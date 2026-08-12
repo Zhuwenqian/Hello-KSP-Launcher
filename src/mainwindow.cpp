@@ -30,9 +30,10 @@ MainWindow::MainWindow(QWidget *parent)
     addTestInstanceIfEmpty();
     onCurrentInstanceChanged();
 
-    // Default to instance list page
-    m_instanceListBtn->setChecked(true);
-    showPage(m_instanceListPage);
+    // Default to home page
+    setNavButtonChecked(m_homeBtn);
+    showPage(m_homePage);
+    m_homePage->refreshCurrentInstance();
 }
 
 MainWindow::~MainWindow()
@@ -58,10 +59,12 @@ void MainWindow::setupUI()
     m_contentStack = new QStackedWidget(m_centralWidget);
     m_contentStack->setObjectName("contentStack");
 
+    m_homePage = new HomePage(m_contentStack);
     m_instanceListPage = new InstanceListPage(m_contentStack);
     m_instanceDetailPage = new InstanceDetailPage(m_contentStack);
     m_settingsPage = new SettingsPage(m_contentStack);
 
+    m_contentStack->addWidget(m_homePage);
     m_contentStack->addWidget(m_instanceListPage);
     m_contentStack->addWidget(m_instanceDetailPage);
     m_contentStack->addWidget(m_settingsPage);
@@ -78,8 +81,10 @@ void MainWindow::setupUI()
             this, &MainWindow::onAddInstanceRequested);
     connect(m_instanceListPage, &InstanceListPage::currentInstanceChanged,
             this, &MainWindow::onCurrentInstanceChanged);
+    connect(m_instanceListPage, &InstanceListPage::backClicked,
+            this, &MainWindow::onBackToHome);
     connect(m_instanceDetailPage, &InstanceDetailPage::backClicked,
-            this, &MainWindow::onBackToMain);
+            this, &MainWindow::onBackToInstanceList);
     connect(m_settingsPage, &SettingsPage::themeChanged,
             this, &MainWindow::applyTheme);
 }
@@ -102,6 +107,12 @@ void MainWindow::setupSidebar()
     gameSection->setObjectName("sidebarSectionLabel");
     sidebarLayout->addWidget(gameSection);
 
+    m_homeBtn = new QPushButton(QIcon(":/icons/home.svg"), "  首页", m_sidebar);
+    m_homeBtn->setObjectName("navButton");
+    m_homeBtn->setCheckable(true);
+    m_homeBtn->setMinimumHeight(45);
+    connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
+
     m_instanceManageBtn = new QPushButton(QIcon(":/icons/database.svg"), "  实例管理", m_sidebar);
     m_instanceManageBtn->setObjectName("navButton");
     m_instanceManageBtn->setCheckable(true);
@@ -114,6 +125,7 @@ void MainWindow::setupSidebar()
     m_instanceListBtn->setMinimumHeight(45);
     connect(m_instanceListBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
+    sidebarLayout->addWidget(m_homeBtn);
     sidebarLayout->addWidget(m_instanceManageBtn);
     sidebarLayout->addWidget(m_instanceListBtn);
 
@@ -177,30 +189,45 @@ void MainWindow::applyTheme(const QString &theme)
     }
 }
 
+void MainWindow::setNavButtonChecked(QPushButton* btn)
+{
+    m_homeBtn->setChecked(btn == m_homeBtn);
+    m_instanceManageBtn->setChecked(btn == m_instanceManageBtn);
+    m_instanceListBtn->setChecked(btn == m_instanceListBtn);
+    m_settingsBtn->setChecked(btn == m_settingsBtn);
+}
+
 void MainWindow::onNavButtonClicked()
 {
     QPushButton* btn = qobject_cast<QPushButton*>(sender());
     if (!btn) return;
 
-    m_instanceManageBtn->setChecked(btn == m_instanceManageBtn);
-    m_instanceListBtn->setChecked(btn == m_instanceListBtn);
-    m_settingsBtn->setChecked(btn == m_settingsBtn);
+    setNavButtonChecked(btn);
 
-    if (btn == m_instanceManageBtn) {
+    if (btn == m_homeBtn) {
+        m_homePage->refreshCurrentInstance();
+        showPage(m_homePage);
+        m_launchBar->show();
+    } else if (btn == m_instanceManageBtn) {
         KSPInstance cur = ConfigManager::instance().currentInstance();
         if (!cur.id.isEmpty()) {
             m_instanceDetailPage->loadCurrentInstance();
             showPage(m_instanceDetailPage);
+            m_launchBar->hide();
         } else {
             QMessageBox::information(this, "提示", "请先选择或添加一个KSP实例");
-            m_instanceListBtn->setChecked(true);
+            setNavButtonChecked(m_instanceListBtn);
+            m_instanceListPage->refresh();
             showPage(m_instanceListPage);
+            m_launchBar->hide();
         }
     } else if (btn == m_instanceListBtn) {
         m_instanceListPage->refresh();
         showPage(m_instanceListPage);
+        m_launchBar->hide();
     } else if (btn == m_settingsBtn) {
         showPage(m_settingsPage);
+        m_launchBar->hide();
     }
 }
 
@@ -231,19 +258,26 @@ void MainWindow::onAddInstanceRequested()
 
 void MainWindow::onInstanceEntered(const QString &id)
 {
-    m_instanceManageBtn->setChecked(true);
-    m_instanceListBtn->setChecked(false);
-    m_settingsBtn->setChecked(false);
+    setNavButtonChecked(m_instanceManageBtn);
     m_instanceDetailPage->setInstanceId(id);
     showPage(m_instanceDetailPage);
+    m_launchBar->hide();
 }
 
-void MainWindow::onBackToMain()
+void MainWindow::onBackToInstanceList()
 {
-    m_instanceListBtn->setChecked(true);
-    m_instanceManageBtn->setChecked(false);
+    setNavButtonChecked(m_instanceListBtn);
     m_instanceListPage->refresh();
     showPage(m_instanceListPage);
+    m_launchBar->hide();
+}
+
+void MainWindow::onBackToHome()
+{
+    setNavButtonChecked(m_homeBtn);
+    m_homePage->refreshCurrentInstance();
+    showPage(m_homePage);
+    m_launchBar->show();
 }
 
 void MainWindow::showPage(QWidget *page)
@@ -305,6 +339,7 @@ void MainWindow::switchInstanceFromMenu(QAction *action)
     if (!id.isEmpty()) {
         ConfigManager::instance().setCurrentInstance(id);
         onCurrentInstanceChanged();
+        m_homePage->refreshCurrentInstance();
     }
 }
 
@@ -321,8 +356,6 @@ void MainWindow::onGameStarted()
         showMinimized();
         break;
     case ConfigManager::Close:
-        // Don't close immediately, let the process run in background
-        // We just hide to tray? For simplicity just minimize
         showMinimized();
         break;
     case ConfigManager::KeepOpen:
@@ -375,7 +408,6 @@ void MainWindow::onCurrentInstanceChanged()
 
 void MainWindow::addTestInstanceIfEmpty()
 {
-    // Add test instance if D:\Game\KSP exists and no instances configured
     QList<KSPInstance> instances = ConfigManager::instance().instances();
     QString testPath = "D:/Game/KSP";
     QString testExe = "D:/Game/KSP/KSP_x64.exe";

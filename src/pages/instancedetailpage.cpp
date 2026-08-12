@@ -5,6 +5,48 @@
 #include <QMessageBox>
 #include <QMap>
 #include <QIcon>
+#include <QStyledItemDelegate>
+#include <QComboBox>
+#include <QLineEdit>
+
+// Custom delegate to control editing: only column 1 (value) editable, bool values use combo box
+class SettingsItemDelegate : public QStyledItemDelegate {
+public:
+    explicit SettingsItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        if (index.column() != 1) return nullptr; // Only value column editable
+
+        QString value = index.data(Qt::DisplayRole).toString();
+        if (value == "True" || value == "False" || value == "true" || value == "false") {
+            QComboBox* combo = new QComboBox(parent);
+            combo->addItem("True");
+            combo->addItem("False");
+            combo->setCurrentText(value);
+            return combo;
+        }
+        return QStyledItemDelegate::createEditor(parent, option, index);
+    }
+
+    void setEditorData(QWidget* editor, const QModelIndex& index) const override {
+        QComboBox* combo = qobject_cast<QComboBox*>(editor);
+        if (combo) {
+            QString value = index.data(Qt::DisplayRole).toString();
+            combo->setCurrentText(value);
+            return;
+        }
+        QStyledItemDelegate::setEditorData(editor, index);
+    }
+
+    void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const override {
+        QComboBox* combo = qobject_cast<QComboBox*>(editor);
+        if (combo) {
+            model->setData(index, combo->currentText());
+            return;
+        }
+        QStyledItemDelegate::setModelData(editor, model, index);
+    }
+};
 
 InstanceDetailPage::InstanceDetailPage(QWidget *parent)
     : QWidget(parent)
@@ -93,7 +135,9 @@ void InstanceDetailPage::setupGameSettingsTab()
     m_settingsTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_settingsTree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_settingsTree->setAlternatingRowColors(true);
-    m_settingsTree->setRootIsDecorated(false);
+    m_settingsTree->setRootIsDecorated(true);
+    m_settingsTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked);
+    m_settingsTree->setItemDelegate(new SettingsItemDelegate(m_settingsTree));
 
     QWidget* btnBar = new QWidget(tab);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
@@ -188,12 +232,33 @@ void InstanceDetailPage::loadGameSettings()
 {
     m_settingsTree->clear();
     m_currentSettings = InstanceManager::instance().loadGameSettings(m_instance.path);
-    for (const GameSetting& s : m_currentSettings) {
-        QTreeWidgetItem* item = new QTreeWidgetItem(m_settingsTree);
-        item->setText(0, s.displayName);
-        item->setText(1, s.value);
-        item->setData(0, Qt::UserRole, s.key); // Store original key
-        item->setFlags(item->flags() | Qt::ItemIsEditable);
+
+    // Group settings by category
+    QMap<QString, QList<int>> categoryMap;
+    for (int i = 0; i < m_currentSettings.size(); ++i) {
+        categoryMap[m_currentSettings[i].category].append(i);
+    }
+
+    // Create category parent nodes
+    for (auto it = categoryMap.begin(); it != categoryMap.end(); ++it) {
+        QTreeWidgetItem* categoryItem = new QTreeWidgetItem(m_settingsTree);
+        categoryItem->setText(0, it.key());
+        categoryItem->setText(1, QString("(%1项)").arg(it.value().size()));
+        QFont catFont = categoryItem->font(0);
+        catFont.setBold(true);
+        categoryItem->setFont(0, catFont);
+        categoryItem->setFlags(categoryItem->flags() & ~Qt::ItemIsEditable);
+        categoryItem->setExpanded(true);
+
+        for (int idx : it.value()) {
+            const GameSetting& s = m_currentSettings[idx];
+            QTreeWidgetItem* item = new QTreeWidgetItem(categoryItem);
+            item->setText(0, s.displayName);
+            item->setText(1, s.value);
+            item->setData(0, Qt::UserRole, s.key);
+            // ItemIsEditable flag needed, delegate controls which column actually edits
+            item->setFlags(item->flags() | Qt::ItemIsEditable);
+        }
     }
 }
 
@@ -201,13 +266,17 @@ bool InstanceDetailPage::saveGameSettings()
 {
     QList<GameSetting> updatedSettings = m_currentSettings;
     for (int i = 0; i < m_settingsTree->topLevelItemCount(); ++i) {
-        QTreeWidgetItem* item = m_settingsTree->topLevelItem(i);
-        QString originalKey = item->data(0, Qt::UserRole).toString();
-        QString newValue = item->text(1);
-        for (GameSetting& s : updatedSettings) {
-            if (s.key == originalKey) {
-                s.value = newValue;
-                break;
+        QTreeWidgetItem* categoryItem = m_settingsTree->topLevelItem(i);
+        for (int j = 0; j < categoryItem->childCount(); ++j) {
+            QTreeWidgetItem* item = categoryItem->child(j);
+            QString originalKey = item->data(0, Qt::UserRole).toString();
+            if (originalKey.isEmpty()) continue;
+            QString newValue = item->text(1);
+            for (GameSetting& s : updatedSettings) {
+                if (s.key == originalKey) {
+                    s.value = newValue;
+                    break;
+                }
             }
         }
     }
@@ -231,28 +300,23 @@ void InstanceDetailPage::loadDLCs()
     m_dlcList->clear();
     QList<DLCDetection> dlcs = InstanceManager::instance().detectDLCs(m_instance.path);
 
-    // Chinese DLC names
-    QMap<QString, QString> dlcNames;
-    dlcNames["MakingHistory"] = "历史扩展包 (Making History)";
-    dlcNames["Serenity"] = "地面扩展包 (Breaking Ground)";
-
     for (const DLCDetection& dlc : dlcs) {
         QWidget* itemWidget = new QWidget(m_dlcList);
         QHBoxLayout* layout = new QHBoxLayout(itemWidget);
         layout->setContentsMargins(15, 12, 15, 12);
 
-        QLabel* nameLabel = new QLabel(dlcNames.value(dlc.id, dlc.displayName), itemWidget);
+        QLabel* nameLabel = new QLabel(dlc.displayName, itemWidget);
         nameLabel->setStyleSheet("font-weight: bold; font-size: 10pt;");
 
         QLabel* statusLabel = new QLabel(itemWidget);
         if (dlc.installed) {
-            statusLabel->setText("● 已安装");
+            statusLabel->setText("● Installed");
             statusLabel->setObjectName("dlcInstalled");
         } else {
-            statusLabel->setText("○ 未安装");
+            statusLabel->setText("○ Not Installed");
             statusLabel->setObjectName("dlcNotInstalled");
         }
-        statusLabel->setMinimumWidth(80);
+        statusLabel->setMinimumWidth(100);
 
         layout->addWidget(nameLabel);
         layout->addStretch();

@@ -5,6 +5,7 @@
 #include <QVBoxLayout>
 #include <QScrollArea>
 #include <QPushButton>
+#include <QLabel>
 #include <QMenu>
 #include "../configmanager.h"
 #include "../widgets/instanceitemwidget.h"
@@ -20,11 +21,13 @@ signals:
     void instanceEntered(const QString& id);
     void instanceSelected(const QString& id);
     void currentInstanceChanged();
+    void backClicked();
 
 public slots:
     void refresh();
 
 private slots:
+    void onBackClicked();
     void onAddInstanceClicked();
     void onInstanceClicked(const QString& id);
     void onInstanceCheckboxToggled(const QString& id, bool checked);
@@ -34,6 +37,8 @@ private slots:
     void doRefresh();
 
 private:
+    QPushButton* m_backButton;
+    QLabel* m_titleLabel;
     QScrollArea* m_scrollArea;
     QWidget* m_listContainer;
     QVBoxLayout* m_listLayout;

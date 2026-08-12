@@ -7,9 +7,10 @@
 #include <QProcess>
 
 struct GameSetting {
-    QString key;        // 原始键名 (如 SCREEN_RESOLUTION_WIDTH)
-    QString value;      // 值
-    QString displayName;// 中文显示名
+    QString key;         // 原始键名 (如 SCREEN_RESOLUTION_WIDTH)
+    QString value;       // 值
+    QString displayName; // 中文显示名
+    QString category;    // 分类
 };
 
 struct DLCDetection {

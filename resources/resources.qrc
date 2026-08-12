@@ -3,12 +3,14 @@
         <file>themes/dark.qss</file>
         <file>themes/light.qss</file>
         <file>icons/add.svg</file>
+        <file>icons/arrow-left.svg</file>
         <file>icons/back.svg</file>
         <file>icons/check.svg</file>
         <file>icons/chevron-down.svg</file>
         <file>icons/database.svg</file>
         <file>icons/folder-open.svg</file>
         <file>icons/globe.svg</file>
+        <file>icons/home.svg</file>
         <file>icons/list.svg</file>
         <file>icons/moon.svg</file>
         <file>icons/more-vertical.svg</file>

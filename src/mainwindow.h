@@ -8,6 +8,7 @@
 #include <QMenu>
 #include <QProcess>
 #include "configmanager.h"
+#include "pages/homepage.h"
 #include "pages/instancelistpage.h"
 #include "pages/instancedetailpage.h"
 #include "pages/settingspage.h"
@@ -24,7 +25,8 @@ private slots:
     void onNavButtonClicked();
     void onAddInstanceRequested();
     void onInstanceEntered(const QString& id);
-    void onBackToMain();
+    void onBackToInstanceList();
+    void onBackToHome();
     void onLaunchClicked();
     void onLaunchSwitchClicked();
     void onGameStarted();
@@ -38,6 +40,7 @@ private:
     void setupSidebar();
     void setupLaunchBar();
     void showPage(QWidget* page);
+    void setNavButtonChecked(QPushButton* btn);
     void addTestInstanceIfEmpty();
 
     QWidget* m_centralWidget;
@@ -46,11 +49,13 @@ private:
     QWidget* m_launchBar;
 
     // Sidebar buttons
+    QPushButton* m_homeBtn;
     QPushButton* m_instanceManageBtn;
     QPushButton* m_instanceListBtn;
     QPushButton* m_settingsBtn;
 
     // Pages
+    HomePage* m_homePage;
     InstanceListPage* m_instanceListPage;
     InstanceDetailPage* m_instanceDetailPage;
     SettingsPage* m_settingsPage;
