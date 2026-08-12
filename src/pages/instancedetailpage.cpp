@@ -107,15 +107,23 @@ void InstanceDetailPage::setupUI()
     m_modsBtn->setMinimumHeight(40);
     connect(m_modsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
+    m_advancedBtn = new QPushButton(QIcon(":/icons/settings.svg"), "  高级", m_detailSidebar);
+    m_advancedBtn->setObjectName("detailNavButton");
+    m_advancedBtn->setCheckable(true);
+    m_advancedBtn->setMinimumHeight(40);
+    connect(m_advancedBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
+
     sidebarLayout->addWidget(m_gameSettingsBtn);
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
+    sidebarLayout->addWidget(m_advancedBtn);
     sidebarLayout->addStretch();
 
     m_contentStack = new QStackedWidget(this);
     setupGameSettingsTab();
     setupDLCTab();
     setupModsTab();
+    setupAdvancedTab();
 
     contentLayout->addWidget(m_detailSidebar);
     contentLayout->addWidget(m_contentStack, 1);
@@ -210,6 +218,7 @@ void InstanceDetailPage::onNavButtonClicked()
     m_gameSettingsBtn->setChecked(btn == m_gameSettingsBtn);
     m_dlcBtn->setChecked(btn == m_dlcBtn);
     m_modsBtn->setChecked(btn == m_modsBtn);
+    m_advancedBtn->setChecked(btn == m_advancedBtn);
 
     if (btn == m_gameSettingsBtn) {
         m_contentStack->setCurrentIndex(0);
@@ -217,6 +226,9 @@ void InstanceDetailPage::onNavButtonClicked()
         m_contentStack->setCurrentIndex(1);
     } else if (btn == m_modsBtn) {
         m_contentStack->setCurrentIndex(2);
+    } else if (btn == m_advancedBtn) {
+        loadLaunchArgs();
+        m_contentStack->setCurrentIndex(3);
     }
 }
 
@@ -226,6 +238,7 @@ void InstanceDetailPage::refreshData()
     loadGameSettings();
     loadDLCs();
     loadMods();
+    loadLaunchArgs();
 }
 
 void InstanceDetailPage::loadGameSettings()
@@ -339,4 +352,57 @@ void InstanceDetailPage::loadMods()
     if (mods.isEmpty()) {
         m_modList->addItem("（未检测到第三方模组）");
     }
+}
+
+void InstanceDetailPage::setupAdvancedTab()
+{
+    QWidget* tab = new QWidget(m_contentStack);
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(15, 10, 15, 15);
+    layout->setSpacing(10);
+
+    QLabel* titleLabel = new QLabel("启动参数", tab);
+    titleLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
+    layout->addWidget(titleLabel);
+
+    QLabel* descLabel = new QLabel("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow", tab);
+    descLabel->setStyleSheet("color: #888; font-size: 9pt;");
+    descLabel->setWordWrap(true);
+    layout->addWidget(descLabel);
+
+    m_launchArgsEdit = new QLineEdit(tab);
+    m_launchArgsEdit->setPlaceholderText("输入启动参数，多个参数用空格分隔");
+    m_launchArgsEdit->setMinimumHeight(36);
+    layout->addWidget(m_launchArgsEdit);
+
+    QWidget* btnBar = new QWidget(tab);
+    QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
+    btnLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_saveLaunchArgsBtn = new QPushButton(QIcon(":/icons/save.svg"), " 确认保存", btnBar);
+    m_saveLaunchArgsBtn->setObjectName("primaryButton");
+    m_saveLaunchArgsBtn->setMinimumHeight(36);
+    m_saveLaunchArgsBtn->setMinimumWidth(140);
+    connect(m_saveLaunchArgsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onSaveLaunchArgsClicked);
+
+    btnLayout->addStretch();
+    btnLayout->addWidget(m_saveLaunchArgsBtn);
+    layout->addWidget(btnBar);
+    layout->addStretch();
+
+    m_contentStack->addWidget(tab);
+}
+
+void InstanceDetailPage::loadLaunchArgs()
+{
+    if (m_instanceId.isEmpty()) return;
+    KSPInstance inst = ConfigManager::instance().getInstance(m_instanceId);
+    m_launchArgsEdit->setText(inst.launchArgs);
+}
+
+void InstanceDetailPage::onSaveLaunchArgsClicked()
+{
+    QString args = m_launchArgsEdit->text().trimmed();
+    ConfigManager::instance().updateInstanceLaunchArgs(m_instanceId, args);
+    QMessageBox::information(this, "提示", "启动参数已保存");
 }

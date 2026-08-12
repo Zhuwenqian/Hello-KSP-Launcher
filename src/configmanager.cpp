@@ -70,6 +70,7 @@ bool ConfigManager::load()
         inst.name = obj["name"].toString();
         inst.path = obj["path"].toString();
         inst.exePath = obj["exePath"].toString();
+        inst.launchArgs = obj["launchArgs"].toString();
         m_instances.append(inst);
     }
 
@@ -91,6 +92,7 @@ bool ConfigManager::save()
         obj["name"] = inst.name;
         obj["path"] = inst.path;
         obj["exePath"] = inst.exePath;
+        obj["launchArgs"] = inst.launchArgs;
         instArray.append(obj);
     }
     m_config["instances"] = instArray;
@@ -192,6 +194,18 @@ void ConfigManager::renameInstance(const QString &id, const QString &newName)
     for (int i = 0; i < m_instances.size(); ++i) {
         if (m_instances[i].id == id) {
             m_instances[i].name = newName;
+            save();
+            emit instancesChanged();
+            return;
+        }
+    }
+}
+
+void ConfigManager::updateInstanceLaunchArgs(const QString &id, const QString &args)
+{
+    for (int i = 0; i < m_instances.size(); ++i) {
+        if (m_instances[i].id == id) {
+            m_instances[i].launchArgs = args;
             save();
             emit instancesChanged();
             return;

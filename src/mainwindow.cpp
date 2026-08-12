@@ -303,7 +303,7 @@ void MainWindow::onLaunchClicked()
         return;
     }
 
-    bool launched = InstanceManager::instance().launchGame(inst.exePath);
+    bool launched = InstanceManager::instance().launchGame(inst.exePath, inst.launchArgs);
     if (!launched) {
         QMessageBox::warning(this, "错误", "启动游戏失败。");
     }

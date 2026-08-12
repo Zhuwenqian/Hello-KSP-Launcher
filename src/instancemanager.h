@@ -29,7 +29,7 @@ public:
     bool saveGameSettings(const QString& gamePath, const QList<GameSetting>& settings) const;
     QList<DLCDetection> detectDLCs(const QString& gamePath) const;
     QStringList listMods(const QString& gamePath) const;
-    bool launchGame(const QString& exePath);
+    bool launchGame(const QString& exePath, const QString& args = QString());
     QString detectGameRoot(const QString& exePath) const;
     bool isValidKSPPath(const QString& path) const;
 

@@ -7,6 +7,7 @@
 #include <QTreeWidget>
 #include <QListWidget>
 #include <QLabel>
+#include <QLineEdit>
 #include "../configmanager.h"
 #include "../instancemanager.h"
 
@@ -27,16 +28,19 @@ private slots:
     void onNavButtonClicked();
     void refreshData();
     void onSaveSettingsClicked();
+    void onSaveLaunchArgsClicked();
 
 private:
     void setupUI();
     void setupGameSettingsTab();
     void setupDLCTab();
     void setupModsTab();
+    void setupAdvancedTab();
     void loadGameSettings();
     bool saveGameSettings();
     void loadDLCs();
     void loadMods();
+    void loadLaunchArgs();
 
     QList<GameSetting> m_currentSettings;
 
@@ -51,6 +55,7 @@ private:
     QPushButton* m_gameSettingsBtn;
     QPushButton* m_dlcBtn;
     QPushButton* m_modsBtn;
+    QPushButton* m_advancedBtn;
 
     // Game Settings tab
     QTreeWidget* m_settingsTree;
@@ -60,6 +65,10 @@ private:
 
     // Mods tab
     QListWidget* m_modList;
+
+    // Advanced tab
+    QLineEdit* m_launchArgsEdit;
+    QPushButton* m_saveLaunchArgsBtn;
 };
 
 #endif // INSTANCEDETAILPAGE_H

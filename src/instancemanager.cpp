@@ -545,7 +545,7 @@ QStringList InstanceManager::listMods(const QString &gamePath) const
     return mods;
 }
 
-bool InstanceManager::launchGame(const QString &exePath)
+bool InstanceManager::launchGame(const QString &exePath, const QString &args)
 {
     if (m_gameProcess && m_gameProcess->state() != QProcess::NotRunning) {
         return false;
@@ -561,7 +561,10 @@ bool InstanceManager::launchGame(const QString &exePath)
 
     QFileInfo exeInfo(exePath);
     m_gameProcess->setWorkingDirectory(exeInfo.absolutePath());
-    m_gameProcess->start(exePath, QStringList());
+
+    // Split args by spaces, handling simple quoting
+    QStringList argList = QProcess::splitCommand(args);
+    m_gameProcess->start(exePath, argList);
     return true;
 }
 

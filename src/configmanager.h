@@ -11,6 +11,7 @@ struct KSPInstance {
     QString name;
     QString path;
     QString exePath;
+    QString launchArgs;
 };
 
 class ConfigManager : public QObject
@@ -40,6 +41,7 @@ public:
     void addInstance(const KSPInstance& inst);
     void removeInstance(const QString& id);
     void renameInstance(const QString& id, const QString& newName);
+    void updateInstanceLaunchArgs(const QString& id, const QString& args);
     KSPInstance currentInstance() const;
     void setCurrentInstance(const QString& id);
     KSPInstance getInstance(const QString& id) const;
