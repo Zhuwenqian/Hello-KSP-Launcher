@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(HelloKSPLauncher VERSION 1.0.0 LANGUAGES CXX)
+project(HelloKSPLauncher VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +12,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/dist)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg Concurrent)
+
+include_directories(thirdparty)
 
 set(SOURCES
     src/main.cpp
@@ -27,6 +29,7 @@ set(SOURCES
     src/pages/saveslistpage.cpp
     src/pages/savedetailpage.cpp
     src/widgets/instanceitemwidget.cpp
+    thirdparty/miniz.c
 )
 
 set(HEADERS
@@ -41,6 +44,7 @@ set(HEADERS
     src/pages/saveslistpage.h
     src/pages/savedetailpage.h
     src/widgets/instanceitemwidget.h
+    thirdparty/miniz.h
 )
 
 set(RESOURCES
@@ -57,6 +61,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Svg
+    Qt6::Concurrent
 )
 
 if(WIN32)

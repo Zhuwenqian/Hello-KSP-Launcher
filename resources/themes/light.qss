@@ -404,3 +404,17 @@ QLabel#dlcInstalled {
 QLabel#dlcNotInstalled {
     color: #d13438;
 }
+
+/* Icon only button */
+QPushButton#iconButton {
+    background-color: transparent;
+    border: none;
+    color: #333333;
+    border-radius: 4px;
+    padding: 6px;
+    icon-size: 18px 18px;
+}
+
+QPushButton#iconButton:hover {
+    background-color: #e0e0e0;
+}

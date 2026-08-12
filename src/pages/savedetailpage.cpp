@@ -7,6 +7,11 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QDir>
+#include <QProgressDialog>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
+#include <QDesktopServices>
+#include <QUrl>
 #include "../iconutils.h"
 
 // 自定义委托：控制哪些列可编辑，bool/gender用下拉框，数值用浮点输入
@@ -141,13 +146,21 @@ void SaveDetailPage::setupUI()
     m_kerbalsBtn->setMinimumHeight(40);
     connect(m_kerbalsBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
+    m_backupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), "  备份管理", m_sidebar);
+    m_backupsBtn->setObjectName("detailNavButton");
+    m_backupsBtn->setCheckable(true);
+    m_backupsBtn->setMinimumHeight(40);
+    connect(m_backupsBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
+
     sidebarLayout->addWidget(m_saveInfoBtn);
     sidebarLayout->addWidget(m_kerbalsBtn);
+    sidebarLayout->addWidget(m_backupsBtn);
     sidebarLayout->addStretch();
 
     m_contentStack = new QStackedWidget(this);
     setupSaveInfoTab();
     setupKerbalsTab();
+    setupBackupsTab();
 
     contentLayout->addWidget(m_sidebar);
     contentLayout->addWidget(m_contentStack, 1);
@@ -251,12 +264,50 @@ void SaveDetailPage::setupKerbalsTab()
     m_contentStack->addWidget(tab);
 }
 
+void SaveDetailPage::setupBackupsTab()
+{
+    m_backupsTab = new QWidget(m_contentStack);
+    QVBoxLayout* layout = new QVBoxLayout(m_backupsTab);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    // 顶部工具栏
+    QWidget* toolBar = new QWidget(m_backupsTab);
+    QHBoxLayout* toolBarLayout = new QHBoxLayout(toolBar);
+    toolBarLayout->setContentsMargins(15, 10, 15, 10);
+
+    m_refreshBackupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/refresh.svg", "#ffffff"), " 刷新", toolBar);
+    m_refreshBackupsBtn->setObjectName("backButton");
+    m_refreshBackupsBtn->setMinimumHeight(36);
+    connect(m_refreshBackupsBtn, &QPushButton::clicked, this, &SaveDetailPage::onRefreshBackupsClicked);
+
+    m_createBackupBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 创建新备份", toolBar);
+    m_createBackupBtn->setObjectName("primaryButton");
+    m_createBackupBtn->setMinimumHeight(36);
+    m_createBackupBtn->setMinimumWidth(150);
+    connect(m_createBackupBtn, &QPushButton::clicked, this, &SaveDetailPage::onCreateBackupClicked);
+
+    toolBarLayout->addWidget(m_refreshBackupsBtn);
+    toolBarLayout->addStretch();
+    toolBarLayout->addWidget(m_createBackupBtn);
+    layout->addWidget(toolBar);
+
+    // 备份列表
+    m_backupList = new QListWidget(m_backupsTab);
+    m_backupList->setObjectName("backupListWidget");
+    m_backupList->setSpacing(2);
+    layout->addWidget(m_backupList, 1);
+
+    m_contentStack->addWidget(m_backupsTab);
+}
+
 void SaveDetailPage::setSavePath(const QString &saveFolderPath)
 {
     m_saveFolderPath = saveFolderPath;
     QDir dir(saveFolderPath);
-    m_titleLabel->setText("存档 - " + dir.dirName());
+    m_saveName = dir.dirName();
+    m_titleLabel->setText("存档 - " + m_saveName);
     loadSaveData();
+    refreshBackupList();
 }
 
 void SaveDetailPage::loadSaveData()
@@ -440,12 +491,16 @@ void SaveDetailPage::onNavButtonClicked()
 
     m_saveInfoBtn->setChecked(btn == m_saveInfoBtn);
     m_kerbalsBtn->setChecked(btn == m_kerbalsBtn);
+    m_backupsBtn->setChecked(btn == m_backupsBtn);
 
     if (btn == m_saveInfoBtn) {
         m_contentStack->setCurrentIndex(0);
     } else if (btn == m_kerbalsBtn) {
         m_contentStack->setCurrentIndex(1);
         m_kerbalsStack->setCurrentIndex(0);
+    } else if (btn == m_backupsBtn) {
+        m_contentStack->setCurrentIndex(2);
+        refreshBackupList();
     }
 }
 
@@ -518,6 +573,168 @@ void SaveDetailPage::refreshIcons(const QString &color)
     m_homeButton->setIcon(IconUtils::tintedIcon(":/icons/home.svg", color));
     m_saveInfoBtn->setIcon(IconUtils::tintedIcon(":/icons/sliders.svg", color));
     m_kerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
+    m_backupsBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
     m_backToKerbalListBtn->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
     m_saveKerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
+    m_refreshBackupsBtn->setIcon(IconUtils::tintedIcon(":/icons/refresh.svg", color));
+    m_createBackupBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
+}
+
+void SaveDetailPage::refreshBackupList()
+{
+    m_backupList->clear();
+    QList<BackupInfo> backups = InstanceManager::instance().listBackups(m_saveName);
+
+    for (const BackupInfo& backup : backups) {
+        QWidget* itemWidget = new QWidget(m_backupList);
+        QHBoxLayout* layout = new QHBoxLayout(itemWidget);
+        layout->setContentsMargins(20, 14, 10, 14);
+
+        QVBoxLayout* textLayout = new QVBoxLayout();
+        textLayout->setSpacing(4);
+
+        QLabel* nameLabel = new QLabel(backup.saveName, itemWidget);
+        nameLabel->setStyleSheet("font-weight: bold; font-size: 11pt;");
+
+        QString timeStr = backup.timestamp.toString("yyyy年MM月dd日 HH:mm:ss");
+        QLabel* timeLabel = new QLabel(timeStr, itemWidget);
+        timeLabel->setStyleSheet("color: #888; font-size: 9pt;");
+
+        textLayout->addWidget(nameLabel);
+        textLayout->addWidget(timeLabel);
+        layout->addLayout(textLayout, 1);
+
+        // 操作按钮
+        QPushButton* revealBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"), "", itemWidget);
+        revealBtn->setObjectName("iconButton");
+        revealBtn->setFixedSize(36, 36);
+        revealBtn->setToolTip("在文件资源管理器中显示");
+        QString filePath = backup.filePath;
+        connect(revealBtn, &QPushButton::clicked, this, [this, filePath]() {
+            onRevealBackupClicked(filePath);
+        });
+
+        QPushButton* deleteBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#ffffff"), "", itemWidget);
+        deleteBtn->setObjectName("iconButton");
+        deleteBtn->setFixedSize(36, 36);
+        deleteBtn->setToolTip("删除备份");
+        connect(deleteBtn, &QPushButton::clicked, this, [this, filePath]() {
+            onDeleteBackupClicked(filePath);
+        });
+
+        layout->addWidget(revealBtn);
+        layout->addWidget(deleteBtn);
+
+        QListWidgetItem* item = new QListWidgetItem(m_backupList);
+        item->setSizeHint(QSize(0, 70));
+        item->setData(Qt::UserRole, backup.filePath);
+        m_backupList->addItem(item);
+        m_backupList->setItemWidget(item, itemWidget);
+    }
+
+    if (backups.isEmpty()) {
+        QListWidgetItem* emptyItem = new QListWidgetItem("（暂无备份）", m_backupList);
+        emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
+        emptyItem->setTextAlignment(Qt::AlignCenter);
+        emptyItem->setForeground(QColor("#888888"));
+    }
+}
+
+void SaveDetailPage::onCreateBackupClicked()
+{
+    // 检查存档目录
+    QDir saveDir(m_saveFolderPath);
+    if (!saveDir.exists()) {
+        QMessageBox::warning(this, "备份失败", "存档文件夹不存在！");
+        return;
+    }
+
+    QFileInfoList entries = saveDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    if (entries.isEmpty()) {
+        QMessageBox::warning(this, "备份失败", "存档文件夹为空，无法备份！");
+        return;
+    }
+
+    QProgressDialog progress("正在创建备份...", "取消", 0, 100, this);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.setMinimumDuration(0);
+    progress.setValue(0);
+
+    bool success = false;
+    QString errorMsg;
+
+    // 使用QtConcurrent在后台线程执行备份
+    QFutureWatcher<bool> watcher;
+    QEventLoop loop;
+    int lastProgress = 0;
+
+    connect(&watcher, &QFutureWatcher<bool>::finished, &loop, &QEventLoop::quit);
+
+    QFuture<bool> future = QtConcurrent::run([&]() {
+        return InstanceManager::instance().createBackup(m_saveFolderPath, m_saveName,
+            [&](int p) {
+                QMetaObject::invokeMethod(&progress, [&, p]() {
+                    if (p > lastProgress) {
+                        lastProgress = p;
+                        progress.setValue(p);
+                    }
+                }, Qt::QueuedConnection);
+            });
+    });
+
+    watcher.setFuture(future);
+
+    // 显示进度对话框
+    while (progress.isVisible() && !watcher.isFinished()) {
+        loop.processEvents(QEventLoop::AllEvents, 100);
+        if (progress.wasCanceled()) {
+            // tar压缩过程不方便中途取消，仅关闭进度提示，等待任务自然完成
+            break;
+        }
+    }
+
+    if (watcher.isFinished()) {
+        success = future.result();
+    } else {
+        // 用户关闭了进度框，等待任务完成
+        watcher.waitForFinished();
+        success = future.result();
+    }
+
+    progress.close();
+
+    if (success) {
+        QMessageBox::information(this, "备份成功", "存档备份已创建！");
+        refreshBackupList();
+    } else {
+        QMessageBox::warning(this, "备份失败", "创建备份时发生错误，请检查磁盘空间或文件权限。");
+    }
+}
+
+void SaveDetailPage::onRefreshBackupsClicked()
+{
+    refreshBackupList();
+}
+
+void SaveDetailPage::onDeleteBackupClicked(const QString &filePath)
+{
+    QFileInfo fi(filePath);
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "确认删除",
+        QString("确定要删除备份 '%1' 吗？\n此操作不可撤销。").arg(fi.fileName()),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        if (InstanceManager::instance().deleteBackup(filePath)) {
+            refreshBackupList();
+        } else {
+            QMessageBox::warning(this, "删除失败", "无法删除备份文件，请检查文件是否被占用。");
+        }
+    }
+}
+
+void SaveDetailPage::onRevealBackupClicked(const QString &filePath)
+{
+    if (!InstanceManager::instance().revealBackupInExplorer(filePath)) {
+        QMessageBox::warning(this, "错误", "无法打开文件资源管理器。");
+    }
 }

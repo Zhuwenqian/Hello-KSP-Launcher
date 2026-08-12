@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QProcess>
 #include <QList>
+#include <QDateTime>
+#include <functional>
 
 struct GameSetting {
     QString key;         // 原始键名 (如 SCREEN_RESOLUTION_WIDTH)
@@ -48,6 +50,14 @@ struct KerbalInfo {
     int lineNumber;      // KERBAL块起始行
 };
 
+struct BackupInfo {
+    QString fileName;    // 备份文件名
+    QString filePath;    // 完整文件路径
+    QString saveName;    // 存档名称
+    QDateTime timestamp; // 备份时间
+    qint64 fileSize;     // 文件大小（字节）
+};
+
 class InstanceManager : public QObject
 {
     Q_OBJECT
@@ -69,6 +79,15 @@ public:
     bool saveKerbals(const QString& saveFolderPath, const QList<KerbalInfo>& kerbals) const;
     QString getSavesDir(const QString& gamePath) const;
     QString getPersistentSfsPath(const QString& saveFolderPath) const;
+
+    // 备份管理
+    QString getBackupsRootDir() const;
+    QString getBackupDirForSave(const QString& saveName) const;
+    QList<BackupInfo> listBackups(const QString& saveName) const;
+    bool createBackup(const QString& saveFolderPath, const QString& saveName,
+                      std::function<void(int progress)> progressCallback = nullptr) const;
+    bool deleteBackup(const QString& backupFilePath) const;
+    bool revealBackupInExplorer(const QString& backupFilePath) const;
 
 signals:
     void gameStarted();
