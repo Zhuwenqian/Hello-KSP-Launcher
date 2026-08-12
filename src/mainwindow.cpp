@@ -7,6 +7,7 @@
 #include <QProcess>
 #include <QIcon>
 #include "instancemanager.h"
+#include "iconutils.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_gameRunning(false)
@@ -63,11 +64,15 @@ void MainWindow::setupUI()
     m_instanceListPage = new InstanceListPage(m_contentStack);
     m_instanceDetailPage = new InstanceDetailPage(m_contentStack);
     m_settingsPage = new SettingsPage(m_contentStack);
+    m_savesListPage = new SavesListPage(m_contentStack);
+    m_saveDetailPage = new SaveDetailPage(m_contentStack);
 
     m_contentStack->addWidget(m_homePage);
     m_contentStack->addWidget(m_instanceListPage);
     m_contentStack->addWidget(m_instanceDetailPage);
     m_contentStack->addWidget(m_settingsPage);
+    m_contentStack->addWidget(m_savesListPage);
+    m_contentStack->addWidget(m_saveDetailPage);
 
     contentLayout->addWidget(m_contentStack, 1);
     mainLayout->addLayout(contentLayout, 1);
@@ -85,8 +90,18 @@ void MainWindow::setupUI()
             this, &MainWindow::onBackToHome);
     connect(m_instanceDetailPage, &InstanceDetailPage::backClicked,
             this, &MainWindow::onBackToInstanceList);
+    connect(m_instanceDetailPage, &InstanceDetailPage::savesManageRequested,
+            this, &MainWindow::onSavesManageRequested);
     connect(m_settingsPage, &SettingsPage::themeChanged,
             this, &MainWindow::applyTheme);
+    connect(m_savesListPage, &SavesListPage::backClicked,
+            this, &MainWindow::onBackFromSavesList);
+    connect(m_savesListPage, &SavesListPage::saveSelected,
+            this, &MainWindow::onSaveSelected);
+    connect(m_saveDetailPage, &SaveDetailPage::backClicked,
+            this, &MainWindow::onBackFromSaveDetail);
+    connect(m_saveDetailPage, &SaveDetailPage::homeClicked,
+            this, &MainWindow::onHomeFromSaveDetail);
 }
 
 void MainWindow::setupSidebar()
@@ -107,19 +122,19 @@ void MainWindow::setupSidebar()
     gameSection->setObjectName("sidebarSectionLabel");
     sidebarLayout->addWidget(gameSection);
 
-    m_homeBtn = new QPushButton(QIcon(":/icons/home.svg"), "  首页", m_sidebar);
+    m_homeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), "  首页", m_sidebar);
     m_homeBtn->setObjectName("navButton");
     m_homeBtn->setCheckable(true);
     m_homeBtn->setMinimumHeight(45);
     connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
-    m_instanceManageBtn = new QPushButton(QIcon(":/icons/database.svg"), "  实例管理", m_sidebar);
+    m_instanceManageBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), "  实例管理", m_sidebar);
     m_instanceManageBtn->setObjectName("navButton");
     m_instanceManageBtn->setCheckable(true);
     m_instanceManageBtn->setMinimumHeight(45);
     connect(m_instanceManageBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
-    m_instanceListBtn = new QPushButton(QIcon(":/icons/list.svg"), "  实例列表", m_sidebar);
+    m_instanceListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), "  实例列表", m_sidebar);
     m_instanceListBtn->setObjectName("navButton");
     m_instanceListBtn->setCheckable(true);
     m_instanceListBtn->setMinimumHeight(45);
@@ -133,7 +148,7 @@ void MainWindow::setupSidebar()
     generalSection->setObjectName("sidebarSectionLabel");
     sidebarLayout->addWidget(generalSection);
 
-    m_settingsBtn = new QPushButton(QIcon(":/icons/settings.svg"), "  启动器设置", m_sidebar);
+    m_settingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), "  启动器设置", m_sidebar);
     m_settingsBtn->setObjectName("navButton");
     m_settingsBtn->setCheckable(true);
     m_settingsBtn->setMinimumHeight(45);
@@ -158,7 +173,7 @@ void MainWindow::setupLaunchBar()
 
     barLayout->addWidget(m_currentInstanceLabel, 1);
 
-    m_launchSwitchButton = new QPushButton(QIcon(":/icons/chevron-down.svg"), "", m_launchBar);
+    m_launchSwitchButton = new QPushButton(IconUtils::tintedIcon(":/icons/chevron-down.svg", "#ffffff"), "", m_launchBar);
     m_launchSwitchButton->setObjectName("launchSwitchButton");
     m_launchSwitchButton->setFixedSize(50, 50);
     m_launchSwitchButton->setToolTip("切换实例");
@@ -167,7 +182,7 @@ void MainWindow::setupLaunchBar()
     m_switchMenu = new QMenu(this);
     connect(m_switchMenu, &QMenu::triggered, this, &MainWindow::switchInstanceFromMenu);
 
-    m_launchButton = new QPushButton(QIcon(":/icons/rocket.svg"), " 启动游戏", m_launchBar);
+    m_launchButton = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"), " 启动游戏", m_launchBar);
     m_launchButton->setObjectName("launchButton");
     m_launchButton->setMinimumHeight(50);
     m_launchButton->setMinimumWidth(180);
@@ -187,6 +202,29 @@ void MainWindow::applyTheme(const QString &theme)
         setStyleSheet(styleSheet);
         file.close();
     }
+    refreshIcons(theme);
+}
+
+void MainWindow::refreshIcons(const QString &theme)
+{
+    QString color = IconUtils::iconColorForTheme(theme);
+
+    m_homeBtn->setIcon(IconUtils::tintedIcon(":/icons/home.svg", color));
+    m_instanceManageBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
+    m_instanceListBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
+    m_settingsBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
+    m_launchSwitchButton->setIcon(IconUtils::tintedIcon(":/icons/chevron-down.svg", color));
+
+    if (m_gameRunning) {
+        m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", color));
+    } else {
+        m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
+    }
+
+    m_instanceListPage->refreshIcons(color);
+    m_instanceDetailPage->refreshIcons(color);
+    m_savesListPage->refreshIcons(color);
+    m_saveDetailPage->refreshIcons(color);
 }
 
 void MainWindow::setNavButtonChecked(QPushButton* btn)
@@ -346,7 +384,7 @@ void MainWindow::switchInstanceFromMenu(QAction *action)
 void MainWindow::onGameStarted()
 {
     m_gameRunning = true;
-    m_launchButton->setIcon(QIcon(":/icons/stop.svg"));
+    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", IconUtils::iconColorForTheme(m_currentTheme)));
     m_launchButton->setText(" 游戏运行中");
     m_launchButton->setEnabled(false);
 
@@ -369,7 +407,7 @@ void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
     Q_UNUSED(exitCode);
     Q_UNUSED(status);
     m_gameRunning = false;
-    m_launchButton->setIcon(QIcon(":/icons/rocket.svg"));
+    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
     m_launchButton->setText(" 启动游戏");
     m_launchButton->setEnabled(true);
 
@@ -383,7 +421,7 @@ void MainWindow::onGameError(QProcess::ProcessError error)
 {
     Q_UNUSED(error);
     m_gameRunning = false;
-    m_launchButton->setIcon(QIcon(":/icons/rocket.svg"));
+    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
     m_launchButton->setText(" 启动游戏");
     m_launchButton->setEnabled(true);
     showNormal();
@@ -421,4 +459,57 @@ void MainWindow::addTestInstanceIfEmpty()
         inst.exePath = testExe;
         ConfigManager::instance().addInstance(inst);
     }
+}
+
+void MainWindow::onSavesManageRequested()
+{
+    KSPInstance cur = ConfigManager::instance().currentInstance();
+    if (cur.id.isEmpty()) {
+        QMessageBox::information(this, "提示", "请先选择一个KSP实例");
+        return;
+    }
+    m_savesListPage->setInstanceId(cur.id);
+    showPage(m_savesListPage);
+    m_launchBar->hide();
+    // 取消侧边栏按钮高亮
+    setNavButtonChecked(nullptr);
+}
+
+void MainWindow::onBackFromSavesList()
+{
+    // 返回实例详情页
+    KSPInstance cur = ConfigManager::instance().currentInstance();
+    if (!cur.id.isEmpty()) {
+        m_instanceDetailPage->loadCurrentInstance();
+    }
+    setNavButtonChecked(m_instanceManageBtn);
+    showPage(m_instanceDetailPage);
+    m_launchBar->hide();
+}
+
+void MainWindow::onSaveSelected(const QString &savePath)
+{
+    m_saveDetailPage->setSavePath(savePath);
+    showPage(m_saveDetailPage);
+    m_launchBar->hide();
+    setNavButtonChecked(nullptr);
+}
+
+void MainWindow::onBackFromSaveDetail()
+{
+    KSPInstance cur = ConfigManager::instance().currentInstance();
+    if (!cur.id.isEmpty()) {
+        m_savesListPage->setInstanceId(cur.id);
+    }
+    showPage(m_savesListPage);
+    m_launchBar->hide();
+    setNavButtonChecked(nullptr);
+}
+
+void MainWindow::onHomeFromSaveDetail()
+{
+    setNavButtonChecked(m_homeBtn);
+    m_homePage->refreshCurrentInstance();
+    showPage(m_homePage);
+    m_launchBar->show();
 }

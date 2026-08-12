@@ -25,6 +25,7 @@ signals:
 
 public slots:
     void refresh();
+    void refreshIcons(const QString& color);
 
 private slots:
     void onBackClicked();

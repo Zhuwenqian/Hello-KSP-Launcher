@@ -12,6 +12,8 @@
 #include "pages/instancelistpage.h"
 #include "pages/instancedetailpage.h"
 #include "pages/settingspage.h"
+#include "pages/saveslistpage.h"
+#include "pages/savedetailpage.h"
 
 class MainWindow : public QMainWindow
 {
@@ -34,6 +36,11 @@ private slots:
     void onGameError(QProcess::ProcessError error);
     void onCurrentInstanceChanged();
     void switchInstanceFromMenu(QAction* action);
+    void onSavesManageRequested();
+    void onBackFromSavesList();
+    void onSaveSelected(const QString& savePath);
+    void onBackFromSaveDetail();
+    void onHomeFromSaveDetail();
 
 private:
     void setupUI();
@@ -42,6 +49,7 @@ private:
     void showPage(QWidget* page);
     void setNavButtonChecked(QPushButton* btn);
     void addTestInstanceIfEmpty();
+    void refreshIcons(const QString& theme);
 
     QWidget* m_centralWidget;
     QWidget* m_sidebar;
@@ -59,6 +67,8 @@ private:
     InstanceListPage* m_instanceListPage;
     InstanceDetailPage* m_instanceDetailPage;
     SettingsPage* m_settingsPage;
+    SavesListPage* m_savesListPage;
+    SaveDetailPage* m_saveDetailPage;
 
     // Launch bar
     QPushButton* m_launchButton;

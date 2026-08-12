@@ -33,10 +33,11 @@ QMainWindow {
 QPushButton#navButton {
     background-color: transparent;
     border: none;
-    color: #cccccc;
+    color: #ffffff;
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
+    icon-size: 18px 18px;
 }
 
 QPushButton#navButton:hover {
@@ -54,9 +55,10 @@ QPushButton#navButton:checked {
 QPushButton#backButton {
     background-color: transparent;
     border: none;
-    color: #cccccc;
+    color: #ffffff;
     padding: 8px;
     font-size: 16pt;
+    icon-size: 18px 18px;
 }
 
 QPushButton#backButton:hover {
@@ -272,10 +274,11 @@ QComboBox QAbstractItemView {
 QPushButton#detailNavButton {
     background-color: transparent;
     border: none;
-    color: #cccccc;
+    color: #ffffff;
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
+    icon-size: 18px 18px;
 }
 
 QPushButton#detailNavButton:hover {
@@ -370,10 +373,24 @@ QPushButton {
     border-radius: 4px;
     padding: 6px 15px;
     color: #ffffff;
+    icon-size: 16px 16px;
 }
 
 QPushButton:hover {
     background-color: #4a4a4a;
+}
+
+QPushButton#primaryButton {
+    background-color: #0e639c;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-weight: bold;
+}
+
+QPushButton#primaryButton:hover {
+    background-color: #1177bb;
 }
 
 QDialog {

@@ -37,6 +37,7 @@ QPushButton#navButton {
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
+    icon-size: 18px 18px;
 }
 
 QPushButton#navButton:hover {
@@ -57,6 +58,7 @@ QPushButton#backButton {
     color: #333333;
     padding: 8px;
     font-size: 16pt;
+    icon-size: 18px 18px;
 }
 
 QPushButton#backButton:hover {
@@ -276,6 +278,7 @@ QPushButton#detailNavButton {
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
+    icon-size: 18px 18px;
 }
 
 QPushButton#detailNavButton:hover {
@@ -370,10 +373,24 @@ QPushButton {
     border-radius: 4px;
     padding: 6px 15px;
     color: #1e1e1e;
+    icon-size: 16px 16px;
 }
 
 QPushButton:hover {
     background-color: #d0d0d0;
+}
+
+QPushButton#primaryButton {
+    background-color: #0078d4;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-weight: bold;
+}
+
+QPushButton#primaryButton:hover {
+    background-color: #106ebe;
 }
 
 QDialog {

@@ -19,9 +19,11 @@ public:
 
     void setInstanceId(const QString& id);
     void loadCurrentInstance();
+    void refreshIcons(const QString& color);
 
 signals:
     void backClicked();
+    void savesManageRequested();
 
 private slots:
     void onBackClicked();
@@ -55,6 +57,7 @@ private:
     QPushButton* m_gameSettingsBtn;
     QPushButton* m_dlcBtn;
     QPushButton* m_modsBtn;
+    QPushButton* m_savesBtn;
     QPushButton* m_advancedBtn;
 
     // Game Settings tab

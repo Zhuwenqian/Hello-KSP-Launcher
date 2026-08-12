@@ -5,6 +5,7 @@
 #include <QIcon>
 #include <QHBoxLayout>
 #include "../instancemanager.h"
+#include "../iconutils.h"
 
 InstanceListPage::InstanceListPage(QWidget *parent)
     : QWidget(parent), m_refreshPending(false)
@@ -19,7 +20,7 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     QHBoxLayout* topLayout = new QHBoxLayout(topBar);
     topLayout->setContentsMargins(15, 10, 15, 10);
 
-    m_backButton = new QPushButton(QIcon(":/icons/arrow-left.svg"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/arrow-left.svg", "#ffffff"), " 返回", topBar);
     m_backButton->setObjectName("backButton");
     connect(m_backButton, &QPushButton::clicked, this, &InstanceListPage::onBackClicked);
 
@@ -43,7 +44,7 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     m_listLayout->setSpacing(0);
     m_listLayout->addStretch();
 
-    m_addButton = new QPushButton(QIcon(":/icons/add.svg"), " 添加实例", m_listContainer);
+    m_addButton = new QPushButton(IconUtils::tintedIcon(":/icons/add.svg", "#ffffff"), " 添加实例", m_listContainer);
     m_addButton->setObjectName("addInstanceButton");
     m_addButton->setMinimumHeight(50);
     m_addButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -163,4 +164,10 @@ void InstanceListPage::onDeleteInstance()
         ConfigManager::instance().removeInstance(m_menuInstanceId);
         emit currentInstanceChanged();
     }
+}
+
+void InstanceListPage::refreshIcons(const QString &color)
+{
+    m_backButton->setIcon(IconUtils::tintedIcon(":/icons/arrow-left.svg", color));
+    m_addButton->setIcon(IconUtils::tintedIcon(":/icons/add.svg", color));
 }

@@ -8,6 +8,7 @@
 #include <QStyledItemDelegate>
 #include <QComboBox>
 #include <QLineEdit>
+#include "../iconutils.h"
 
 // Custom delegate to control editing: only column 1 (value) editable, bool values use combo box
 class SettingsItemDelegate : public QStyledItemDelegate {
@@ -64,7 +65,7 @@ void InstanceDetailPage::setupUI()
     QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
     topBarLayout->setContentsMargins(10, 5, 15, 5);
 
-    m_backButton = new QPushButton(QIcon(":/icons/back.svg"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), " 返回", topBar);
     m_backButton->setObjectName("backButton");
     m_backButton->setFixedHeight(40);
     m_backButton->setMinimumWidth(100);
@@ -88,26 +89,32 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->setContentsMargins(0, 10, 0, 10);
     sidebarLayout->setSpacing(0);
 
-    m_gameSettingsBtn = new QPushButton(QIcon(":/icons/sliders.svg"), "  游戏设置", m_detailSidebar);
+    m_gameSettingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), "  游戏设置", m_detailSidebar);
     m_gameSettingsBtn->setObjectName("detailNavButton");
     m_gameSettingsBtn->setCheckable(true);
     m_gameSettingsBtn->setChecked(true);
     m_gameSettingsBtn->setMinimumHeight(40);
     connect(m_gameSettingsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_dlcBtn = new QPushButton(QIcon(":/icons/package.svg"), "  DLC", m_detailSidebar);
+    m_dlcBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), "  DLC", m_detailSidebar);
     m_dlcBtn->setObjectName("detailNavButton");
     m_dlcBtn->setCheckable(true);
     m_dlcBtn->setMinimumHeight(40);
     connect(m_dlcBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_modsBtn = new QPushButton(QIcon(":/icons/puzzle.svg"), "  模组管理", m_detailSidebar);
+    m_modsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/puzzle.svg", "#ffffff"), "  模组管理", m_detailSidebar);
     m_modsBtn->setObjectName("detailNavButton");
     m_modsBtn->setCheckable(true);
     m_modsBtn->setMinimumHeight(40);
     connect(m_modsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_advancedBtn = new QPushButton(QIcon(":/icons/settings.svg"), "  高级", m_detailSidebar);
+    m_savesBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), "  存档管理", m_detailSidebar);
+    m_savesBtn->setObjectName("detailNavButton");
+    m_savesBtn->setCheckable(true);
+    m_savesBtn->setMinimumHeight(40);
+    connect(m_savesBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
+
+    m_advancedBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), "  高级", m_detailSidebar);
     m_advancedBtn->setObjectName("detailNavButton");
     m_advancedBtn->setCheckable(true);
     m_advancedBtn->setMinimumHeight(40);
@@ -116,6 +123,7 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->addWidget(m_gameSettingsBtn);
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
+    sidebarLayout->addWidget(m_savesBtn);
     sidebarLayout->addWidget(m_advancedBtn);
     sidebarLayout->addStretch();
 
@@ -150,7 +158,7 @@ void InstanceDetailPage::setupGameSettingsTab()
     QWidget* btnBar = new QWidget(tab);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
-    QPushButton* saveBtn = new QPushButton(QIcon(":/icons/save.svg"), " 保存设置", btnBar);
+    QPushButton* saveBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 保存设置", btnBar);
     saveBtn->setObjectName("primaryButton");
     saveBtn->setMinimumHeight(36);
     saveBtn->setMinimumWidth(140);
@@ -218,6 +226,7 @@ void InstanceDetailPage::onNavButtonClicked()
     m_gameSettingsBtn->setChecked(btn == m_gameSettingsBtn);
     m_dlcBtn->setChecked(btn == m_dlcBtn);
     m_modsBtn->setChecked(btn == m_modsBtn);
+    m_savesBtn->setChecked(btn == m_savesBtn);
     m_advancedBtn->setChecked(btn == m_advancedBtn);
 
     if (btn == m_gameSettingsBtn) {
@@ -226,6 +235,12 @@ void InstanceDetailPage::onNavButtonClicked()
         m_contentStack->setCurrentIndex(1);
     } else if (btn == m_modsBtn) {
         m_contentStack->setCurrentIndex(2);
+    } else if (btn == m_savesBtn) {
+        emit savesManageRequested();
+        // 回到游戏设置tab，避免下次进来还是选中存档管理
+        m_gameSettingsBtn->setChecked(true);
+        m_savesBtn->setChecked(false);
+        m_contentStack->setCurrentIndex(0);
     } else if (btn == m_advancedBtn) {
         loadLaunchArgs();
         m_contentStack->setCurrentIndex(3);
@@ -379,7 +394,7 @@ void InstanceDetailPage::setupAdvancedTab()
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_saveLaunchArgsBtn = new QPushButton(QIcon(":/icons/save.svg"), " 确认保存", btnBar);
+    m_saveLaunchArgsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 确认保存", btnBar);
     m_saveLaunchArgsBtn->setObjectName("primaryButton");
     m_saveLaunchArgsBtn->setMinimumHeight(36);
     m_saveLaunchArgsBtn->setMinimumWidth(140);
@@ -405,4 +420,15 @@ void InstanceDetailPage::onSaveLaunchArgsClicked()
     QString args = m_launchArgsEdit->text().trimmed();
     ConfigManager::instance().updateInstanceLaunchArgs(m_instanceId, args);
     QMessageBox::information(this, "提示", "启动参数已保存");
+}
+
+void InstanceDetailPage::refreshIcons(const QString &color)
+{
+    m_backButton->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
+    m_gameSettingsBtn->setIcon(IconUtils::tintedIcon(":/icons/sliders.svg", color));
+    m_dlcBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
+    m_modsBtn->setIcon(IconUtils::tintedIcon(":/icons/puzzle.svg", color));
+    m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
+    m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
+    m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
 }
