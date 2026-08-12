@@ -89,6 +89,10 @@ public:
     bool deleteBackup(const QString& backupFilePath) const;
     bool revealBackupInExplorer(const QString& backupFilePath) const;
 
+    // 整合包导出
+    bool exportModpack(const QString& gamePath, const QString& zipFilePath,
+                       std::function<void(int progress)> progressCallback = nullptr) const;
+
 signals:
     void gameStarted();
     void gameFinished(int exitCode, QProcess::ExitStatus status);

@@ -8,6 +8,8 @@
 #include <QListWidget>
 #include <QLabel>
 #include <QLineEdit>
+#include <QFileDialog>
+#include <QProgressDialog>
 #include "../configmanager.h"
 #include "../instancemanager.h"
 
@@ -31,6 +33,7 @@ private slots:
     void refreshData();
     void onSaveSettingsClicked();
     void onSaveLaunchArgsClicked();
+    void onExportModpackClicked();
 
 private:
     void setupUI();
@@ -59,6 +62,7 @@ private:
     QPushButton* m_modsBtn;
     QPushButton* m_savesBtn;
     QPushButton* m_advancedBtn;
+    QPushButton* m_exportModpackBtn;
 
     // Game Settings tab
     QTreeWidget* m_settingsTree;

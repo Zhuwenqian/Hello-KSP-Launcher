@@ -8,6 +8,9 @@
 #include <QStyledItemDelegate>
 #include <QComboBox>
 #include <QLineEdit>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
 #include "../iconutils.h"
 
 // Custom delegate to control editing: only column 1 (value) editable, bool values use combo box
@@ -120,11 +123,18 @@ void InstanceDetailPage::setupUI()
     m_advancedBtn->setMinimumHeight(40);
     connect(m_advancedBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
+    m_exportModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), "  导出整合包", m_detailSidebar);
+    m_exportModpackBtn->setObjectName("detailNavButton");
+    m_exportModpackBtn->setCheckable(true);
+    m_exportModpackBtn->setMinimumHeight(40);
+    connect(m_exportModpackBtn, &QPushButton::clicked, this, &InstanceDetailPage::onExportModpackClicked);
+
     sidebarLayout->addWidget(m_gameSettingsBtn);
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
     sidebarLayout->addWidget(m_savesBtn);
     sidebarLayout->addWidget(m_advancedBtn);
+    sidebarLayout->addWidget(m_exportModpackBtn);
     sidebarLayout->addStretch();
 
     m_contentStack = new QStackedWidget(this);
@@ -422,6 +432,87 @@ void InstanceDetailPage::onSaveLaunchArgsClicked()
     QMessageBox::information(this, "提示", "启动参数已保存");
 }
 
+void InstanceDetailPage::onExportModpackClicked()
+{
+    if (m_instance.path.isEmpty()) {
+        QMessageBox::warning(this, "导出失败", "实例路径为空，无法导出整合包。");
+        return;
+    }
+
+    QString gameDataPath = QDir(m_instance.path).filePath("GameData");
+    if (!QDir(gameDataPath).exists()) {
+        QMessageBox::warning(this, "导出失败", "GameData 目录不存在，无法导出整合包。");
+        return;
+    }
+
+    // 默认文件名：实例名.zip，保存在启动器根目录
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString defaultFileName = m_instance.name + ".zip";
+    QString defaultFilePath = QDir(appDir).filePath(defaultFileName);
+
+    QString zipFilePath = QFileDialog::getSaveFileName(
+        this,
+        "导出整合包 - 选择保存位置",
+        defaultFilePath,
+        "ZIP 文件 (*.zip)"
+    );
+
+    if (zipFilePath.isEmpty()) {
+        return; // 用户取消
+    }
+
+    // 确保以 .zip 结尾
+    if (!zipFilePath.endsWith(".zip", Qt::CaseInsensitive)) {
+        zipFilePath += ".zip";
+    }
+
+    // 选择完成后，取消所有按钮选中状态，回到游戏设置
+    m_gameSettingsBtn->setChecked(true);
+    m_exportModpackBtn->setChecked(false);
+    m_contentStack->setCurrentIndex(0);
+
+    // 创建进度对话框
+    QProgressDialog progressDialog("正在导出整合包...", "取消", 0, 100, this);
+    progressDialog.setWindowTitle("导出整合包");
+    progressDialog.setWindowModality(Qt::WindowModal);
+    progressDialog.setMinimumDuration(0);
+    progressDialog.setValue(0);
+    progressDialog.show();
+
+    // 使用 QCoreApplication::processEvents 确保进度对话框显示
+    QCoreApplication::processEvents();
+
+    bool cancelled = false;
+    bool success = InstanceManager::instance().exportModpack(
+        m_instance.path,
+        zipFilePath,
+        [&](int progress) {
+            // 在 UI 线程中更新进度
+            QMetaObject::invokeMethod(&progressDialog, [&progressDialog, &cancelled, progress]() {
+                if (progressDialog.wasCanceled()) {
+                    cancelled = true;
+                    return;
+                }
+                progressDialog.setValue(progress);
+            }, Qt::QueuedConnection);
+            // 处理事件以保持 UI 响应
+            QCoreApplication::processEvents();
+        }
+    );
+
+    progressDialog.close();
+
+    if (cancelled) {
+        QFile::remove(zipFilePath);
+        QMessageBox::information(this, "提示", "导出已取消。");
+    } else if (success) {
+        QMessageBox::information(this, "导出成功",
+            QString("整合包已成功导出到：\n%1").arg(QDir::toNativeSeparators(zipFilePath)));
+    } else {
+        QMessageBox::warning(this, "导出失败", "导出整合包时发生错误，请检查磁盘空间和权限。");
+    }
+}
+
 void InstanceDetailPage::refreshIcons(const QString &color)
 {
     m_backButton->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
@@ -430,5 +521,6 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_modsBtn->setIcon(IconUtils::tintedIcon(":/icons/puzzle.svg", color));
     m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
+    m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
     m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
 }
