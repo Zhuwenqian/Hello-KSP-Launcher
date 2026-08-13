@@ -32,56 +32,56 @@ void SettingsPage::setupUI()
     mainLayout->setContentsMargins(20, 10, 20, 20);
     mainLayout->setSpacing(15);
 
-    QLabel* titleLabel = new QLabel("启动器设置", this);
+    QLabel* titleLabel = new QLabel(tr("启动器设置"), this);
     titleLabel->setObjectName("pageTitle");
     mainLayout->addWidget(titleLabel);
 
     // ---- 通用设置 ----
-    QGroupBox* generalGroup = new QGroupBox("通用设置", this);
+    QGroupBox* generalGroup = new QGroupBox(tr("通用设置"), this);
     QFormLayout* generalLayout = new QFormLayout(generalGroup);
     generalLayout->setContentsMargins(20, 20, 20, 20);
     generalLayout->setSpacing(15);
 
     m_languageCombo = new QComboBox(generalGroup);
-    m_languageCombo->addItem(QIcon(":/icons/globe.svg"), "简体中文", "zh_CN");
-    m_languageCombo->addItem(QIcon(":/icons/globe.svg"), "English", "en_US");
+    m_languageCombo->addItem(QIcon(":/icons/globe.svg"), tr("简体中文"), "zh_CN");
+    m_languageCombo->addItem(QIcon(":/icons/globe.svg"), tr("English"), "en_US");
     connect(m_languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onLanguageChanged);
 
-    QLabel* langLabel = new QLabel("启动器语言：", generalGroup);
+    QLabel* langLabel = new QLabel(tr("启动器语言："), generalGroup);
     langLabel->setObjectName("settingLabel");
     generalLayout->addRow(langLabel, m_languageCombo);
 
     m_behaviorCombo = new QComboBox(generalGroup);
-    m_behaviorCombo->addItem("保持窗口打开", static_cast<int>(ConfigManager::KeepOpen));
-    m_behaviorCombo->addItem("最小化到任务栏", static_cast<int>(ConfigManager::Minimize));
-    m_behaviorCombo->addItem("自动关闭启动器", static_cast<int>(ConfigManager::Close));
+    m_behaviorCombo->addItem(tr("保持窗口打开"), static_cast<int>(ConfigManager::KeepOpen));
+    m_behaviorCombo->addItem(tr("最小化到任务栏"), static_cast<int>(ConfigManager::Minimize));
+    m_behaviorCombo->addItem(tr("自动关闭启动器"), static_cast<int>(ConfigManager::Close));
     connect(m_behaviorCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onLaunchBehaviorChanged);
 
-    QLabel* behaviorLabel = new QLabel("游戏启动后行为：", generalGroup);
+    QLabel* behaviorLabel = new QLabel(tr("游戏启动后行为："), generalGroup);
     behaviorLabel->setObjectName("settingLabel");
     generalLayout->addRow(behaviorLabel, m_behaviorCombo);
 
     m_themeCombo = new QComboBox(generalGroup);
-    m_themeCombo->addItem(QIcon(":/icons/moon.svg"), "深色主题", "dark");
-    m_themeCombo->addItem(QIcon(":/icons/sun.svg"), "浅色主题", "light");
+    m_themeCombo->addItem(QIcon(":/icons/moon.svg"), tr("深色主题"), "dark");
+    m_themeCombo->addItem(QIcon(":/icons/sun.svg"), tr("浅色主题"), "light");
     connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onThemeChanged);
 
-    QLabel* themeLabel = new QLabel("主题：", generalGroup);
+    QLabel* themeLabel = new QLabel(tr("主题："), generalGroup);
     themeLabel->setObjectName("settingLabel");
     generalLayout->addRow(themeLabel, m_themeCombo);
 
     mainLayout->addWidget(generalGroup);
 
     // ---- 背景图片设置 ----
-    QGroupBox* bgGroup = new QGroupBox("背景图片", this);
+    QGroupBox* bgGroup = new QGroupBox(tr("背景图片"), this);
     QVBoxLayout* bgLayout = new QVBoxLayout(bgGroup);
     bgLayout->setContentsMargins(20, 20, 20, 20);
     bgLayout->setSpacing(12);
 
-    QLabel* bgHint = new QLabel("选择一张图片作为启动器背景。支持 PNG / JPG / JPEG。", bgGroup);
+    QLabel* bgHint = new QLabel(tr("选择一张图片作为启动器背景。支持 PNG / JPG / JPEG。"), bgGroup);
     bgHint->setObjectName("settingHint");
     bgHint->setWordWrap(true);
     bgLayout->addWidget(bgHint);
@@ -91,12 +91,12 @@ void SettingsPage::setupUI()
     m_backgroundPreviewLabel->setObjectName("backgroundPreview");
     m_backgroundPreviewLabel->setFixedHeight(140);
     m_backgroundPreviewLabel->setAlignment(Qt::AlignCenter);
-    m_backgroundPreviewLabel->setText("（无预览）");
+    m_backgroundPreviewLabel->setText(tr("（无预览）"));
     bgLayout->addWidget(m_backgroundPreviewLabel);
 
     // 当前路径
     QHBoxLayout* pathRow = new QHBoxLayout();
-    QLabel* pathLabel = new QLabel("当前背景：", bgGroup);
+    QLabel* pathLabel = new QLabel(tr("当前背景："), bgGroup);
     pathLabel->setObjectName("settingLabel");
     m_backgroundPathLabel = new QLabel(bgGroup);
     m_backgroundPathLabel->setObjectName("settingLabel");
@@ -108,13 +108,13 @@ void SettingsPage::setupUI()
 
     // 按钮
     QHBoxLayout* btnRow = new QHBoxLayout();
-    m_chooseBackgroundBtn = new QPushButton(QIcon(":/icons/folder-open.svg"), " 选择图片...", bgGroup);
+    m_chooseBackgroundBtn = new QPushButton(QIcon(":/icons/folder-open.svg"), tr(" 选择图片..."), bgGroup);
     m_chooseBackgroundBtn->setObjectName("primaryButton");
     m_chooseBackgroundBtn->setMinimumHeight(36);
     connect(m_chooseBackgroundBtn, &QPushButton::clicked,
             this, &SettingsPage::onChooseBackgroundClicked);
 
-    m_resetBackgroundBtn = new QPushButton("重置为默认", bgGroup);
+    m_resetBackgroundBtn = new QPushButton(tr("重置为默认"), bgGroup);
     m_resetBackgroundBtn->setMinimumHeight(36);
     connect(m_resetBackgroundBtn, &QPushButton::clicked,
             this, &SettingsPage::onResetBackgroundClicked);
@@ -159,7 +159,7 @@ void SettingsPage::refreshBackgroundPreview()
 
     const QString stored = ConfigManager::instance().backgroundPath();
     if (stored.isEmpty()) {
-        m_backgroundPathLabel->setText("默认背景");
+        m_backgroundPathLabel->setText(tr("默认背景"));
     } else {
         m_backgroundPathLabel->setText(stored);
     }
@@ -167,7 +167,7 @@ void SettingsPage::refreshBackgroundPreview()
     // 缩放预览图,保持比例
     const QPixmap& pix = BackgroundManager::instance().pixmap();
     if (pix.isNull()) {
-        m_backgroundPreviewLabel->setText("（无预览）");
+        m_backgroundPreviewLabel->setText(tr("（无预览）"));
         m_backgroundPreviewLabel->setPixmap(QPixmap());
         return;
     }
@@ -193,9 +193,9 @@ void SettingsPage::onChooseBackgroundClicked()
 {
     const QString startDir = QDir::homePath();
     const QString filePath = QFileDialog::getOpenFileName(this,
-        "选择背景图片",
+        tr("选择背景图片"),
         startDir,
-        "图片文件 (*.png *.jpg *.jpeg);;PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;所有文件 (*.*)");
+        tr("图片文件 (*.png *.jpg *.jpeg);;PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;所有文件 (*.*)"));
 
     if (filePath.isEmpty()) {
         return;
@@ -203,8 +203,8 @@ void SettingsPage::onChooseBackgroundClicked()
 
     bool ok = BackgroundManager::instance().setUserBackground(filePath);
     if (!ok) {
-        QMessageBox::warning(this, "错误",
-            "无法应用所选图片。请确认文件是有效的 PNG/JPG/JPEG 格式，且未被占用。");
+        QMessageBox::warning(this, tr("错误"),
+            tr("无法应用所选图片。请确认文件是有效的 PNG/JPG/JPEG 格式，且未被占用。"));
     }
 }
 
@@ -217,6 +217,8 @@ void SettingsPage::onLanguageChanged(int index)
 {
     QString lang = m_languageCombo->itemData(index).toString();
     ConfigManager::instance().setLanguage(lang);
+    QMessageBox::information(this, tr("切换语言"),
+        tr("语言切换将在重启启动器后生效。"));
 }
 
 void SettingsPage::onLaunchBehaviorChanged(int index)

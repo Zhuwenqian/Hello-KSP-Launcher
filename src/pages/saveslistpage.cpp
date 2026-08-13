@@ -21,13 +21,13 @@ void SavesListPage::setupUI()
     QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
     topBarLayout->setContentsMargins(10, 5, 15, 5);
 
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
     m_backButton->setObjectName("backButton");
     m_backButton->setFixedHeight(40);
     m_backButton->setMinimumWidth(100);
     connect(m_backButton, &QPushButton::clicked, this, &SavesListPage::onBackClicked);
 
-    m_titleLabel = new QLabel("存档管理", topBar);
+    m_titleLabel = new QLabel(tr("存档管理"), topBar);
     m_titleLabel->setObjectName("pageTitle");
 
     topBarLayout->addWidget(m_backButton);
@@ -72,12 +72,12 @@ void SavesListPage::loadSaves()
 
         QLabel* infoLabel = new QLabel(itemWidget);
         QString modeDisplay = info.mode;
-        if (modeDisplay == "SANDBOX") modeDisplay = "沙盒模式";
-        else if (modeDisplay == "CAREER") modeDisplay = "生涯模式";
-        else if (modeDisplay == "SCIENCE_SANDBOX") modeDisplay = "科学模式";
-        QString infoText = QString("版本: %1 | 模式: %2").arg(info.version, modeDisplay);
+        if (modeDisplay == "SANDBOX") modeDisplay = tr("沙盒模式");
+        else if (modeDisplay == "CAREER") modeDisplay = tr("生涯模式");
+        else if (modeDisplay == "SCIENCE_SANDBOX") modeDisplay = tr("科学模式");
+        QString infoText = tr("版本: %1 | 模式: %2").arg(info.version, modeDisplay);
         if (info.modded) {
-            infoText += " | 模组";
+            infoText += tr(" | 模组");
         }
         infoLabel->setText(infoText);
         infoLabel->setStyleSheet("color: #888; font-size: 9pt;");
@@ -99,7 +99,7 @@ void SavesListPage::loadSaves()
     }
 
     if (saveNames.isEmpty()) {
-        m_savesList->addItem("（未检测到存档）");
+        m_savesList->addItem(tr("（未检测到存档）"));
     }
 }
 

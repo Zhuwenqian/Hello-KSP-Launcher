@@ -43,13 +43,13 @@ void InstanceDetailPage::setupUI()
     QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
     topBarLayout->setContentsMargins(10, 5, 15, 5);
 
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
     m_backButton->setObjectName("backButton");
     m_backButton->setFixedHeight(40);
     m_backButton->setMinimumWidth(100);
     connect(m_backButton, &QPushButton::clicked, this, &InstanceDetailPage::onBackClicked);
 
-    m_titleLabel = new QLabel("实例管理", topBar);
+    m_titleLabel = new QLabel(tr("实例管理"), topBar);
     m_titleLabel->setObjectName("pageTitle");
 
     topBarLayout->addWidget(m_backButton);
@@ -67,38 +67,38 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->setContentsMargins(0, 10, 0, 10);
     sidebarLayout->setSpacing(0);
 
-    m_gameSettingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), "  游戏设置", m_detailSidebar);
+    m_gameSettingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), tr("  游戏设置"), m_detailSidebar);
     m_gameSettingsBtn->setObjectName("detailNavButton");
     m_gameSettingsBtn->setCheckable(true);
     m_gameSettingsBtn->setChecked(true);
     m_gameSettingsBtn->setMinimumHeight(40);
     connect(m_gameSettingsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_dlcBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), "  DLC", m_detailSidebar);
+    m_dlcBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), tr("  DLC"), m_detailSidebar);
     m_dlcBtn->setObjectName("detailNavButton");
     m_dlcBtn->setCheckable(true);
     m_dlcBtn->setMinimumHeight(40);
     connect(m_dlcBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_modsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/puzzle.svg", "#ffffff"), "  模组管理", m_detailSidebar);
+    m_modsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/puzzle.svg", "#ffffff"), tr("  模组管理"), m_detailSidebar);
     m_modsBtn->setObjectName("detailNavButton");
     m_modsBtn->setCheckable(true);
     m_modsBtn->setMinimumHeight(40);
     connect(m_modsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_savesBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), "  存档管理", m_detailSidebar);
+    m_savesBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr("  存档管理"), m_detailSidebar);
     m_savesBtn->setObjectName("detailNavButton");
     m_savesBtn->setCheckable(true);
     m_savesBtn->setMinimumHeight(40);
     connect(m_savesBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_advancedBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), "  高级", m_detailSidebar);
+    m_advancedBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), tr("  高级"), m_detailSidebar);
     m_advancedBtn->setObjectName("detailNavButton");
     m_advancedBtn->setCheckable(true);
     m_advancedBtn->setMinimumHeight(40);
     connect(m_advancedBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_exportModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), "  导出整合包", m_detailSidebar);
+    m_exportModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), tr("  导出整合包"), m_detailSidebar);
     m_exportModpackBtn->setObjectName("detailNavButton");
     m_exportModpackBtn->setCheckable(true);
     m_exportModpackBtn->setMinimumHeight(40);
@@ -132,7 +132,7 @@ void InstanceDetailPage::setupGameSettingsTab()
 
     m_settingsTree = new QTreeWidget(tab);
     m_settingsTree->setColumnCount(2);
-    m_settingsTree->setHeaderLabels({"设置项", "值"});
+    m_settingsTree->setHeaderLabels({tr("设置项"), tr("值")});
     m_settingsTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_settingsTree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_settingsTree->setAlternatingRowColors(true);
@@ -143,7 +143,7 @@ void InstanceDetailPage::setupGameSettingsTab()
     QWidget* btnBar = new QWidget(tab);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
-    QPushButton* saveBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 保存设置", btnBar);
+    QPushButton* saveBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr(" 保存设置"), btnBar);
     saveBtn->setObjectName("primaryButton");
     saveBtn->setMinimumHeight(36);
     saveBtn->setMinimumWidth(140);
@@ -173,7 +173,7 @@ void InstanceDetailPage::setupModsTab()
     QVBoxLayout* layout = new QVBoxLayout(tab);
     layout->setContentsMargins(15, 10, 15, 15);
 
-    QLabel* note = new QLabel("注：模组列表仅显示GameData目录下的文件夹", tab);
+    QLabel* note = new QLabel(tr("注：模组列表仅显示GameData目录下的文件夹"), tab);
     note->setStyleSheet("color: #888; font-size: 9pt;");
 
     m_modList = new QListWidget(tab);
@@ -309,9 +309,9 @@ bool InstanceDetailPage::saveGameSettings()
     bool ok = InstanceManager::instance().saveGameSettings(m_instance.path, updatedSettings);
     if (ok) {
         m_currentSettings = updatedSettings;
-        QMessageBox::information(this, "保存成功", "游戏设置已保存！");
+        QMessageBox::information(this, tr("保存成功"), tr("游戏设置已保存！"));
     } else {
-        QMessageBox::warning(this, "保存失败", "无法保存游戏设置，请检查文件权限。");
+        QMessageBox::warning(this, tr("保存失败"), tr("无法保存游戏设置，请检查文件权限。"));
     }
     return ok;
 }
@@ -363,7 +363,7 @@ void InstanceDetailPage::loadMods()
         m_modList->addItem(mod);
     }
     if (mods.isEmpty()) {
-        m_modList->addItem("（未检测到第三方模组）");
+        m_modList->addItem(tr("（未检测到第三方模组）"));
     }
 }
 
@@ -379,17 +379,17 @@ void InstanceDetailPage::setupAdvancedTab()
     layout->setContentsMargins(20, 15, 20, 15);
     layout->setSpacing(10);
 
-    QLabel* titleLabel = new QLabel("启动参数", panel);
+    QLabel* titleLabel = new QLabel(tr("启动参数"), panel);
     titleLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
     layout->addWidget(titleLabel);
 
-    QLabel* descLabel = new QLabel("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow", panel);
+    QLabel* descLabel = new QLabel(tr("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow"), panel);
     descLabel->setStyleSheet("color: #888; font-size: 9pt;");
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
     m_launchArgsEdit = new QLineEdit(panel);
-    m_launchArgsEdit->setPlaceholderText("输入启动参数，多个参数用空格分隔");
+    m_launchArgsEdit->setPlaceholderText(tr("输入启动参数，多个参数用空格分隔"));
     m_launchArgsEdit->setMinimumHeight(36);
     layout->addWidget(m_launchArgsEdit);
 
@@ -397,7 +397,7 @@ void InstanceDetailPage::setupAdvancedTab()
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_saveLaunchArgsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 确认保存", btnBar);
+    m_saveLaunchArgsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr(" 确认保存"), btnBar);
     m_saveLaunchArgsBtn->setObjectName("primaryButton");
     m_saveLaunchArgsBtn->setMinimumHeight(36);
     m_saveLaunchArgsBtn->setMinimumWidth(140);
@@ -423,19 +423,19 @@ void InstanceDetailPage::onSaveLaunchArgsClicked()
 {
     QString args = m_launchArgsEdit->text().trimmed();
     ConfigManager::instance().updateInstanceLaunchArgs(m_instanceId, args);
-    QMessageBox::information(this, "提示", "启动参数已保存");
+    QMessageBox::information(this, tr("提示"), tr("启动参数已保存"));
 }
 
 void InstanceDetailPage::onExportModpackClicked()
 {
     if (m_instance.path.isEmpty()) {
-        QMessageBox::warning(this, "导出失败", "实例路径为空，无法导出整合包。");
+        QMessageBox::warning(this, tr("导出失败"), tr("实例路径为空，无法导出整合包。"));
         return;
     }
 
     QString gameDataPath = QDir(m_instance.path).filePath("GameData");
     if (!QDir(gameDataPath).exists()) {
-        QMessageBox::warning(this, "导出失败", "GameData 目录不存在，无法导出整合包。");
+        QMessageBox::warning(this, tr("导出失败"), tr("GameData 目录不存在，无法导出整合包。"));
         return;
     }
 
@@ -446,9 +446,9 @@ void InstanceDetailPage::onExportModpackClicked()
 
     QString zipFilePath = QFileDialog::getSaveFileName(
         this,
-        "导出整合包 - 选择保存位置",
+        tr("导出整合包 - 选择保存位置"),
         defaultFilePath,
-        "ZIP 文件 (*.zip)"
+        tr("ZIP 文件 (*.zip)")
     );
 
     if (zipFilePath.isEmpty()) {
@@ -466,8 +466,8 @@ void InstanceDetailPage::onExportModpackClicked()
     m_contentStack->setCurrentIndex(0);
 
     // 创建进度对话框
-    QProgressDialog progressDialog("正在导出整合包...", "取消", 0, 100, this);
-    progressDialog.setWindowTitle("导出整合包");
+    QProgressDialog progressDialog(tr("正在导出整合包..."), "取消", 0, 100, this);
+    progressDialog.setWindowTitle(tr("导出整合包"));
     progressDialog.setWindowModality(Qt::WindowModal);
     progressDialog.setMinimumDuration(0);
     progressDialog.setValue(0);
@@ -498,12 +498,12 @@ void InstanceDetailPage::onExportModpackClicked()
 
     if (cancelled) {
         QFile::remove(zipFilePath);
-        QMessageBox::information(this, "提示", "导出已取消。");
+        QMessageBox::information(this, "提示", tr("导出已取消。"));
     } else if (success) {
-        QMessageBox::information(this, "导出成功",
-            QString("整合包已成功导出到：\n%1").arg(QDir::toNativeSeparators(zipFilePath)));
+        QMessageBox::information(this, tr("导出成功"),
+            tr("整合包已成功导出到：\n%1").arg(QDir::toNativeSeparators(zipFilePath)));
     } else {
-        QMessageBox::warning(this, "导出失败", "导出整合包时发生错误，请检查磁盘空间和权限。");
+        QMessageBox::warning(this, tr("导出失败"), tr("导出整合包时发生错误，请检查磁盘空间和权限。"));
     }
 }
 

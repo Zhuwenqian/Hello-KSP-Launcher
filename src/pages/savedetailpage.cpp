@@ -99,7 +99,7 @@ void SaveDetailPage::setupUI()
     QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
     topBarLayout->setContentsMargins(10, 5, 15, 5);
 
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
     m_backButton->setObjectName("backButton");
     m_backButton->setFixedHeight(40);
     m_backButton->setMinimumWidth(100);
@@ -110,7 +110,7 @@ void SaveDetailPage::setupUI()
     m_homeButton->setFixedSize(40, 40);
     connect(m_homeButton, &QPushButton::clicked, this, &SaveDetailPage::onHomeClicked);
 
-    m_titleLabel = new QLabel("存档详情", topBar);
+    m_titleLabel = new QLabel(tr("存档详情"), topBar);
     m_titleLabel->setObjectName("pageTitle");
 
     topBarLayout->addWidget(m_backButton);
@@ -130,20 +130,20 @@ void SaveDetailPage::setupUI()
     sidebarLayout->setContentsMargins(0, 10, 0, 10);
     sidebarLayout->setSpacing(0);
 
-    m_saveInfoBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), "  存档信息", m_sidebar);
+    m_saveInfoBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), tr("  存档信息"), m_sidebar);
     m_saveInfoBtn->setObjectName("detailNavButton");
     m_saveInfoBtn->setCheckable(true);
     m_saveInfoBtn->setChecked(true);
     m_saveInfoBtn->setMinimumHeight(40);
     connect(m_saveInfoBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
-    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), "  管理Kerbals", m_sidebar);
+    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  管理Kerbals"), m_sidebar);
     m_kerbalsBtn->setObjectName("detailNavButton");
     m_kerbalsBtn->setCheckable(true);
     m_kerbalsBtn->setMinimumHeight(40);
     connect(m_kerbalsBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
-    m_backupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), "  备份管理", m_sidebar);
+    m_backupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), tr("  备份管理"), m_sidebar);
     m_backupsBtn->setObjectName("detailNavButton");
     m_backupsBtn->setCheckable(true);
     m_backupsBtn->setMinimumHeight(40);
@@ -170,13 +170,13 @@ void SaveDetailPage::setupSaveInfoTab()
     QVBoxLayout* layout = new QVBoxLayout(tab);
     layout->setContentsMargins(15, 10, 15, 15);
 
-    QLabel* note = new QLabel("注：存档信息为只读显示", tab);
+    QLabel* note = new QLabel(tr("注：存档信息为只读显示"), tab);
     note->setStyleSheet("color: #888; font-size: 9pt;");
     layout->addWidget(note);
 
     m_infoTree = new QTreeWidget(tab);
     m_infoTree->setColumnCount(2);
-    m_infoTree->setHeaderLabels({"项目", "值"});
+    m_infoTree->setHeaderLabels({tr("项目"), tr("值")});
     m_infoTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_infoTree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_infoTree->setAlternatingRowColors(true);
@@ -200,7 +200,7 @@ void SaveDetailPage::setupKerbalsTab()
     QVBoxLayout* listLayout = new QVBoxLayout(listPage);
     listLayout->setContentsMargins(15, 10, 15, 15);
 
-    QLabel* listNote = new QLabel("双击Kerbal可编辑其属性", listPage);
+    QLabel* listNote = new QLabel(tr("双击Kerbal可编辑其属性"), listPage);
     listNote->setStyleSheet("color: #888; font-size: 9pt;");
     listLayout->addWidget(listNote);
 
@@ -220,7 +220,7 @@ void SaveDetailPage::setupKerbalsTab()
     QHBoxLayout* detailTopLayout = new QHBoxLayout(detailTopBar);
     detailTopLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_backToKerbalListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), " 返回列表", detailTopBar);
+    m_backToKerbalListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回列表"), detailTopBar);
     m_backToKerbalListBtn->setObjectName("backButton");
     m_backToKerbalListBtn->setMinimumHeight(36);
     connect(m_backToKerbalListBtn, &QPushButton::clicked, this, &SaveDetailPage::onBackToKerbalList);
@@ -230,7 +230,7 @@ void SaveDetailPage::setupKerbalsTab()
 
     m_kerbalDetailTree = new QTreeWidget(m_kerbalDetailWidget);
     m_kerbalDetailTree->setColumnCount(2);
-    m_kerbalDetailTree->setHeaderLabels({"属性", "值"});
+    m_kerbalDetailTree->setHeaderLabels({tr("属性"), tr("值")});
     m_kerbalDetailTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_kerbalDetailTree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_kerbalDetailTree->setAlternatingRowColors(true);
@@ -244,7 +244,7 @@ void SaveDetailPage::setupKerbalsTab()
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_saveKerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 保存修改", btnBar);
+    m_saveKerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr(" 保存修改"), btnBar);
     m_saveKerbalsBtn->setObjectName("primaryButton");
     m_saveKerbalsBtn->setMinimumHeight(36);
     m_saveKerbalsBtn->setMinimumWidth(140);
@@ -272,12 +272,12 @@ void SaveDetailPage::setupBackupsTab()
     QHBoxLayout* toolBarLayout = new QHBoxLayout(toolBar);
     toolBarLayout->setContentsMargins(15, 10, 15, 10);
 
-    m_refreshBackupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/refresh.svg", "#ffffff"), " 刷新", toolBar);
+    m_refreshBackupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/refresh.svg", "#ffffff"), tr(" 刷新"), toolBar);
     m_refreshBackupsBtn->setObjectName("backButton");
     m_refreshBackupsBtn->setMinimumHeight(36);
     connect(m_refreshBackupsBtn, &QPushButton::clicked, this, &SaveDetailPage::onRefreshBackupsClicked);
 
-    m_createBackupBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), " 创建新备份", toolBar);
+    m_createBackupBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr(" 创建新备份"), toolBar);
     m_createBackupBtn->setObjectName("primaryButton");
     m_createBackupBtn->setMinimumHeight(36);
     m_createBackupBtn->setMinimumWidth(150);
@@ -322,19 +322,19 @@ void SaveDetailPage::loadSaveData()
     };
 
     QString modeDisplay = m_saveInfo.mode;
-    if (modeDisplay == "SANDBOX") modeDisplay = "沙盒模式";
-    else if (modeDisplay == "CAREER") modeDisplay = "生涯模式";
-    else if (modeDisplay == "SCIENCE_SANDBOX") modeDisplay = "科学模式";
+    if (modeDisplay == "SANDBOX") modeDisplay = tr("沙盒模式");
+    else if (modeDisplay == "CAREER") modeDisplay = tr("生涯模式");
+    else if (modeDisplay == "SCIENCE_SANDBOX") modeDisplay = tr("科学模式");
 
-    addInfoItem("存档标题", m_saveInfo.title);
-    addInfoItem("游戏版本", m_saveInfo.version);
-    addInfoItem("游戏模式", modeDisplay);
-    addInfoItem("种子", m_saveInfo.seed);
-    addInfoItem("有模组", m_saveInfo.modded ? "是" : "否");
-    addInfoItem("游戏完整版本号", m_saveInfo.versionFull);
-    addInfoItem("创建存档版本", m_saveInfo.versionCreated);
-    addInfoItem("时间戳", m_saveInfo.persistentTimestamp);
-    addInfoItem("环境信息", m_saveInfo.envInfo);
+    addInfoItem(tr("存档标题"), m_saveInfo.title);
+    addInfoItem(tr("游戏版本"), m_saveInfo.version);
+    addInfoItem(tr("游戏模式"), modeDisplay);
+    addInfoItem(tr("种子"), m_saveInfo.seed);
+    addInfoItem(tr("有模组"), m_saveInfo.modded ? tr("是") : tr("否"));
+    addInfoItem(tr("游戏完整版本号"), m_saveInfo.versionFull);
+    addInfoItem(tr("创建存档版本"), m_saveInfo.versionCreated);
+    addInfoItem(tr("时间戳"), m_saveInfo.persistentTimestamp);
+    addInfoItem(tr("环境信息"), m_saveInfo.envInfo);
 
     // 填充Kerbal列表
     m_kerbalList->clear();
@@ -350,14 +350,14 @@ void SaveDetailPage::loadSaveData()
         nameLabel->setStyleSheet("font-weight: bold; font-size: 11pt;");
 
         QString traitDisplay = k.trait;
-        if (traitDisplay == "Pilot") traitDisplay = "飞行员";
-        else if (traitDisplay == "Engineer") traitDisplay = "工程师";
-        else if (traitDisplay == "Scientist") traitDisplay = "科学家";
-        QString genderDisplay = (k.gender == "Male") ? "男" : "女";
+        if (traitDisplay == "Pilot") traitDisplay = tr("飞行员");
+        else if (traitDisplay == "Engineer") traitDisplay = tr("工程师");
+        else if (traitDisplay == "Scientist") traitDisplay = tr("科学家");
+        QString genderDisplay = (k.gender == "Male") ? tr("男") : tr("女");
         QString statusText = QString("%1 | %2 | %3").arg(genderDisplay, k.type, traitDisplay);
-        if (k.veteran) statusText += " | 老兵";
-        if (k.hero) statusText += " | 英雄";
-        if (k.badS) statusText += " | 坏蛋";
+        if (k.veteran) statusText += tr(" | 老兵");
+        if (k.hero) statusText += tr(" | 英雄");
+        if (k.badS) statusText += tr(" | 坏蛋");
 
         QLabel* statusLabel = new QLabel(statusText, itemWidget);
         statusLabel->setStyleSheet("color: #888; font-size: 9pt;");
@@ -374,7 +374,7 @@ void SaveDetailPage::loadSaveData()
     }
 
     if (m_kerbals.isEmpty()) {
-        m_kerbalList->addItem("（未检测到Kerbal）");
+        m_kerbalList->addItem(tr("（未检测到Kerbal）"));
     }
 
     m_kerbalsStack->setCurrentIndex(0);
@@ -419,15 +419,15 @@ void SaveDetailPage::showKerbalDetail(const KerbalInfo &kerbal)
     QString traitDisplay = kerbal.trait;
     // trait保留原始值，不翻译因为需要保存回SFS
 
-    addEditItem("姓名", "name", kerbal.name, true); // 姓名可编辑
-    addEditItem("性别", "gender", kerbal.gender);
-    addEditItem("类型", "type", kerbal.type, false); // type不可编辑
-    addEditItem("职业", "trait", kerbal.trait);
-    addEditItem("勇敢度", "brave", QString::number(kerbal.brave, 'f', 1));
-    addEditItem("愚蠢度", "dumb", QString::number(kerbal.dumb, 'f', 1));
-    addBoolItem("坏蛋", "badS", kerbal.badS);
-    addBoolItem("老兵", "veteran", kerbal.veteran);
-    addBoolItem("英雄", "hero", kerbal.hero);
+    addEditItem(tr("姓名"), "name", kerbal.name, true); // 姓名可编辑
+    addEditItem(tr("性别"), "gender", kerbal.gender);
+    addEditItem(tr("类型"), "type", kerbal.type, false); // type不可编辑
+    addEditItem(tr("职业"), "trait", kerbal.trait);
+    addEditItem(tr("勇敢度"), "brave", QString::number(kerbal.brave, 'f', 1));
+    addEditItem(tr("愚蠢度"), "dumb", QString::number(kerbal.dumb, 'f', 1));
+    addBoolItem(tr("坏蛋"), "badS", kerbal.badS);
+    addBoolItem(tr("老兵"), "veteran", kerbal.veteran);
+    addBoolItem(tr("英雄"), "hero", kerbal.hero);
 
     m_kerbalsStack->setCurrentIndex(1);
 }
@@ -452,7 +452,7 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
                     k.name = value;
                 } else if (key == "gender") {
                     if (value != "Male" && value != "Female") {
-                        QMessageBox::warning(this, "输入错误", "性别必须是 Male 或 Female");
+                        QMessageBox::warning(this, tr("输入错误"), tr("性别必须是 Male 或 Female"));
                         return false;
                     }
                     k.gender = value;
@@ -462,7 +462,7 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
                     bool ok;
                     double v = value.toDouble(&ok);
                     if (!ok || v < 0.0 || v > 1.0) {
-                        QMessageBox::warning(this, "输入错误", "勇敢度必须是0.0-1.0之间的数值");
+                        QMessageBox::warning(this, tr("输入错误"), tr("勇敢度必须是0.0-1.0之间的数值"));
                         return false;
                     }
                     k.brave = v;
@@ -470,7 +470,7 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
                     bool ok;
                     double v = value.toDouble(&ok);
                     if (!ok || v < 0.0 || v > 1.0) {
-                        QMessageBox::warning(this, "输入错误", "愚蠢度必须是0.0-1.0之间的数值");
+                        QMessageBox::warning(this, tr("输入错误"), tr("愚蠢度必须是0.0-1.0之间的数值"));
                         return false;
                     }
                     k.dumb = v;
@@ -553,7 +553,7 @@ void SaveDetailPage::onSaveKerbalsClicked()
             k.originalName = k.name;
         }
         m_currentKerbalName = newName;
-        QMessageBox::information(this, "保存成功", "Kerbal数据已保存！");
+        QMessageBox::information(this, tr("保存成功"), tr("Kerbal数据已保存！"));
         // 刷新列表显示
         loadSaveData();
         m_kerbalsStack->setCurrentIndex(1);
@@ -565,15 +565,15 @@ void SaveDetailPage::onSaveKerbalsClicked()
             }
         }
     } else {
-        QMessageBox::warning(this, "保存失败", "无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。");
+        QMessageBox::warning(this, tr("保存失败"), tr("无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。"));
     }
 }
 
 void SaveDetailPage::onBackToKerbalList()
 {
     // 检查是否有未保存修改（简单提示）
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "确认",
-        "返回列表将放弃未保存的修改，确定吗？",
+    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("确认"),
+        tr("返回列表将放弃未保存的修改，确定吗？"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
         m_currentKerbalName.clear();
@@ -647,7 +647,7 @@ void SaveDetailPage::refreshBackupList()
     }
 
     if (backups.isEmpty()) {
-        QListWidgetItem* emptyItem = new QListWidgetItem("（暂无备份）", m_backupList);
+        QListWidgetItem* emptyItem = new QListWidgetItem(tr("（暂无备份）"), m_backupList);
         emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
         emptyItem->setTextAlignment(Qt::AlignCenter);
         emptyItem->setForeground(QColor("#888888"));
@@ -659,17 +659,17 @@ void SaveDetailPage::onCreateBackupClicked()
     // 检查存档目录
     QDir saveDir(m_saveFolderPath);
     if (!saveDir.exists()) {
-        QMessageBox::warning(this, "备份失败", "存档文件夹不存在！");
+        QMessageBox::warning(this, tr("备份失败"), tr("存档文件夹不存在！"));
         return;
     }
 
     QFileInfoList entries = saveDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     if (entries.isEmpty()) {
-        QMessageBox::warning(this, "备份失败", "存档文件夹为空，无法备份！");
+        QMessageBox::warning(this, tr("备份失败"), tr("存档文件夹为空，无法备份！"));
         return;
     }
 
-    QProgressDialog progress("正在创建备份...", "取消", 0, 100, this);
+    QProgressDialog progress(tr("正在创建备份..."), "取消", 0, 100, this);
     progress.setWindowModality(Qt::WindowModal);
     progress.setMinimumDuration(0);
     progress.setValue(0);
@@ -718,10 +718,10 @@ void SaveDetailPage::onCreateBackupClicked()
     progress.close();
 
     if (success) {
-        QMessageBox::information(this, "备份成功", "存档备份已创建！");
+        QMessageBox::information(this, tr("备份成功"), tr("存档备份已创建！"));
         refreshBackupList();
     } else {
-        QMessageBox::warning(this, "备份失败", "创建备份时发生错误，请检查磁盘空间或文件权限。");
+        QMessageBox::warning(this, tr("备份失败"), tr("创建备份时发生错误，请检查磁盘空间或文件权限。"));
     }
 }
 
@@ -733,15 +733,15 @@ void SaveDetailPage::onRefreshBackupsClicked()
 void SaveDetailPage::onDeleteBackupClicked(const QString &filePath)
 {
     QFileInfo fi(filePath);
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "确认删除",
-        QString("确定要删除备份 '%1' 吗？\n此操作不可撤销。").arg(fi.fileName()),
+    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("确认删除"),
+        tr("确定要删除备份 '%1' 吗？\n此操作不可撤销。").arg(fi.fileName()),
         QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes) {
         if (InstanceManager::instance().deleteBackup(filePath)) {
             refreshBackupList();
         } else {
-            QMessageBox::warning(this, "删除失败", "无法删除备份文件，请检查文件是否被占用。");
+            QMessageBox::warning(this, tr("删除失败"), tr("无法删除备份文件，请检查文件是否被占用。"));
         }
     }
 }
@@ -749,6 +749,6 @@ void SaveDetailPage::onDeleteBackupClicked(const QString &filePath)
 void SaveDetailPage::onRevealBackupClicked(const QString &filePath)
 {
     if (!InstanceManager::instance().revealBackupInExplorer(filePath)) {
-        QMessageBox::warning(this, "错误", "无法打开文件资源管理器。");
+        QMessageBox::warning(this, tr("错误"), tr("无法打开文件资源管理器。"));
     }
 }

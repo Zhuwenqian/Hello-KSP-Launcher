@@ -60,8 +60,8 @@ The executable will be placed in the `dist/` directory.
 ## Usage
 
 1. Launch the application.
-2. Click **实例管理** (Instance Management) in the sidebar, then **添加实例** (Add Instance) to point to your KSP executable.
-3. Select an instance and click **启动游戏** (Launch Game) to start playing.
+2. Click **Instance Management** in the sidebar, then **Add Instance** to point to your KSP executable.
+3. Select an instance and click **Launch Game** to start playing.
 4. Use the sidebar to navigate between Home, Instance Management, Instance List, and Settings.
 
 ---

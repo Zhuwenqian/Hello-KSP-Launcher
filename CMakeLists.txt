@@ -12,7 +12,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/dist)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg Concurrent LinguistTools)
 
 include_directories(thirdparty)
 
@@ -66,6 +66,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::Svg
     Qt6::Concurrent
+)
+
+# Copy translations (.qm files) to output directory
+file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+# Custom target to regenerate .qm files from .ts files
+add_custom_target(update_translations
+    COMMAND Qt6::lrelease ${CMAKE_SOURCE_DIR}/translations/hello_ksp_launcher_zh_CN.ts
+    COMMAND Qt6::lrelease ${CMAKE_SOURCE_DIR}/translations/hello_ksp_launcher_en_US.ts
+    COMMENT "Regenerating .qm files from .ts files"
 )
 
 if(WIN32)

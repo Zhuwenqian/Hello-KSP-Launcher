@@ -17,7 +17,7 @@ void HomePage::setupUI()
     welcomeLabel->setStyleSheet("font-size: 24pt; font-weight: bold;");
     mainLayout->addWidget(welcomeLabel);
 
-    QLabel* subtitleLabel = new QLabel("选择实例并点击启动游戏开始", this);
+    QLabel* subtitleLabel = new QLabel(tr("选择实例并点击启动游戏开始"), this);
     subtitleLabel->setStyleSheet("font-size: 11pt; color: #888;");
     mainLayout->addWidget(subtitleLabel);
 

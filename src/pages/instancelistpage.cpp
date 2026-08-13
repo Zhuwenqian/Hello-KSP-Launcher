@@ -25,11 +25,11 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     QHBoxLayout* topLayout = new QHBoxLayout(topBar);
     topLayout->setContentsMargins(15, 10, 15, 10);
 
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/arrow-left.svg", "#ffffff"), " 返回", topBar);
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/arrow-left.svg", "#ffffff"), tr(" 返回"), topBar);
     m_backButton->setObjectName("backButton");
     connect(m_backButton, &QPushButton::clicked, this, &InstanceListPage::onBackClicked);
 
-    m_titleLabel = new QLabel("实例列表", topBar);
+    m_titleLabel = new QLabel(tr("实例列表"), topBar);
     m_titleLabel->setObjectName("pageTitle");
 
     topLayout->addWidget(m_backButton);
@@ -49,7 +49,7 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     m_listLayout->setSpacing(0);
     m_listLayout->addStretch();
 
-    m_addButton = new QPushButton(IconUtils::tintedIcon(":/icons/add.svg", "#ffffff"), " 添加实例", m_listContainer);
+    m_addButton = new QPushButton(IconUtils::tintedIcon(":/icons/add.svg", "#ffffff"), tr(" 添加实例"), m_listContainer);
     m_addButton->setObjectName("addInstanceButton");
     m_addButton->setMinimumHeight(50);
     m_addButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -62,8 +62,8 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     outerLayout->addWidget(panel);
 
     m_contextMenu = new QMenu(this);
-    QAction* renameAction = m_contextMenu->addAction("重命名实例");
-    QAction* deleteAction = m_contextMenu->addAction("删除实例");
+    QAction* renameAction = m_contextMenu->addAction(tr("重命名实例"));
+    QAction* deleteAction = m_contextMenu->addAction(tr("删除实例"));
     connect(renameAction, &QAction::triggered, this, &InstanceListPage::onRenameInstance);
     connect(deleteAction, &QAction::triggered, this, &InstanceListPage::onDeleteInstance);
 
@@ -151,7 +151,7 @@ void InstanceListPage::onRenameInstance()
     if (inst.id.isEmpty()) return;
 
     bool ok;
-    QString newName = QInputDialog::getText(this, "重命名实例", "请输入新的实例名称：",
+    QString newName = QInputDialog::getText(this, tr("重命名实例"), tr("请输入新的实例名称："),
                                              QLineEdit::Normal, inst.name, &ok);
     if (ok && !newName.trimmed().isEmpty()) {
         ConfigManager::instance().renameInstance(m_menuInstanceId, newName.trimmed());
@@ -163,8 +163,8 @@ void InstanceListPage::onDeleteInstance()
     KSPInstance inst = ConfigManager::instance().getInstance(m_menuInstanceId);
     if (inst.id.isEmpty()) return;
 
-    QMessageBox::StandardButton ret = QMessageBox::question(this, "删除实例",
-        QString("确定要从启动器列表中移除实例 \"%1\" 吗？\n游戏文件不会被删除。").arg(inst.name),
+    QMessageBox::StandardButton ret = QMessageBox::question(this, tr("删除实例"),
+        tr("确定要从启动器列表中移除实例 \"%1\" 吗？\n游戏文件不会被删除。").arg(inst.name),
         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {

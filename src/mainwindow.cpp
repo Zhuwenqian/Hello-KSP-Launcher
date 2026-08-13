@@ -149,23 +149,23 @@ void MainWindow::setupSidebar()
 
     
 
-    QLabel* gameSection = new QLabel("游戏", m_sidebar);
+    QLabel* gameSection = new QLabel(tr("游戏"), m_sidebar);
     gameSection->setObjectName("sidebarSectionLabel");
     sidebarLayout->addWidget(gameSection);
 
-    m_homeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), "  首页", m_sidebar);
+    m_homeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), tr("  首页"), m_sidebar);
     m_homeBtn->setObjectName("navButton");
     m_homeBtn->setCheckable(true);
     m_homeBtn->setMinimumHeight(45);
     connect(m_homeBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
-    m_instanceManageBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), "  实例管理", m_sidebar);
+    m_instanceManageBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), tr("  实例管理"), m_sidebar);
     m_instanceManageBtn->setObjectName("navButton");
     m_instanceManageBtn->setCheckable(true);
     m_instanceManageBtn->setMinimumHeight(45);
     connect(m_instanceManageBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
-    m_instanceListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), "  实例列表", m_sidebar);
+    m_instanceListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  实例列表"), m_sidebar);
     m_instanceListBtn->setObjectName("navButton");
     m_instanceListBtn->setCheckable(true);
     m_instanceListBtn->setMinimumHeight(45);
@@ -175,11 +175,11 @@ void MainWindow::setupSidebar()
     sidebarLayout->addWidget(m_instanceManageBtn);
     sidebarLayout->addWidget(m_instanceListBtn);
 
-    QLabel* generalSection = new QLabel("通用", m_sidebar);
+    QLabel* generalSection = new QLabel(tr("通用"), m_sidebar);
     generalSection->setObjectName("sidebarSectionLabel");
     sidebarLayout->addWidget(generalSection);
 
-    m_settingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), "  启动器设置", m_sidebar);
+    m_settingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), tr("  启动器设置"), m_sidebar);
     m_settingsBtn->setObjectName("navButton");
     m_settingsBtn->setCheckable(true);
     m_settingsBtn->setMinimumHeight(45);
@@ -199,7 +199,7 @@ void MainWindow::setupLaunchBar()
     barLayout->setContentsMargins(20, 10, 20, 10);
     barLayout->setSpacing(10);
 
-    m_currentInstanceLabel = new QLabel("未选择实例", m_launchBar);
+    m_currentInstanceLabel = new QLabel(tr("未选择实例"), m_launchBar);
     m_currentInstanceLabel->setObjectName("currentInstanceLabel");
 
     barLayout->addWidget(m_currentInstanceLabel, 1);
@@ -207,13 +207,13 @@ void MainWindow::setupLaunchBar()
     m_launchSwitchButton = new QPushButton(IconUtils::tintedIcon(":/icons/chevron-down.svg", "#ffffff"), "", m_launchBar);
     m_launchSwitchButton->setObjectName("launchSwitchButton");
     m_launchSwitchButton->setFixedSize(50, 50);
-    m_launchSwitchButton->setToolTip("切换实例");
+    m_launchSwitchButton->setToolTip(tr("切换实例"));
     connect(m_launchSwitchButton, &QPushButton::clicked, this, &MainWindow::onLaunchSwitchClicked);
 
     m_switchMenu = new QMenu(this);
     connect(m_switchMenu, &QMenu::triggered, this, &MainWindow::switchInstanceFromMenu);
 
-    m_launchButton = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"), " 启动游戏", m_launchBar);
+    m_launchButton = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"), tr(" 启动游戏"), m_launchBar);
     m_launchButton->setObjectName("launchButton");
     m_launchButton->setMinimumHeight(50);
     m_launchButton->setMinimumWidth(180);
@@ -350,7 +350,7 @@ void MainWindow::onNavButtonClicked()
             showPage(m_instanceDetailPage);
             m_launchBar->hide();
         } else {
-            QMessageBox::information(this, "提示", "请先选择或添加一个KSP实例");
+            QMessageBox::information(this, tr("提示"), tr("请先选择或添加一个KSP实例"));
             setNavButtonChecked(m_instanceListBtn);
             m_instanceListPage->refresh();
             showPage(m_instanceListPage);
@@ -369,15 +369,15 @@ void MainWindow::onNavButtonClicked()
 void MainWindow::onAddInstanceRequested()
 {
     QString exePath = QFileDialog::getOpenFileName(this,
-        "选择KSP可执行文件",
+        tr("选择KSP可执行文件"),
         QString(),
-        "KSP可执行文件 (KSP*.exe);;所有文件 (*.*)");
+        tr("KSP可执行文件 (KSP*.exe);;所有文件 (*.*)"));
 
     if (exePath.isEmpty()) return;
 
     QString rootPath = InstanceManager::instance().detectGameRoot(exePath);
     if (!InstanceManager::instance().isValidKSPPath(rootPath)) {
-        QMessageBox::warning(this, "错误", "所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。");
+        QMessageBox::warning(this, tr("错误"), tr("所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。"));
         return;
     }
 
@@ -423,24 +423,24 @@ void MainWindow::showPage(QWidget *page)
 void MainWindow::onLaunchClicked()
 {
     if (m_gameRunning) {
-        QMessageBox::information(this, "提示", "游戏已经在运行中。");
+        QMessageBox::information(this, tr("提示"), tr("游戏已经在运行中。"));
         return;
     }
 
     KSPInstance inst = ConfigManager::instance().currentInstance();
     if (inst.id.isEmpty()) {
-        QMessageBox::warning(this, "错误", "请先选择一个KSP实例。");
+        QMessageBox::warning(this, tr("错误"), tr("请先选择一个KSP实例。"));
         return;
     }
 
     if (!QFile::exists(inst.exePath)) {
-        QMessageBox::warning(this, "错误", "找不到游戏可执行文件，请检查实例路径。");
+        QMessageBox::warning(this, tr("错误"), tr("找不到游戏可执行文件，请检查实例路径。"));
         return;
     }
 
     bool launched = InstanceManager::instance().launchGame(inst.exePath, inst.launchArgs);
     if (!launched) {
-        QMessageBox::warning(this, "错误", "启动游戏失败。");
+        QMessageBox::warning(this, tr("错误"), tr("启动游戏失败。"));
     }
 }
 
@@ -460,7 +460,7 @@ void MainWindow::onLaunchSwitchClicked()
     }
 
     if (instances.isEmpty()) {
-        m_switchMenu->addAction("（无可用实例）")->setEnabled(false);
+        m_switchMenu->addAction(tr("（无可用实例）"))->setEnabled(false);
     }
 
     QPoint pos = m_launchSwitchButton->mapToGlobal(
@@ -482,7 +482,7 @@ void MainWindow::onGameStarted()
 {
     m_gameRunning = true;
     m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(" 游戏运行中");
+    m_launchButton->setText(tr(" 游戏运行中"));
     m_launchButton->setEnabled(false);
 
     ConfigManager::LaunchBehavior behavior = ConfigManager::instance().launchBehavior();
@@ -505,7 +505,7 @@ void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
     Q_UNUSED(status);
     m_gameRunning = false;
     m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(" 启动游戏");
+    m_launchButton->setText(tr(" 启动游戏"));
     m_launchButton->setEnabled(true);
 
     if (ConfigManager::instance().launchBehavior() == ConfigManager::Minimize) {
@@ -519,18 +519,18 @@ void MainWindow::onGameError(QProcess::ProcessError error)
     Q_UNUSED(error);
     m_gameRunning = false;
     m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(" 启动游戏");
+    m_launchButton->setText(tr(" 启动游戏"));
     m_launchButton->setEnabled(true);
     showNormal();
     activateWindow();
-    QMessageBox::warning(this, "错误", "游戏进程发生错误。");
+    QMessageBox::warning(this, tr("错误"), tr("游戏进程发生错误。"));
 }
 
 void MainWindow::onCurrentInstanceChanged()
 {
     KSPInstance cur = ConfigManager::instance().currentInstance();
     if (cur.id.isEmpty()) {
-        m_currentInstanceLabel->setText("未选择实例");
+        m_currentInstanceLabel->setText(tr("未选择实例"));
         m_launchButton->setEnabled(false);
         m_instanceManageBtn->setEnabled(false);
     } else {

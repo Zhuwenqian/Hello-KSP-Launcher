@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include "miniz.h"
+#include "configmanager.h"
 
 namespace {
 
@@ -364,7 +365,39 @@ QMap<QString, KeyInfo> createKeyInfoMap() {
 KeyInfo getKeyInfo(const QString& key) {
     static QMap<QString, KeyInfo> info = createKeyInfoMap();
     auto it = info.find(key);
-    if (it != info.end()) return it.value();
+    if (it != info.end()) {
+        if (ConfigManager::instance().language() == "en_US") {
+            KeyInfo en;
+            en.displayName = key;
+            en.category = it.value().category;
+            // Translate category names to English
+            static const QMap<QString, QString> catMap = {
+                {"显示与图形", "Display & Graphics"},
+                {"音频", "Audio"},
+                {"游戏玩法", "Gameplay"},
+                {"编辑器", "Editor"},
+                {"相机", "Camera"},
+                {"EVA", "EVA"},
+                {"轨道", "Orbit"},
+                {"界面", "UI"},
+                {"Delta-V", "Delta-V"},
+                {"车轮", "Wheels"},
+                {"KerbNet", "KerbNet"},
+                {"任务编辑器", "Mission Editor"},
+                {"Serenity", "Serenity"},
+                {"教程", "Tutorials"},
+                {"调试与日志", "Debug & Log"},
+                {"颜色设置", "Colors"},
+                {"其他", "Other"}
+            };
+            auto catIt = catMap.find(en.category);
+            if (catIt != catMap.end()) {
+                en.category = catIt.value();
+            }
+            return en;
+        }
+        return it.value();
+    }
     return {key, "其他"};
 }
 }
