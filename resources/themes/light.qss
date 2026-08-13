@@ -1,19 +1,30 @@
-/* Light Theme for Hello KSP Launcher */
+/* Light Theme for Hello KSP Launcher
+ * 半透明版本:侧边栏、启动栏、卡片、分组等面板背景为半透明,
+ * 让背景图透出显示。输入控件、按钮等保持不透明以保证可读性。 */
 
 QWidget {
-    background-color: #ffffff;
+    background-color: transparent;
     color: #1e1e1e;
     font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
     font-size: 10pt;
 }
 
 QMainWindow {
-    background-color: #ffffff;
+    background-color: transparent;
 }
 
-/* Sidebar */
+#backgroundLabel {
+    background: transparent;
+    border: none;
+}
+
+#contentContainer {
+    background: transparent;
+}
+
+/* Sidebar - 65% 不透明 (浅灰) */
 #sidebarWidget {
-    background-color: #f3f3f3;
+    background-color: rgba(243, 243, 243, 204);
     border: none;
 }
 
@@ -25,7 +36,7 @@ QMainWindow {
 }
 
 #sidebarSectionLabel {
-    color: #6e6e6e;
+    color: #5a5a5a;
     font-size: 9pt;
     padding: 8px 15px 4px 15px;
 }
@@ -33,7 +44,7 @@ QMainWindow {
 QPushButton#navButton {
     background-color: transparent;
     border: none;
-    color: #333333;
+    color: #1e1e1e;
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
@@ -41,12 +52,12 @@ QPushButton#navButton {
 }
 
 QPushButton#navButton:hover {
-    background-color: #e8e8e8;
+    background-color: rgba(232, 232, 232, 200);
     color: #000000;
 }
 
 QPushButton#navButton:checked {
-    background-color: #e0e0e0;
+    background-color: rgba(224, 224, 224, 220);
     color: #000000;
     border-left: 3px solid #0078d4;
 }
@@ -55,21 +66,21 @@ QPushButton#navButton:checked {
 QPushButton#backButton {
     background-color: transparent;
     border: none;
-    color: #333333;
+    color: #1e1e1e;
     padding: 8px;
     font-size: 16pt;
     icon-size: 18px 18px;
 }
 
 QPushButton#backButton:hover {
-    background-color: #e8e8e8;
+    background-color: rgba(232, 232, 232, 200);
     color: #000000;
     border-radius: 4px;
 }
 
 /* Content area */
 #contentStack {
-    background-color: #ffffff;
+    background-color: transparent;
 }
 
 #pageTitle {
@@ -79,14 +90,22 @@ QPushButton#backButton:hover {
     padding: 15px;
 }
 
+#pageTopBar {
+    background-color: transparent;
+}
+
 /* Instance list */
 QScrollArea {
     background-color: transparent;
     border: none;
 }
 
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
 QScrollBar:vertical {
-    background-color: #f3f3f3;
+    background-color: rgba(243, 243, 243, 200);
     width: 10px;
     margin: 0px;
 }
@@ -105,18 +124,19 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
+/* 实例项卡片 - 75% 不透明 */
 QWidget#instanceItem {
-    background-color: #f3f3f3;
+    background-color: rgba(243, 243, 243, 191);
     border-radius: 6px;
     margin: 4px 10px;
 }
 
 QWidget#instanceItem:hover {
-    background-color: #e8e8e8;
+    background-color: rgba(232, 232, 232, 204);
 }
 
 QWidget#instanceItem[selected="true"] {
-    background-color: #cce4f7;
+    background-color: rgba(204, 228, 247, 220);
     border: 1px solid #0078d4;
 }
 
@@ -127,7 +147,7 @@ QLabel#instanceName {
 }
 
 QLabel#instancePath {
-    color: #6e6e6e;
+    color: #5a5a5a;
     font-size: 9pt;
 }
 
@@ -156,14 +176,14 @@ QCheckBox#instanceCheckbox::indicator:checked {
 QPushButton#instanceMenuButton {
     background-color: transparent;
     border: none;
-    color: #6e6e6e;
+    color: #5a5a5a;
     padding: 5px 10px;
     font-size: 14pt;
     border-radius: 4px;
 }
 
 QPushButton#instanceMenuButton:hover {
-    background-color: #d0d0d0;
+    background-color: rgba(208, 208, 208, 220);
     color: #1e1e1e;
 }
 
@@ -182,10 +202,10 @@ QPushButton#addInstanceButton:hover {
     background-color: #106ebe;
 }
 
-/* Launch bar */
+/* Launch bar - 65% 不透明 (浅灰) */
 #launchBar {
-    background-color: #f3f3f3;
-    border-top: 1px solid #e0e0e0;
+    background-color: rgba(243, 243, 243, 204);
+    border-top: 1px solid rgba(224, 224, 224, 180);
 }
 
 QPushButton#launchButton {
@@ -206,8 +226,13 @@ QPushButton#launchButton:pressed {
     background-color: #005a9e;
 }
 
+QPushButton#launchButton:disabled {
+    background-color: #cccccc;
+    color: #666666;
+}
+
 QPushButton#launchSwitchButton {
-    background-color: #e0e0e0;
+    background-color: rgba(224, 224, 224, 230);
     border: none;
     color: #1e1e1e;
     border-radius: 6px;
@@ -216,17 +241,18 @@ QPushButton#launchSwitchButton {
 }
 
 QPushButton#launchSwitchButton:hover {
-    background-color: #d0d0d0;
+    background-color: rgba(208, 208, 208, 230);
 }
 
 QLabel#currentInstanceLabel {
-    color: #333333;
+    color: #1e1e1e;
     font-size: 10pt;
 }
 
 /* Settings page */
 QGroupBox {
-    border: 1px solid #d0d0d0;
+    background-color: rgba(255, 255, 255, 191);
+    border: 1px solid rgba(208, 208, 208, 150);
     border-radius: 6px;
     margin-top: 15px;
     padding-top: 15px;
@@ -238,10 +264,16 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 15px;
     padding: 0 5px;
+    background-color: transparent;
 }
 
 QLabel#settingLabel {
-    color: #333333;
+    color: #1e1e1e;
+}
+
+QLabel#settingHint {
+    color: #5a5a5a;
+    font-size: 9pt;
 }
 
 QComboBox {
@@ -274,7 +306,7 @@ QComboBox QAbstractItemView {
 QPushButton#detailNavButton {
     background-color: transparent;
     border: none;
-    color: #333333;
+    color: #1e1e1e;
     text-align: left;
     padding: 10px 15px;
     border-left: 3px solid transparent;
@@ -282,22 +314,22 @@ QPushButton#detailNavButton {
 }
 
 QPushButton#detailNavButton:hover {
-    background-color: #e8e8e8;
+    background-color: rgba(232, 232, 232, 200);
     color: #000000;
 }
 
 QPushButton#detailNavButton:checked {
-    background-color: #e0e0e0;
+    background-color: rgba(224, 224, 224, 220);
     color: #000000;
     border-left: 3px solid #0078d4;
 }
 
 /* Settings list in game settings */
 QTreeWidget {
-    background-color: #ffffff;
-    border: 1px solid #d0d0d0;
+    background-color: rgba(255, 255, 255, 191);
+    border: 1px solid rgba(208, 208, 208, 150);
     border-radius: 6px;
-    alternate-background-color: #f8f8f8;
+    alternate-background-color: rgba(248, 248, 248, 180);
     color: #1e1e1e;
 }
 
@@ -311,24 +343,24 @@ QTreeWidget::item:selected {
 }
 
 QHeaderView::section {
-    background-color: #f3f3f3;
+    background-color: rgba(243, 243, 243, 220);
     color: #1e1e1e;
     border: none;
     padding: 8px;
-    border-right: 1px solid #e0e0e0;
+    border-right: 1px solid rgba(224, 224, 224, 150);
 }
 
 /* DLC and Mod lists */
 QListWidget {
-    background-color: #ffffff;
-    border: 1px solid #d0d0d0;
+    background-color: rgba(255, 255, 255, 191);
+    border: 1px solid rgba(208, 208, 208, 150);
     border-radius: 6px;
     color: #1e1e1e;
 }
 
 QListWidget::item {
     padding: 8px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid rgba(224, 224, 224, 120);
 }
 
 QListWidget::item:selected {
@@ -367,6 +399,10 @@ QLineEdit:focus {
     border-color: #0078d4;
 }
 
+QLineEdit:read-only {
+    background-color: rgba(240, 240, 240, 200);
+}
+
 QPushButton {
     background-color: #e0e0e0;
     border: 1px solid #969696;
@@ -378,6 +414,10 @@ QPushButton {
 
 QPushButton:hover {
     background-color: #d0d0d0;
+}
+
+QPushButton:pressed {
+    background-color: #b8b8b8;
 }
 
 QPushButton#primaryButton {
@@ -409,12 +449,47 @@ QLabel#dlcNotInstalled {
 QPushButton#iconButton {
     background-color: transparent;
     border: none;
-    color: #333333;
+    color: #1e1e1e;
     border-radius: 4px;
     padding: 6px;
     icon-size: 18px 18px;
 }
 
 QPushButton#iconButton:hover {
-    background-color: #e0e0e0;
+    background-color: rgba(224, 224, 224, 220);
+}
+
+/* 背景预览标签 */
+QLabel#backgroundPreview {
+    background-color: rgba(230, 230, 230, 180);
+    border: 1px solid rgba(180, 180, 180, 150);
+    border-radius: 4px;
+}
+
+/* Home page info frame - 通过 state 动态属性切换 */
+QFrame#homeInfoFrame {
+    background-color: rgba(255, 255, 255, 191);
+    border: 1px solid rgba(208, 208, 208, 150);
+    border-radius: 8px;
+}
+
+QFrame#homeInfoFrame[state="ok"] {
+    background-color: rgba(0, 120, 215, 80);
+    border: 1px solid rgba(0, 120, 215, 150);
+}
+
+QFrame#homeInfoFrame[state="warn"] {
+    background-color: rgba(215, 60, 0, 80);
+    border: 1px solid rgba(215, 60, 0, 150);
+}
+
+QFrame#homeInfoFrame[state="empty"] {
+    background-color: rgba(200, 200, 200, 120);
+}
+
+/* Page panel - 页面大容器的半透明背板,风格对齐边栏 (≈65% 不透明) */
+QFrame#pagePanel {
+    background-color: rgba(243, 243, 243, 204);
+    border: 1px solid rgba(224, 224, 224, 180);
+    border-radius: 10px;
 }

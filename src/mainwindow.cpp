@@ -6,11 +6,16 @@
 #include <QFile>
 #include <QProcess>
 #include <QIcon>
+#include <QPalette>
+#include <QResizeEvent>
+#include <QTimer>
 #include "instancemanager.h"
 #include "iconutils.h"
+#include "backgroundmanager.h"
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_gameRunning(false)
+    : QMainWindow(parent), m_gameRunning(false),
+      m_backgroundLabel(nullptr), m_contentContainer(nullptr)
 {
     setWindowTitle("Hello KSP Launcher");
     resize(1000, 650);
@@ -18,6 +23,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     setupUI();
     applyTheme(ConfigManager::instance().theme());
+    applyTransparency();
+
+    // 初始化背景(在 UI 搭好之后,保证第一次 update 能命中尺寸)
+    BackgroundManager::instance().initialize();
+    updateBackgroundPixmap();
+    connect(&BackgroundManager::instance(), &BackgroundManager::backgroundChanged,
+            this, &MainWindow::onBackgroundChanged);
 
     connect(&ConfigManager::instance(), &ConfigManager::currentInstanceChanged,
             this, &MainWindow::onCurrentInstanceChanged);
@@ -46,7 +58,21 @@ void MainWindow::setupUI()
     m_centralWidget = new QWidget(this);
     setCentralWidget(m_centralWidget);
 
-    QVBoxLayout* mainLayout = new QVBoxLayout(m_centralWidget);
+    // 1. 底层背景 QLabel:放在 centralWidget 中,不使用布局,手动 setGeometry 与窗口同步
+    m_backgroundLabel = new QLabel(m_centralWidget);
+    m_backgroundLabel->setObjectName("backgroundLabel");
+    m_backgroundLabel->setScaledContents(true);
+    m_backgroundLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_backgroundLabel->setAttribute(Qt::WA_NoSystemBackground, true);
+    m_backgroundLabel->lower();
+
+    // 2. 内容容器:包裹 sidebar + content + launchBar,
+    //    通过 m_contentContainer 把整体背景设为 transparent,让背景图透出
+    m_contentContainer = new QWidget(m_centralWidget);
+    m_contentContainer->setObjectName("contentContainer");
+    m_contentContainer->setAttribute(Qt::WA_TranslucentBackground, true);
+
+    QVBoxLayout* mainLayout = new QVBoxLayout(m_contentContainer);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
@@ -57,7 +83,7 @@ void MainWindow::setupUI()
     setupSidebar();
     contentLayout->addWidget(m_sidebar);
 
-    m_contentStack = new QStackedWidget(m_centralWidget);
+    m_contentStack = new QStackedWidget(m_contentContainer);
     m_contentStack->setObjectName("contentStack");
 
     m_homePage = new HomePage(m_contentStack);
@@ -102,11 +128,18 @@ void MainWindow::setupUI()
             this, &MainWindow::onBackFromSaveDetail);
     connect(m_saveDetailPage, &SaveDetailPage::homeClicked,
             this, &MainWindow::onHomeFromSaveDetail);
+
+    // 初始化 contentContainer 铺满 centralWidget(首次 show 前)
+    QTimer::singleShot(0, this, [this] {
+        if (m_contentContainer && m_centralWidget) {
+            m_contentContainer->setGeometry(m_centralWidget->rect());
+        }
+    });
 }
 
 void MainWindow::setupSidebar()
 {
-    m_sidebar = new QWidget(m_centralWidget);
+    m_sidebar = new QWidget(m_contentContainer);
     m_sidebar->setFixedWidth(220);
     m_sidebar->setObjectName("sidebarWidget");
 
@@ -114,9 +147,7 @@ void MainWindow::setupSidebar()
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
-    QLabel* titleLabel = new QLabel("Hello KSP!", m_sidebar);
-    titleLabel->setObjectName("sidebarTitle");
-    sidebarLayout->addWidget(titleLabel);
+    
 
     QLabel* gameSection = new QLabel("游戏", m_sidebar);
     gameSection->setObjectName("sidebarSectionLabel");
@@ -202,7 +233,73 @@ void MainWindow::applyTheme(const QString &theme)
         setStyleSheet(styleSheet);
         file.close();
     }
+    applyTransparency();
     refreshIcons(theme);
+}
+
+void MainWindow::applyTransparency()
+{
+    if (!m_centralWidget) return;
+    m_centralWidget->setAutoFillBackground(false);
+    if (m_contentContainer) {
+        m_contentContainer->setAttribute(Qt::WA_TranslucentBackground, true);
+        // 确保始终铺满
+        m_contentContainer->setGeometry(m_centralWidget->rect());
+        m_contentContainer->raise();
+    }
+    if (m_backgroundLabel) {
+        m_backgroundLabel->setGeometry(m_centralWidget->rect());
+        m_backgroundLabel->lower();
+    }
+}
+
+void MainWindow::updateBackgroundPixmap()
+{
+    if (!m_backgroundLabel) return;
+    const QPixmap& pix = BackgroundManager::instance().pixmap();
+    if (pix.isNull()) {
+        m_backgroundLabel->clear();
+        return;
+    }
+    // Cover 模式:按 centralWidget 尺寸缩放填充,保持比例,超出裁剪
+    const QSize target = m_centralWidget ? m_centralWidget->size() : size();
+    if (target.isEmpty()) {
+        m_backgroundLabel->setPixmap(pix);
+        return;
+    }
+    m_backgroundLabel->setPixmap(
+        pix.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+}
+
+void MainWindow::onBackgroundChanged()
+{
+    updateBackgroundPixmap();
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    if (!m_centralWidget) return;
+    const QRect r = m_centralWidget->rect();
+    // 背景图和内容容器都跟随 centralWidget 尺寸,保证 launch bar 贴底
+    if (m_backgroundLabel) {
+        m_backgroundLabel->setGeometry(r);
+        updateBackgroundPixmap();
+    }
+    if (m_contentContainer) {
+        m_contentContainer->setGeometry(r);
+    }
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    // 切换主题后 Qt 可能重新填充背景,这里确保背景 QLabel 仍在最底层
+    if (event->type() == QEvent::StyleChange || event->type() == QEvent::PaletteChange) {
+        if (m_backgroundLabel) {
+            m_backgroundLabel->lower();
+        }
+    }
 }
 
 void MainWindow::refreshIcons(const QString &theme)

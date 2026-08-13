@@ -22,6 +22,10 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
+
 private slots:
     void applyTheme(const QString& theme);
     void onNavButtonClicked();
@@ -41,6 +45,7 @@ private slots:
     void onSaveSelected(const QString& savePath);
     void onBackFromSaveDetail();
     void onHomeFromSaveDetail();
+    void onBackgroundChanged();
 
 private:
     void setupUI();
@@ -50,11 +55,15 @@ private:
     void setNavButtonChecked(QPushButton* btn);
     void addTestInstanceIfEmpty();
     void refreshIcons(const QString& theme);
+    void updateBackgroundPixmap();
+    void applyTransparency();
 
     QWidget* m_centralWidget;
     QWidget* m_sidebar;
     QStackedWidget* m_contentStack;
     QWidget* m_launchBar;
+    QLabel* m_backgroundLabel;       // 底层背景 QLabel,显示背景图
+    QWidget* m_contentContainer;     // 包裹 sidebar + content + launchBar,设置透明背景
 
     // Sidebar buttons
     QPushButton* m_homeBtn;

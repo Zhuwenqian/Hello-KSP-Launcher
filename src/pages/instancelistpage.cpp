@@ -10,12 +10,17 @@
 InstanceListPage::InstanceListPage(QWidget *parent)
     : QWidget(parent), m_refreshPending(false)
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    QVBoxLayout* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(15, 15, 15, 15);
+
+    QFrame* panel = new QFrame(this);
+    panel->setObjectName("pagePanel");
+    QVBoxLayout* mainLayout = new QVBoxLayout(panel);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
     // Top bar with back button
-    QWidget* topBar = new QWidget(this);
+    QWidget* topBar = new QWidget(panel);
     topBar->setObjectName("pageTopBar");
     QHBoxLayout* topLayout = new QHBoxLayout(topBar);
     topLayout->setContentsMargins(15, 10, 15, 10);
@@ -34,7 +39,7 @@ InstanceListPage::InstanceListPage(QWidget *parent)
 
     mainLayout->addWidget(topBar);
 
-    m_scrollArea = new QScrollArea(this);
+    m_scrollArea = new QScrollArea(panel);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
 
@@ -53,6 +58,8 @@ InstanceListPage::InstanceListPage(QWidget *parent)
     m_listLayout->insertWidget(0, m_addButton);
     m_scrollArea->setWidget(m_listContainer);
     mainLayout->addWidget(m_scrollArea, 1);
+
+    outerLayout->addWidget(panel);
 
     m_contextMenu = new QMenu(this);
     QAction* renameAction = m_contextMenu->addAction("重命名实例");

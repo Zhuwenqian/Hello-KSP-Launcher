@@ -37,6 +37,12 @@ public:
     QString theme() const;
     void setTheme(const QString& theme);
 
+    // 背景图设置
+    // - 空字符串 / "default": 使用资源中默认背景
+    // - 其他: 用户背景文件的绝对路径(由 BackgroundManager 复制到启动器目录下)
+    QString backgroundPath() const;
+    void setBackgroundPath(const QString& path);
+
     QList<KSPInstance> instances() const;
     void addInstance(const KSPInstance& inst);
     void removeInstance(const QString& id);

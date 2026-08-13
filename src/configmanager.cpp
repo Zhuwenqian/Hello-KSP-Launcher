@@ -61,6 +61,11 @@ bool ConfigManager::load()
 
     m_config = doc.object();
 
+    // 确保新字段有默认值(旧版配置文件可能没有)
+    if (!m_config.contains("backgroundPath")) {
+        m_config["backgroundPath"] = QString();
+    }
+
     m_instances.clear();
     QJsonArray instArray = m_config["instances"].toArray();
     for (const QJsonValue& val : instArray) {
@@ -146,6 +151,20 @@ void ConfigManager::setTheme(const QString &theme)
 {
     if (this->theme() != theme) {
         m_config["theme"] = theme;
+        save();
+        emit configChanged();
+    }
+}
+
+QString ConfigManager::backgroundPath() const
+{
+    return m_config["backgroundPath"].toString();
+}
+
+void ConfigManager::setBackgroundPath(const QString &path)
+{
+    if (backgroundPath() != path) {
+        m_config["backgroundPath"] = path;
         save();
         emit configChanged();
     }

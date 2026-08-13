@@ -22,6 +22,7 @@ set(SOURCES
     src/configmanager.cpp
     src/instancemanager.cpp
     src/iconutils.cpp
+    src/backgroundmanager.cpp
     src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
@@ -29,6 +30,7 @@ set(SOURCES
     src/pages/saveslistpage.cpp
     src/pages/savedetailpage.cpp
     src/widgets/instanceitemwidget.cpp
+    src/widgets/toggleswitch.cpp
     thirdparty/miniz.c
 )
 
@@ -37,6 +39,7 @@ set(HEADERS
     src/configmanager.h
     src/instancemanager.h
     src/iconutils.h
+    src/backgroundmanager.h
     src/pages/homepage.h
     src/pages/instancelistpage.h
     src/pages/instancedetailpage.h
@@ -44,6 +47,7 @@ set(HEADERS
     src/pages/saveslistpage.h
     src/pages/savedetailpage.h
     src/widgets/instanceitemwidget.h
+    src/widgets/toggleswitch.h
     thirdparty/miniz.h
 )
 

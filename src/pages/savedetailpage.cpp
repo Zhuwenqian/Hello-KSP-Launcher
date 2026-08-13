@@ -1,4 +1,5 @@
 #include "savedetailpage.h"
+#include "../widgets/toggleswitch.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -14,7 +15,7 @@
 #include <QUrl>
 #include "../iconutils.h"
 
-// 自定义委托：控制哪些列可编辑，bool/gender用下拉框，数值用浮点输入
+// 自定义委托：控制哪些列可编辑，bool用永久开关，gender用下拉框，数值用浮点输入
 class KerbalItemDelegate : public QStyledItemDelegate {
 public:
     explicit KerbalItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
@@ -25,13 +26,9 @@ public:
         QString key = index.data(Qt::UserRole).toString();
         QString value = index.data(Qt::DisplayRole).toString();
 
-        // 布尔类型：badS, veteran, hero
+        // 布尔类型由永久ToggleSwitch控件处理，不需要编辑器
         if (key == "badS" || key == "veteran" || key == "hero") {
-            QComboBox* combo = new QComboBox(parent);
-            combo->addItem("True");
-            combo->addItem("False");
-            combo->setCurrentText(value);
-            return combo;
+            return nullptr;
         }
         // 性别
         if (key == "gender") {
@@ -401,6 +398,23 @@ void SaveDetailPage::showKerbalDetail(const KerbalInfo &kerbal)
         }
     };
 
+    // For bool keys: permanently show ToggleSwitch widget
+    auto addBoolItem = [this](const QString& displayName, const QString& key, bool value) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_kerbalDetailTree);
+        item->setText(0, displayName);
+        item->setText(1, value ? "True" : "False");
+        item->setData(0, Qt::UserRole, key);
+        item->setData(1, Qt::UserRole, key);
+        item->setFlags(item->flags() | Qt::ItemIsEditable);
+
+        ToggleSwitch* toggle = new ToggleSwitch(m_kerbalDetailTree);
+        toggle->setChecked(value);
+        connect(toggle, &ToggleSwitch::toggled, this, [item](bool checked) {
+            item->setText(1, checked ? "True" : "False");
+        });
+        m_kerbalDetailTree->setItemWidget(item, 1, toggle);
+    };
+
     QString genderDisplay = (kerbal.gender == "Male") ? "Male" : "Female";
     QString traitDisplay = kerbal.trait;
     // trait保留原始值，不翻译因为需要保存回SFS
@@ -411,9 +425,9 @@ void SaveDetailPage::showKerbalDetail(const KerbalInfo &kerbal)
     addEditItem("职业", "trait", kerbal.trait);
     addEditItem("勇敢度", "brave", QString::number(kerbal.brave, 'f', 1));
     addEditItem("愚蠢度", "dumb", QString::number(kerbal.dumb, 'f', 1));
-    addEditItem("坏蛋", "badS", kerbal.badS ? "True" : "False");
-    addEditItem("老兵", "veteran", kerbal.veteran ? "True" : "False");
-    addEditItem("英雄", "hero", kerbal.hero ? "True" : "False");
+    addBoolItem("坏蛋", "badS", kerbal.badS);
+    addBoolItem("老兵", "veteran", kerbal.veteran);
+    addBoolItem("英雄", "hero", kerbal.hero);
 
     m_kerbalsStack->setCurrentIndex(1);
 }

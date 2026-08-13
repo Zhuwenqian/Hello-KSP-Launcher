@@ -3,6 +3,8 @@
 
 #include <QWidget>
 #include <QComboBox>
+#include <QLabel>
+#include <QPushButton>
 #include "../configmanager.h"
 
 class SettingsPage : public QWidget
@@ -19,6 +21,9 @@ private slots:
     void onLaunchBehaviorChanged(int index);
     void onThemeChanged(int index);
     void loadSettings();
+    void onChooseBackgroundClicked();
+    void onResetBackgroundClicked();
+    void refreshBackgroundPreview();
 
 private:
     void setupUI();
@@ -26,6 +31,12 @@ private:
     QComboBox* m_languageCombo;
     QComboBox* m_behaviorCombo;
     QComboBox* m_themeCombo;
+
+    // 背景图片相关
+    QLabel* m_backgroundPathLabel;
+    QLabel* m_backgroundPreviewLabel;
+    QPushButton* m_chooseBackgroundBtn;
+    QPushButton* m_resetBackgroundBtn;
 };
 
 #endif // SETTINGSPAGE_H

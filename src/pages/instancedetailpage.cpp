@@ -1,4 +1,5 @@
 #include "instancedetailpage.h"
+#include "../widgets/toggleswitch.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
@@ -13,7 +14,7 @@
 #include <QFile>
 #include "../iconutils.h"
 
-// Custom delegate to control editing: only column 1 (value) editable, bool values use combo box
+// Custom delegate to control editing: only column 1 (value) editable
 class SettingsItemDelegate : public QStyledItemDelegate {
 public:
     explicit SettingsItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
@@ -21,34 +22,8 @@ public:
     QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         if (index.column() != 1) return nullptr; // Only value column editable
 
-        QString value = index.data(Qt::DisplayRole).toString();
-        if (value == "True" || value == "False" || value == "true" || value == "false") {
-            QComboBox* combo = new QComboBox(parent);
-            combo->addItem("True");
-            combo->addItem("False");
-            combo->setCurrentText(value);
-            return combo;
-        }
+        // Bool values use permanent ToggleSwitch widget, no editor needed
         return QStyledItemDelegate::createEditor(parent, option, index);
-    }
-
-    void setEditorData(QWidget* editor, const QModelIndex& index) const override {
-        QComboBox* combo = qobject_cast<QComboBox*>(editor);
-        if (combo) {
-            QString value = index.data(Qt::DisplayRole).toString();
-            combo->setCurrentText(value);
-            return;
-        }
-        QStyledItemDelegate::setEditorData(editor, index);
-    }
-
-    void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const override {
-        QComboBox* combo = qobject_cast<QComboBox*>(editor);
-        if (combo) {
-            model->setData(index, combo->currentText());
-            return;
-        }
-        QStyledItemDelegate::setModelData(editor, model, index);
     }
 };
 
@@ -292,10 +267,23 @@ void InstanceDetailPage::loadGameSettings()
             const GameSetting& s = m_currentSettings[idx];
             QTreeWidgetItem* item = new QTreeWidgetItem(categoryItem);
             item->setText(0, s.displayName);
-            item->setText(1, s.value);
             item->setData(0, Qt::UserRole, s.key);
             // ItemIsEditable flag needed, delegate controls which column actually edits
             item->setFlags(item->flags() | Qt::ItemIsEditable);
+
+            QString valLower = s.value.toLower();
+            if (valLower == "true" || valLower == "false") {
+                // Bool values: permanently show ToggleSwitch instead of text
+                item->setText(1, s.value);
+                ToggleSwitch* toggle = new ToggleSwitch(m_settingsTree);
+                toggle->setChecked(valLower == "true");
+                connect(toggle, &ToggleSwitch::toggled, this, [item](bool checked) {
+                    item->setText(1, checked ? "True" : "False");
+                });
+                m_settingsTree->setItemWidget(item, 1, toggle);
+            } else {
+                item->setText(1, s.value);
+            }
         }
     }
 }
@@ -382,25 +370,30 @@ void InstanceDetailPage::loadMods()
 void InstanceDetailPage::setupAdvancedTab()
 {
     QWidget* tab = new QWidget(m_contentStack);
-    QVBoxLayout* layout = new QVBoxLayout(tab);
-    layout->setContentsMargins(15, 10, 15, 15);
+    QVBoxLayout* outerLayout = new QVBoxLayout(tab);
+    outerLayout->setContentsMargins(15, 10, 15, 15);
+
+    QFrame* panel = new QFrame(tab);
+    panel->setObjectName("pagePanel");
+    QVBoxLayout* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(20, 15, 20, 15);
     layout->setSpacing(10);
 
-    QLabel* titleLabel = new QLabel("启动参数", tab);
+    QLabel* titleLabel = new QLabel("启动参数", panel);
     titleLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
     layout->addWidget(titleLabel);
 
-    QLabel* descLabel = new QLabel("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow", tab);
+    QLabel* descLabel = new QLabel("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow", panel);
     descLabel->setStyleSheet("color: #888; font-size: 9pt;");
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
-    m_launchArgsEdit = new QLineEdit(tab);
+    m_launchArgsEdit = new QLineEdit(panel);
     m_launchArgsEdit->setPlaceholderText("输入启动参数，多个参数用空格分隔");
     m_launchArgsEdit->setMinimumHeight(36);
     layout->addWidget(m_launchArgsEdit);
 
-    QWidget* btnBar = new QWidget(tab);
+    QWidget* btnBar = new QWidget(panel);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
 
@@ -415,6 +408,7 @@ void InstanceDetailPage::setupAdvancedTab()
     layout->addWidget(btnBar);
     layout->addStretch();
 
+    outerLayout->addWidget(panel);
     m_contentStack->addWidget(tab);
 }
 

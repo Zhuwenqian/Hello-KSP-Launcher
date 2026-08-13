@@ -3,8 +3,6 @@
 
 #include <QWidget>
 #include <QLabel>
-#include <QFrame>
-#include "../configmanager.h"
 
 class HomePage : public QWidget
 {
@@ -16,11 +14,6 @@ public:
 
 private:
     void setupUI();
-
-    QLabel* m_instanceNameLabel;
-    QLabel* m_instancePathLabel;
-    QLabel* m_statusLabel;
-    QFrame* m_infoFrame;
 };
 
 #endif // HOMEPAGE_H
