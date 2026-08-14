@@ -1,0 +1,181 @@
+#include "downloader.h"
+
+#include <QNetworkProxy>
+#include <QUrl>
+#include <QEventLoop>
+#include <QTimer>
+
+namespace ckan {
+
+// 传输超时（毫秒）：Qt 的 transferTimeout 统一覆盖连接建立与传输空闲。
+static constexpr int kTransferTimeoutMs = 30000;
+
+static QString g_proxyUrl;
+
+Downloader::Downloader(QObject *parent)
+    : QObject(parent)
+{
+    if (!g_proxyUrl.isEmpty()) {
+        m_nam.setProxy(QNetworkProxy(QNetworkProxy::HttpProxy,
+                                     QUrl(g_proxyUrl).host(),
+                                     static_cast<quint16>(QUrl(g_proxyUrl).port(0))));
+    }
+}
+
+void Downloader::setProxyUrl(const QString &proxyUrl)
+{
+    g_proxyUrl = proxyUrl;
+}
+
+QString Downloader::proxyUrl() { return g_proxyUrl; }
+
+void Downloader::startAttempt()
+{
+    if (m_attempt >= m_mirrors.size()) {
+        if (m_async)
+            emit failed(m_currentUrl, QStringLiteral("all download attempts failed"));
+        return;
+    }
+    m_currentUrl = m_mirrors.at(m_attempt++);
+    QNetworkRequest req{QUrl(m_currentUrl)};
+    req.setRawHeader("User-Agent", "HelloKSPLauncher/1.0");
+    m_nam.get(req);
+}
+
+bool Downloader::download(const QString &url, const QStringList &mirrors,
+                          QByteArray *out, QString *error,
+                          const Validator &validator)
+{
+    m_mirrors.clear();
+    m_mirrors << url << mirrors;
+    m_attempt = 0;
+    bool ok = false;
+    QString lastError;
+
+    while (m_attempt < m_mirrors.size()) {
+        m_currentUrl = m_mirrors.at(m_attempt++);
+        QNetworkRequest req{QUrl(m_currentUrl)};
+        req.setRawHeader("User-Agent", "HelloKSPLauncher/1.0");
+        req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+
+        QNetworkReply *reply = m_nam.get(req);
+        QEventLoop loop;
+        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        const QNetworkReply::NetworkError netErr = reply->error();
+        const QString errStr = reply->errorString();
+        const QByteArray data = reply->readAll();
+        reply->deleteLater();
+
+        if (netErr == QNetworkReply::NoError && (!validator || validator(data))) {
+            *out = data;
+            ok = true;
+            break;
+        }
+        if (netErr != QNetworkReply::NoError) {
+            lastError = QStringLiteral("网络错误: %1").arg(errStr);
+        } else {
+            lastError = QStringLiteral("内容校验失败（%1 字节，非预期格式，可能返回了错误页面或被截断）")
+                            .arg(data.size());
+        }
+    }
+    if (!ok && error && !lastError.isEmpty())
+        *error = lastError;
+    return ok;
+}
+
+bool Downloader::downloadProgressed(const QString &url, const QStringList &mirrors,
+                                    QByteArray *out, QString *error,
+                                    const Validator &validator,
+                                    const ProgressCallback &onProgress,
+                                    std::atomic_bool *cancelFlag)
+{
+    m_mirrors.clear();
+    m_mirrors << url << mirrors;
+    m_attempt = 0;
+    bool ok = false;
+    QString lastError;
+
+    while (m_attempt < m_mirrors.size()) {
+        m_currentUrl = m_mirrors.at(m_attempt++);
+        QNetworkRequest req{QUrl(m_currentUrl)};
+        req.setRawHeader("User-Agent", "HelloKSPLauncher/1.0");
+        req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+        // Qt 的 transferTimeout 同时覆盖连接建立与传输空闲（每次收到数据都会重置），
+        // 因此 30s 的连接超时与 30s 的空闲超时由它统一承担。
+        req.setTransferTimeout(kTransferTimeoutMs);
+
+        QNetworkReply *reply = m_nam.get(req);
+        QEventLoop loop;
+        // 周期轮询取消标志：置真则中止并退出事件循环
+        QTimer cancelTimer;
+        cancelTimer.setInterval(200);
+        connect(&cancelTimer, &QTimer::timeout, &loop, [&loop, reply, cancelFlag]() {
+            if (cancelFlag && cancelFlag->load()) {
+                reply->abort();
+                loop.quit();
+            }
+        });
+        connect(reply, &QNetworkReply::downloadProgress, &loop,
+                [onProgress](qint64 received, qint64 total) {
+                    if (onProgress) onProgress(received, total);
+                });
+        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        cancelTimer.start();
+        loop.exec();
+        cancelTimer.stop();
+
+        const QNetworkReply::NetworkError netErr = reply->error();
+        const QString errStr = reply->errorString();
+        const QByteArray data = reply->readAll();
+        reply->deleteLater();
+
+        if (cancelFlag && cancelFlag->load()) {
+            lastError = QStringLiteral("已取消");
+            break;
+        }
+        if (netErr == QNetworkReply::NoError && (!validator || validator(data))) {
+            *out = data;
+            ok = true;
+            break;
+        }
+        if (netErr != QNetworkReply::NoError) {
+            lastError = QStringLiteral("网络错误: %1").arg(errStr);
+        } else {
+            lastError = QStringLiteral("内容校验失败（%1 字节，非预期格式，可能返回了错误页面或被截断）")
+                            .arg(data.size());
+        }
+    }
+    if (!ok && error && !lastError.isEmpty())
+        *error = lastError;
+    return ok;
+}
+
+void Downloader::downloadAsync(const QString &url, const QStringList &mirrors)
+{
+    m_async = true;
+    m_mirrors.clear();
+    m_mirrors << url << mirrors;
+    m_attempt = 0;
+    m_data.clear();
+
+    connect(&m_nam, &QNetworkAccessManager::finished, this, [this](QNetworkReply *reply) {
+        const bool ok = reply->error() == QNetworkReply::NoError;
+        const QByteArray data = reply->readAll();
+        reply->deleteLater();
+        if (ok) {
+            emit finished(data, reply->url().toString());
+        } else if (m_attempt < m_mirrors.size()) {
+            startAttempt();
+        } else {
+            emit failed(m_currentUrl, tr("下载失败:%1").arg(reply->errorString()));
+        }
+    });
+
+    startAttempt();
+}
+
+} // namespace ckan

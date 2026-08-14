@@ -11,8 +11,13 @@
 #include <QFileDialog>
 #include <QProgressDialog>
 #include <QMenu>
+#include <QTableView>
+#include <QTextEdit>
+#include <QComboBox>
+#include <QProgressBar>
 #include "../configmanager.h"
 #include "../instancemanager.h"
+#include "modtablemodel.h"
 
 class InstanceDetailPage : public QWidget
 {
@@ -38,6 +43,26 @@ private slots:
     void onBrowseClicked();
     void onBrowseActionTriggered();
 
+    // mod 管理
+    void onModSearchChanged(const QString &text);
+    void onModFilterChanged(int index);
+    void onRefreshModsClicked();
+    void onModSelectionChanged();
+    void onModDoubleClicked(const QModelIndex &index);
+    void onInstallModClicked();
+    void onUninstallModClicked();
+    void onUpgradeModClicked();
+    // 批量操作
+    void onSelectAllClicked();
+    void onBatchInstallClicked();
+    void onBatchUpgradeClicked();
+    void onBatchUninstallClicked();
+    void onIndexRefreshed(bool ok, const QString &error);
+    void onModOperationFinished(bool ok, const QString &message);
+    void onDownloadProgress(const QString &identifier, qint64 doneBytes,
+                            qint64 totalBytes, qint64 speedBps);
+    void onCancelDownloadClicked();
+
 private:
     void setupUI();
     void setupGameSettingsTab();
@@ -52,6 +77,12 @@ private:
     void loadDLCs();
     void loadMods();
     void loadLaunchArgs();
+    void updateModActionButtons();
+    void updateSelectAllButtonText();
+    void setModButtonsEnabled(bool enabled);
+    void showModDetails(const ckan::CkanModule &mod);
+    void showDownloadProgress();
+    void hideDownloadProgress();
 
     QList<GameSetting> m_currentSettings;
 
@@ -84,7 +115,26 @@ private:
     QListWidget* m_dlcList;
 
     // Mods tab
-    QListWidget* m_modList;
+    ModsTableModel* m_modsModel;
+    ModsFilterProxyModel* m_modsProxy;
+    QTableView* m_modTable;
+    QLineEdit* m_modSearchEdit;
+    QComboBox* m_modFilterCombo;
+    QPushButton* m_refreshModsBtn;
+    QPushButton* m_selectAllBtn;
+    QPushButton* m_installModBtn;
+    QPushButton* m_uninstallModBtn;
+    QPushButton* m_upgradeModBtn;
+    QPushButton* m_batchInstallBtn;
+    QPushButton* m_batchUpgradeBtn;
+    QPushButton* m_batchUninstallBtn;
+    QTextEdit* m_modDetailText;
+    QString m_currentModIdentifier;
+    // 下载进度条与取消
+    QWidget*  m_modProgressWidget;
+    QProgressBar* m_modProgressBar;
+    QLabel*   m_modProgressLabel;
+    QPushButton* m_cancelDownloadBtn;
 
     // Advanced tab
     QLineEdit* m_launchArgsEdit;
