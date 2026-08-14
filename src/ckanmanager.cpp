@@ -150,6 +150,19 @@ bool CKanManager::isUpgradable(const QString &identifier) const
     return ckan::ModuleVersion(latest.version) > ckan::ModuleVersion(installed);
 }
 
+void CKanManager::scanUnmanagedDlls()
+{
+    if (!m_ckan) return;
+    ckan::GameInstance *inst = m_ckan->instance();
+    inst->registry()->installedDlls = inst->scanUnmanagedDlls();
+    inst->saveRegistry();
+}
+
+bool CKanManager::isAutoDetected(const QString &identifier) const
+{
+    return m_ckan && m_ckan->instance()->registry()->installedDlls.contains(identifier);
+}
+
 void CKanManager::installAsync(const QString &identifier, bool autoRecommends)
 {
     if (!m_ckan) { emit operationFinished(false, tr("尚未绑定游戏实例")); return; }

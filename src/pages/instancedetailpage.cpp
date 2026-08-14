@@ -229,8 +229,15 @@ void InstanceDetailPage::setupModsTab()
     m_selectAllBtn->setMinimumHeight(34);
     connect(m_selectAllBtn, &QPushButton::clicked, this, &InstanceDetailPage::onSelectAllClicked);
 
+    m_showIncompatCheck = new QCheckBox(tr("显示不兼容"), topBar);
+    m_showIncompatCheck->setMinimumHeight(34);
+    m_showIncompatCheck->setChecked(ConfigManager::instance().showIncompatibleMods());
+    connect(m_showIncompatCheck, &QCheckBox::toggled,
+            this, &InstanceDetailPage::onShowIncompatibleToggled);
+
     topLayout->addWidget(m_modSearchEdit, 1);
     topLayout->addWidget(m_modFilterCombo);
+    topLayout->addWidget(m_showIncompatCheck);
     topLayout->addWidget(m_selectAllBtn);
     topLayout->addWidget(m_refreshModsBtn);
     layout->addWidget(topBar);
@@ -541,6 +548,11 @@ void InstanceDetailPage::loadMods()
     CKanManager &mgr = CKanManager::instance();
     mgr.openInstance(m_instance.path, m_instance.name);
 
+    // 扫描 GameData DLL，识别手动安装模组（AD）
+    mgr.scanUnmanagedDlls();
+    if (m_modsProxy)
+        m_modsProxy->setShowIncompatible(ConfigManager::instance().showIncompatibleMods());
+
     if (!mgr.indexReady()) {
         // 首次进入：自动加载仓库索引（优先使用本地缓存）
         m_modsModel->clear();
@@ -563,6 +575,12 @@ void InstanceDetailPage::onModFilterChanged(int index)
 {
     if (!m_modsProxy || !m_modFilterCombo) return;
     m_modsProxy->setStatusFilter(m_modFilterCombo->itemData(index).toInt());
+}
+
+void InstanceDetailPage::onShowIncompatibleToggled(bool checked)
+{
+    ConfigManager::instance().setShowIncompatibleMods(checked);
+    if (m_modsProxy) m_modsProxy->setShowIncompatible(checked);
 }
 
 void InstanceDetailPage::onRefreshModsClicked()
@@ -638,6 +656,9 @@ void InstanceDetailPage::updateModActionButtons()
     if (!hasSel) return;
 
     CKanManager &mgr = CKanManager::instance();
+    // 手动安装模组（AD）无法进行任何操作
+    if (mgr.isAutoDetected(id)) return;
+
     const bool installed = mgr.isInstalled(id);
     const bool upgradable = mgr.isUpgradable(id);
     m_installModBtn->setEnabled(!installed || upgradable);

@@ -34,6 +34,7 @@ ModsTableModel::Status ModsTableModel::statusAt(int row) const
     CKanManager &mgr = CKanManager::instance();
     if (mgr.isUpgradable(mod.identifier)) return Upgradable;
     if (mgr.isInstalled(mod.identifier)) return Installed;
+    if (mgr.isAutoDetected(mod.identifier)) return AutoDetected;
     return NotInstalled;
 }
 
@@ -111,12 +112,18 @@ QVariant ModsTableModel::data(const QModelIndex &index, int role) const
     }
 
     if (index.column() == ColCheck && role == Qt::CheckStateRole) {
+        // AD（手动安装）模组不可勾选
+        if (statusAt(row) == AutoDetected) return QVariant();
         return m_checked.contains(mod.identifier) ? Qt::Checked : Qt::Unchecked;
     }
 
     if (role == Qt::DisplayRole) {
         switch (index.column()) {
-        case ColCheck:      return QVariant();
+        case ColCheck: {
+            // 手动安装模组：勾选列显示 AD 标记以替代复选框
+            if (statusAt(row) == AutoDetected) return QStringLiteral("AD");
+            return QVariant();
+        }
         case ColName:       return mod.name;
         case ColIdentifier: return mod.identifier;
         case ColVersion:    return mod.version;
@@ -124,6 +131,7 @@ QVariant ModsTableModel::data(const QModelIndex &index, int role) const
             switch (statusAt(row)) {
             case Upgradable:  return tr("可升级");
             case Installed:   return tr("已安装");
+            case AutoDetected: return tr("AD");
             case NotInstalled: return tr("未安装");
             }
             return QVariant();
@@ -163,6 +171,8 @@ bool ModsTableModel::setData(const QModelIndex &index, const QVariant &value, in
     if (index.column() == ColCheck && role == Qt::CheckStateRole) {
         const ckan::CkanModule mod = moduleAt(index.row());
         if (!mod.isValid()) return false;
+        // AD（手动安装）模组不可勾选
+        if (statusAt(index.row()) == AutoDetected) return false;
         setChecked(mod.identifier, value.toInt() == Qt::Checked);
         emit dataChanged(index, index, {Qt::CheckStateRole});
         return true;
@@ -173,7 +183,8 @@ bool ModsTableModel::setData(const QModelIndex &index, const QVariant &value, in
 Qt::ItemFlags ModsTableModel::flags(const QModelIndex &index) const
 {
     Qt::ItemFlags f = QAbstractTableModel::flags(index);
-    if (index.column() == ColCheck)
+    // AD（手动安装）模组整体不可操作，禁用复选框
+    if (index.column() == ColCheck && statusAt(index.row()) != AutoDetected)
         f |= Qt::ItemIsUserCheckable;
     return f;
 }
@@ -184,6 +195,10 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     if (!src) return true;
     const ckan::CkanModule mod = src->moduleAt(sourceRow);
     if (!mod.isValid()) return false;
+
+    // 不兼容模组默认隐藏（除非开启显示）
+    if (!m_showIncompatible && !mod.isCompatible(ckan::GameVersion()))
+        return false;
 
     if (!m_search.isEmpty()) {
         const QString s = m_search.toLower();

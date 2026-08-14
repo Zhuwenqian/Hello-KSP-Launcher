@@ -43,6 +43,10 @@ public:
     QString backgroundPath() const;
     void setBackgroundPath(const QString& path);
 
+    // 模组列表是否显示兼容性不满足的模组（默认隐藏）
+    bool showIncompatibleMods() const;
+    void setShowIncompatibleMods(bool show);
+
     QList<KSPInstance> instances() const;
     void addInstance(const KSPInstance& inst);
     void removeInstance(const QString& id);

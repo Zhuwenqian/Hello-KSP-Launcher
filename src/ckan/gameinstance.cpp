@@ -2,7 +2,9 @@
 
 #include <QFile>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
+#include <QSet>
 #include <QRegularExpression>
 
 namespace ckan {
@@ -44,6 +46,37 @@ QString GameInstance::toAbsoluteGameDir(const QString &rel) const
     QString r = normalized(rel);
     while (r.startsWith(QLatin1Char('/'))) r = r.mid(1);
     return normalized(m_gameDir + (r.isEmpty() ? QString() : QStringLiteral("/") + r));
+}
+
+QMap<QString, QString> GameInstance::scanUnmanagedDlls() const
+{
+    QMap<QString, QString> dlls;
+    const QString gameData = m_gameDir + QStringLiteral("/GameData");
+    if (!QDir(gameData).exists()) return dlls;
+
+    // KSP 官方目录（对应 KerbalSpaceProgram.cs 的 StockFolders，仅 GameData 内部分）
+    static const QSet<QString> stockFolders = {
+        QStringLiteral("GameData/Squad"),
+        QStringLiteral("GameData/SquadExpansion"),
+    };
+
+    QDirIterator it(gameData, { QStringLiteral("*.dll"), QStringLiteral("*.DLL") },
+                    QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString abs = it.next();
+        const QString rel = toRelativeGameDir(abs);
+        bool stock = false;
+        for (const QString &sf : stockFolders)
+            if (rel.startsWith(sf + QLatin1Char('/'))) { stock = true; break; }
+        if (stock) continue;
+        // 标识符 = DLL 文件名第一个 '.' 之前的部分（与官方 DllPathToIdentifier 一致）
+        const QString base = QFileInfo(abs).completeBaseName();
+        const QString identifier = base.section(QLatin1Char('.'), 0, 0).trimmed();
+        if (identifier.isEmpty()) continue;
+        if (!dlls.contains(identifier))
+            dlls.insert(identifier, rel);
+    }
+    return dlls;
 }
 
 GameVersion GameInstance::detectVersion() const

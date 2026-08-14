@@ -7,6 +7,9 @@
 namespace ckan {
 
 namespace {
+// 兼容门槛：模组 ksp_version 的中版本 >= 9 视为兼容（固定 1.9.0）
+constexpr int kCompatibleMinMinor = 9;
+
 QVector<Relationship> parseRelationships(const QJsonObject &obj, const QString &key, Relationship::Type type)
 {
     QVector<Relationship> out;
@@ -150,17 +153,12 @@ CkanModule CkanModule::fromJson(const QByteArray &json, QString *error)
 
 bool CkanModule::isCompatible(const GameVersion &ksp) const
 {
-    if (!kspVersionMin.isEmpty() || !kspVersionMax.isEmpty() || !kspVersion.isEmpty()) {
-        const GameVersion minV(kspVersionMin);
-        const GameVersion maxV(kspVersionMax);
-        if (minV.isValid() && ksp.compareTo(minV) < 0) return false;
-        if (maxV.isValid() && ksp.compareTo(maxV) > 0) return false;
-        if (kspVersionMin.isEmpty() && kspVersionMax.isEmpty() && !kspVersion.isEmpty()) {
-            const GameVersion exact(kspVersion);
-            if (exact.isValid() && ksp.compareWithoutBuild(exact) != 0) return false;
-        }
-    }
-    return true;
+    (void)ksp; // 兼容门槛固定为中版本>=9，不依赖当前 KSP 版本
+    if (kspVersion.isEmpty()) return true; // 未声明 ksp_version 视为兼容
+    const GameVersion v(kspVersion);
+    if (!v.isValid()) return true;
+    // 规则：只看中版本门槛，中版本 >= 9 兼容，< 9 不兼容（固定 1.9.0）
+    return v.minor() >= kCompatibleMinMinor;
 }
 
 QVector<ModuleInstallDescriptor> CkanModule::effectiveInstallStanzas() const

@@ -7,6 +7,7 @@
 #include "ckan/moduleinstalldescriptor.h"
 #include "ckan/installedmodule.h"
 #include "ckan/registry.h"
+#include "ckan/gameinstance.h"
 #include "ckan/relationshipresolver.h"
 #include "ckan/downloader.h"
 
@@ -195,12 +196,25 @@ private slots:
     }
     void compatible()
     {
-        const CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
-        CkanModule bounded = m;
-        bounded.kspVersion = QStringLiteral("1.12.3");
-        QVERIFY(bounded.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
-        QVERIFY(!bounded.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
-        QVERIFY(bounded.isCompatible(GameVersion(QStringLiteral("1.12.3.220"))));
+        // 新规则：只看中版本门槛（固定 1.9.0，中版本 >= 9 兼容），不依赖当前 KSP 版本
+        CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        m.kspVersion = QStringLiteral("1.12.3"); // 中版本 12 >= 9
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3.220"))));
+        QVERIFY(m.isCompatible(GameVersion())); // 参数不参与判断
+
+        m.kspVersion = QStringLiteral("1.9.0"); // 中版本 9 == 门槛，兼容
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+
+        m.kspVersion = QStringLiteral("1.8.1"); // 中版本 8 < 9，不兼容
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+
+        m.kspVersion = QString(); // 未声明 ksp_version 视为兼容
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+
+        m.kspVersion = QStringLiteral("not-a-version"); // 非法 ksp_version 视为兼容
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
     }
     void effectiveInstallDefault()
     {
@@ -472,6 +486,58 @@ private slots:
 };
 
 // ---------------------------------------------------------------------------
+// GameData DLL 扫描
+// ---------------------------------------------------------------------------
+class TestGameInstance : public QObject
+{
+    Q_OBJECT
+private slots:
+    void scanIgnoresStockAndDeduplicates()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        auto mkfile = [&](const QString &rel, const QByteArray &content) {
+            const QString abs = dir.filePath(rel);
+            QDir().mkpath(QFileInfo(abs).absolutePath());
+            QFile f(abs);
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(rel));
+            f.write(content);
+            f.close();
+        };
+
+        // KSP 官方目录（应排除）
+        mkfile(QStringLiteral("GameData/Squad/StockDll.dll"), "x");
+        mkfile(QStringLiteral("GameData/SquadExpansion/EasterEggs/egg.dll"), "x");
+
+        // 手动模组 DLL
+        mkfile(QStringLiteral("GameData/ModA/ModA.dll"), "x");
+        mkfile(QStringLiteral("GameData/SomePath/MyMod.Core.dll"), "x"); // 标识符取文件名第一个点之前
+        mkfile(QStringLiteral("GameData/MyMod/MyMod.Core-KSP.dll"), "x"); // 与上面应去重为一个 MyMod
+
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QMap<QString, QString> dlls = gi.scanUnmanagedDlls();
+
+        QCOMPARE(dlls.size(), 2);
+        QVERIFY(dlls.contains(QStringLiteral("ModA")));
+        QCOMPARE(dlls.value(QStringLiteral("ModA")),
+                 QStringLiteral("GameData/ModA/ModA.dll"));
+        QVERIFY(dlls.contains(QStringLiteral("MyMod")));
+        // 官方目录的 DLL 不应出现
+        QVERIFY(!dlls.contains(QStringLiteral("StockDll")));
+        QVERIFY(!dlls.contains(QStringLiteral("egg")));
+    }
+
+    void scanMissingGameDataReturnsEmpty()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        QVERIFY(gi.scanUnmanagedDlls().isEmpty());
+    }
+};
+
+// ---------------------------------------------------------------------------
 // 下载器：进度回调 / 超时 / 取消
 // ---------------------------------------------------------------------------
 class TestDownloader : public QObject
@@ -545,6 +611,7 @@ int main(int argc, char *argv[])
     TestCkanModule tMod;
     TestModuleInstallDescriptor tInstall;
     TestRegistry tReg;
+    TestGameInstance tGameInst;
     TestRelationshipResolver tResolver;
     TestDownloader tDownloader;
     failures += runSuite(argc, argv, tModVer);
@@ -553,6 +620,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tMod);
     failures += runSuite(argc, argv, tInstall);
     failures += runSuite(argc, argv, tReg);
+    failures += runSuite(argc, argv, tGameInst);
     failures += runSuite(argc, argv, tResolver);
     failures += runSuite(argc, argv, tDownloader);
     return failures;

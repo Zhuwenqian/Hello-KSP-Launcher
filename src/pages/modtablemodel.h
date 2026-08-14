@@ -29,6 +29,8 @@ public:
         NotInstalled = 0,
         Installed,
         Upgradable,
+        AutoDetected, // 手动安装模组（DLL 扫描识别，AD），不可勾选/操作
+        StatusCount
     };
 
     explicit ModsTableModel(QObject *parent = nullptr);
@@ -89,12 +91,21 @@ public:
         beginFilterChange();
         endFilterChange();
     }
+    // 默认隐藏不兼容模组；设置为 true 时显示不兼容模组
+    void setShowIncompatible(bool show)
+    {
+        if (m_showIncompatible == show) return;
+        m_showIncompatible = show;
+        beginFilterChange();
+        endFilterChange();
+    }
 
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
 private:
     int m_statusFilter = -1;
+    bool m_showIncompatible = false;
     QString m_search;
 };
 

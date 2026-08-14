@@ -46,6 +46,12 @@ public:
     // 仓库中存在更新版本（最新版 > 已装版）
     bool isUpgradable(const QString &identifier) const;
 
+    // ---- 手动安装模组（DLL 扫描） ----
+    // 扫描 GameData 下 .dll（排除官方目录），写入 registry.installedDlls 并保存
+    void scanUnmanagedDlls();
+    // 该标识符是否被 DLL 扫描识别为手动安装模组
+    bool isAutoDetected(const QString &identifier) const;
+
     // ---- 安装/卸载/升级（异步） ----
     void installAsync(const QString &identifier, bool autoRecommends);
     void uninstallAsync(const QString &identifier);

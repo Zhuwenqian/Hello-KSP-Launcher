@@ -15,6 +15,7 @@
 #include <QTextEdit>
 #include <QComboBox>
 #include <QProgressBar>
+#include <QCheckBox>
 #include "../configmanager.h"
 #include "../instancemanager.h"
 #include "modtablemodel.h"
@@ -46,6 +47,7 @@ private slots:
     // mod 管理
     void onModSearchChanged(const QString &text);
     void onModFilterChanged(int index);
+    void onShowIncompatibleToggled(bool checked);
     void onRefreshModsClicked();
     void onModSelectionChanged();
     void onModDoubleClicked(const QModelIndex &index);
@@ -122,6 +124,7 @@ private:
     QComboBox* m_modFilterCombo;
     QPushButton* m_refreshModsBtn;
     QPushButton* m_selectAllBtn;
+    QCheckBox*   m_showIncompatCheck;
     QPushButton* m_installModBtn;
     QPushButton* m_uninstallModBtn;
     QPushButton* m_upgradeModBtn;

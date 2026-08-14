@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QDir>
+#include <QMap>
 
 #include "ckan_export.h"
 #include "registry.h"
@@ -35,6 +36,10 @@ public:
 
     // 检测已安装的 KSP 版本（优先 buildID，其次 readme）
     GameVersion detectVersion() const;
+
+    // 扫描 GameData 下所有 .dll（排除 KSP 官方目录），推导手动安装模组的标识符。
+    // 返回 identifier -> 相对 GameDir 路径，对应官方 ScanUnmanagedFiles/DllPathToIdentifier。
+    QMap<QString, QString> scanUnmanagedDlls() const;
 
     // 注册表读写（自动加载/保存 registry.json）
     Registry *registry();

@@ -170,6 +170,20 @@ void ConfigManager::setBackgroundPath(const QString &path)
     }
 }
 
+bool ConfigManager::showIncompatibleMods() const
+{
+    return m_config["showIncompatibleMods"].toBool(false);
+}
+
+void ConfigManager::setShowIncompatibleMods(bool show)
+{
+    if (showIncompatibleMods() != show) {
+        m_config["showIncompatibleMods"] = show;
+        save();
+        emit configChanged();
+    }
+}
+
 QList<KSPInstance> ConfigManager::instances() const
 {
     return m_instances;
