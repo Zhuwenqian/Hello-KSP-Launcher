@@ -45,6 +45,10 @@ public:
     // 供测试/外部：从 zip 提取安装文件列表
     static bool listZipEntries(const QString &zipPath, QStringList *entries, QString *error);
 
+    // 清洗缓存文件名中的非法字符（Windows 不含冒号/斜杠等）。
+    // version 可能带 epoch（如 "1:3.4.0"），冒号在 NTFS 上会变成 ADS 分隔符导致读写错位。
+    static QString safeCacheFileName(const QString &s);
+
 signals:
     void installProgress(const QString &identifier, int percent);
     void moduleInstalled(const QString &identifier);

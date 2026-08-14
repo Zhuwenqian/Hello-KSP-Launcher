@@ -5,6 +5,7 @@
 #include "ckan/relationship.h"
 #include "ckan/ckanmodule.h"
 #include "ckan/moduleinstalldescriptor.h"
+#include "ckan/moduleinstaller.h"
 #include "ckan/installedmodule.h"
 #include "ckan/registry.h"
 #include "ckan/gameinstance.h"
@@ -276,6 +277,21 @@ private slots:
         QCOMPARE(files.at(0).sourceName, QStringLiteral("ModA/a.dll"));
         QVERIFY(files.at(0).destination.startsWith(QStringLiteral("GameData/")));
     }
+    void safeCacheFileName()
+    {
+        // version 带 epoch（如 "1:3.4.0"）：冒号在 Windows 上会导致 ADS 读写错位，
+        // 清洗后应得到一个可安全用作文件名的小写安全串。
+        QCOMPARE(ModuleInstaller::safeCacheFileName(QStringLiteral("1:3.4.0")),
+                 QStringLiteral("1_3.4.0"));
+        QCOMPARE(ModuleInstaller::safeCacheFileName(QStringLiteral("2:1.0")),
+                 QStringLiteral("2_1.0"));
+        // 普通版本号原样保留
+        QCOMPARE(ModuleInstaller::safeCacheFileName(QStringLiteral("2.21.0.4")),
+                 QStringLiteral("2.21.0.4"));
+        // 其余非法字符一并清洗
+        QCOMPARE(ModuleInstaller::safeCacheFileName(QStringLiteral("a:b\\c/d?e*f<g>h|i\"j")),
+                 QStringLiteral("a_b_c_d_e_f_g_h_i_j"));
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -534,6 +550,56 @@ private slots:
         QVERIFY(dir.isValid());
         GameInstance gi(dir.path(), QStringLiteral("test"));
         QVERIFY(gi.scanUnmanagedDlls().isEmpty());
+    }
+
+    void uninstallCascade()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        // 依赖链：C 依赖 B，B 依赖 A，外加独立的 D
+        auto registerMod = [&](const CkanModule &m) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(m.identifier)};
+            gi.registry()->registerModule(im);
+        };
+        registerMod(makeModule(QStringLiteral("A"), QStringLiteral("1.0")));
+        registerMod(makeModule(QStringLiteral("B"), QStringLiteral("1.0"), {dep(QStringLiteral("A"))}));
+        registerMod(makeModule(QStringLiteral("C"), QStringLiteral("1.0"), {dep(QStringLiteral("B"))}));
+        registerMod(makeModule(QStringLiteral("D"), QStringLiteral("1.0")));
+
+        ModuleInstaller installer(&gi);
+        const InstallResult r = installer.uninstall(QStringLiteral("A"));
+        QVERIFY(r.ok);
+        // 卸载顺序自外向内：先 C、B，最后 A
+        QCOMPARE(r.installedIdentifiers,
+                 QStringList({QStringLiteral("C"), QStringLiteral("B"), QStringLiteral("A")}));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("A")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("B")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("C")));
+        // 不依赖 A 的模组保留
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("D")));
+    }
+
+    void uninstallNoDependentsOnlyTarget()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        InstalledModule im;
+        im.identifier = QStringLiteral("D");
+        im.module = makeModule(QStringLiteral("D"), QStringLiteral("1.0"));
+        im.files = {QStringLiteral("GameData/D/x.dll")};
+        gi.registry()->registerModule(im);
+
+        ModuleInstaller installer(&gi);
+        const InstallResult r = installer.uninstall(QStringLiteral("D"));
+        QVERIFY(r.ok);
+        QCOMPARE(r.installedIdentifiers, QStringList({QStringLiteral("D")}));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("D")));
     }
 };
 

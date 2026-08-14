@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QJsonObject>
 #include <QElapsedTimer>
+#include <QSet>
 
 #include "gameinstance.h"
 #include "registry.h"
@@ -82,7 +83,63 @@ bool isValidZipFile(const QString &path)
     if (ok) mz_zip_reader_end(&zip);
     return ok;
 }
+
+// 某模块提供的所有名称（标识符 + 虚拟包）
+QSet<QString> providedNamesOf(const CkanModule &m)
+{
+    QSet<QString> s;
+    s.insert(m.identifier);
+    for (const Relationship &r : m.provides)
+        if (!r.name.isEmpty()) s.insert(r.name);
+    return s;
+}
+
+// 判断 dependent 是否依赖 provider 提供的任一名称
+bool moduleDependsOn(const CkanModule &dependent, const QSet<QString> &providerNames)
+{
+    for (const Relationship &rel : dependent.depends)
+        if (providerNames.contains(rel.name)) return true;
+    return false;
+}
+
+// 递归收集反向依赖链并给出卸载顺序（先依赖者、最后 target）。
+// 例如 C 依赖 B、B 依赖 A，卸载 A 时顺序为 C,B,A。visited 防止循环依赖。
+// 返回 false 表示 target 未安装。
+bool collectReverseDeps(const Registry *reg, const QString &target,
+                        QSet<QString> &visited, QStringList &order)
+{
+    if (visited.contains(target)) return true;
+    const InstalledModule *targetIm = reg->installed(target);
+    if (!targetIm) return false;
+    const QSet<QString> providerNames = providedNamesOf(targetIm->module);
+    for (auto it = reg->installedModules.constBegin();
+         it != reg->installedModules.constEnd(); ++it) {
+        const InstalledModule &im = it.value();
+        if (im.identifier == target) continue;
+        if (moduleDependsOn(im.module, providerNames)
+            && !collectReverseDeps(reg, im.identifier, visited, order))
+            return false;
+    }
+    visited.insert(target);
+    order.append(target);
+    return true;
+}
 } // namespace
+
+QString ModuleInstaller::safeCacheFileName(const QString &s)
+{
+    QString r = s;
+    r.replace(QLatin1Char(':'), QLatin1Char('_'));
+    r.replace(QLatin1Char('\\'), QLatin1Char('_'));
+    r.replace(QLatin1Char('/'), QLatin1Char('_'));
+    r.replace(QLatin1Char('?'), QLatin1Char('_'));
+    r.replace(QLatin1Char('*'), QLatin1Char('_'));
+    r.replace(QLatin1Char('<'), QLatin1Char('_'));
+    r.replace(QLatin1Char('>'), QLatin1Char('_'));
+    r.replace(QLatin1Char('|'), QLatin1Char('_'));
+    r.replace(QLatin1Char('"'), QLatin1Char('_'));
+    return r;
+}
 
 InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
                                        const QString &downloadDir,
@@ -125,8 +182,9 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
         }
 
         // 1. 下载 zip 到缓存目录（校验为 ZIP 归档，非预期内容会重试镜像）
+        //    文件名含 version；version 可能带 epoch（如 "1:3.4.0"），需清洗非法字符
         const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
-                              + mod.version + QStringLiteral(".zip");
+                              + safeCacheFileName(mod.version) + QStringLiteral(".zip");
         if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath)) {
             if (QFile::exists(zipPath))
                 QFile::remove(zipPath); // 清理损坏/无效的缓存后再重新下载
@@ -262,21 +320,31 @@ InstallResult ModuleInstaller::uninstall(const QString &identifier)
 {
     InstallResult result;
     Registry *reg = m_instance->registry();
-    const InstalledModule *im = reg->installed(identifier);
-    if (!im) {
+    if (!reg->isInstalled(identifier)) {
         result.error = QStringLiteral("%1 is not installed").arg(identifier);
         return result;
     }
-    // 删除文件（仅删除归属此模块的文件）
-    for (const QString &rel : im->files) {
-        const QString abs = m_instance->toAbsoluteGameDir(rel);
-        QFile::remove(abs);
+    // 级联卸载：收集所有（直接/间接）依赖 identifier 的模组，
+    // 顺序为依赖链自外向内，先卸载依赖者，最后卸载 identifier 本身。
+    QSet<QString> visited;
+    QStringList order;
+    if (!collectReverseDeps(reg, identifier, visited, order)) {
+        result.error = QStringLiteral("%1 is not installed").arg(identifier);
+        return result;
     }
-    // 尝试清理空目录
-    reg->unregisterModule(identifier);
+    for (const QString &id : order) {
+        const InstalledModule *im = reg->installed(id);
+        if (!im) continue;
+        // 删除文件（仅删除归属此模块的文件）
+        for (const QString &rel : im->files) {
+            const QString abs = m_instance->toAbsoluteGameDir(rel);
+            QFile::remove(abs);
+        }
+        reg->unregisterModule(id);
+        result.installedIdentifiers << id;
+    }
     m_instance->saveRegistry();
     result.ok = true;
-    result.installedIdentifiers << identifier;
     return result;
 }
 

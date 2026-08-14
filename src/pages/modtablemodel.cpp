@@ -205,7 +205,14 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
         if (!mod.name.toLower().contains(s) && !mod.identifier.toLower().contains(s))
             return false;
     }
-    if (m_statusFilter >= 0 && src->statusAt(sourceRow) != m_statusFilter)
-        return false;
+    if (m_statusFilter >= 0) {
+        const ModsTableModel::Status s = src->statusAt(sourceRow);
+        // AD（手动安装）模组归入「已安装」分类
+        if (s == ModsTableModel::AutoDetected) {
+            if (m_statusFilter != static_cast<int>(ModsTableModel::Installed)) return false;
+        } else if (s != static_cast<ModsTableModel::Status>(m_statusFilter)) {
+            return false;
+        }
+    }
     return true;
 }

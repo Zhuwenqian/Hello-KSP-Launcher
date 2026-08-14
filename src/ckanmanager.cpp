@@ -190,8 +190,8 @@ void CKanManager::uninstallAsync(const QString &identifier)
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this, [this, watcher]() {
         const ckan::InstallResult r = watcher->result();
         emit installedChanged();
-        emit operationFinished(r.ok, r.ok ? tr("已卸载：%1").arg(
-            r.installedIdentifiers.isEmpty() ? QString() : r.installedIdentifiers.first())
+        const QString list = r.installedIdentifiers.join(QLatin1Char(','));
+        emit operationFinished(r.ok, r.ok ? tr("已卸载：%1").arg(list.isEmpty() ? QString() : list)
                                           : r.error);
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
