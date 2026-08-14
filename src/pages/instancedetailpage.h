@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QFileDialog>
 #include <QProgressDialog>
+#include <QMenu>
 #include "../configmanager.h"
 #include "../instancemanager.h"
 
@@ -34,6 +35,8 @@ private slots:
     void onSaveSettingsClicked();
     void onSaveLaunchArgsClicked();
     void onExportModpackClicked();
+    void onBrowseClicked();
+    void onBrowseActionTriggered();
 
 private:
     void setupUI();
@@ -41,6 +44,9 @@ private:
     void setupDLCTab();
     void setupModsTab();
     void setupAdvancedTab();
+    void setupBrowseMenu();
+    void updateBrowseMenuState();
+    void openBrowseTarget(const QString& path);
     void loadGameSettings();
     bool saveGameSettings();
     void loadDLCs();
@@ -63,6 +69,13 @@ private:
     QPushButton* m_savesBtn;
     QPushButton* m_advancedBtn;
     QPushButton* m_exportModpackBtn;
+
+    // 浏览菜单
+    QPushButton* m_browseBtn;
+    QMenu* m_browseMenu;
+    QAction* m_browseRootAction;
+    QList<QAction*> m_browseActions;
+    QStringList m_browsePaths;
 
     // Game Settings tab
     QTreeWidget* m_settingsTree;

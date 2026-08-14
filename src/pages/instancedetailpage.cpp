@@ -12,6 +12,9 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QDesktopServices>
+#include <QUrl>
 #include "../iconutils.h"
 
 // Custom delegate to control editing: only column 1 (value) editable
@@ -104,12 +107,19 @@ void InstanceDetailPage::setupUI()
     m_exportModpackBtn->setMinimumHeight(40);
     connect(m_exportModpackBtn, &QPushButton::clicked, this, &InstanceDetailPage::onExportModpackClicked);
 
+    m_browseBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"), tr("  浏览"), m_detailSidebar);
+    m_browseBtn->setObjectName("detailNavButton");
+    m_browseBtn->setCheckable(true);
+    m_browseBtn->setMinimumHeight(40);
+    connect(m_browseBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBrowseClicked);
+
     sidebarLayout->addWidget(m_gameSettingsBtn);
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
     sidebarLayout->addWidget(m_savesBtn);
     sidebarLayout->addWidget(m_advancedBtn);
     sidebarLayout->addWidget(m_exportModpackBtn);
+    sidebarLayout->addWidget(m_browseBtn);
     sidebarLayout->addStretch();
 
     m_contentStack = new QStackedWidget(this);
@@ -117,6 +127,7 @@ void InstanceDetailPage::setupUI()
     setupDLCTab();
     setupModsTab();
     setupAdvancedTab();
+    setupBrowseMenu();
 
     contentLayout->addWidget(m_detailSidebar);
     contentLayout->addWidget(m_contentStack, 1);
@@ -213,6 +224,7 @@ void InstanceDetailPage::onNavButtonClicked()
     m_modsBtn->setChecked(btn == m_modsBtn);
     m_savesBtn->setChecked(btn == m_savesBtn);
     m_advancedBtn->setChecked(btn == m_advancedBtn);
+    m_browseBtn->setChecked(false);
 
     if (btn == m_gameSettingsBtn) {
         m_contentStack->setCurrentIndex(0);
@@ -412,6 +424,99 @@ void InstanceDetailPage::setupAdvancedTab()
     m_contentStack->addWidget(tab);
 }
 
+void InstanceDetailPage::setupBrowseMenu()
+{
+    m_browseMenu = new QMenu(this);
+
+    // 游戏根目录
+    m_browseRootAction = m_browseMenu->addAction(tr("游戏根目录"));
+    m_browseRootAction->setData("root");
+
+    // 其余浏览目标
+    struct BrowseEntry {
+        const char* data;
+        QString label;
+    };
+    const QList<BrowseEntry> entries = {
+        {"ksp_log",      tr("KSP.log")},
+        {"logs",         tr("模块日志")},
+        {"principia",    tr("Principia日志文件夹")},
+        {"gamedata",     tr("模组文件夹")},
+        {"ships",        tr("飞船文件夹")},
+        {"kos_scripts",  tr("kOS代码文件夹")},
+        {"saves",        tr("存档文件夹")}
+    };
+    m_browseActions.clear();
+    m_browsePaths.clear();
+    for (const BrowseEntry& e : entries) {
+        QAction* action = m_browseMenu->addAction(e.label);
+        action->setData(QString::fromLatin1(e.data));
+        m_browseActions.append(action);
+        m_browsePaths.append(QString());
+    }
+    for (QAction* action : m_browseActions) {
+        connect(action, &QAction::triggered, this, &InstanceDetailPage::onBrowseActionTriggered);
+    }
+}
+
+void InstanceDetailPage::updateBrowseMenuState()
+{
+    if (!m_browseMenu) return;
+    const QString& root = m_instance.path;
+    m_browseRootAction->setEnabled(!root.isEmpty() && QDir(root).exists());
+    m_browseRootAction->setData(root);
+
+    const QStringList paths = {
+        QDir(root).filePath("KSP.log"),
+        QDir(root).filePath("Logs"),
+        QDir(root).filePath("glog/Principia"),
+        QDir(root).filePath("GameData"),
+        QDir(root).filePath("Ships"),
+        QDir(root).filePath("Ships/Scripts"),
+        QDir(root).filePath("saves")
+    };
+    for (int i = 0; i < m_browseActions.size() && i < m_browsePaths.size(); ++i) {
+        QString p = paths.at(i);
+        m_browsePaths[i] = p;
+        bool exists = QFileInfo(p).exists();
+        m_browseActions[i]->setEnabled(exists);
+        m_browseActions[i]->setData(p);
+    }
+}
+
+void InstanceDetailPage::onBrowseClicked()
+{
+    if (!m_browseMenu) return;
+    updateBrowseMenuState();
+    // 弹出菜单时取消按钮选中态，避免状态残留
+    m_browseBtn->setChecked(false);
+    // 从按钮下方弹出
+    QPoint pos = m_browseBtn->mapToGlobal(QPoint(0, m_browseBtn->height() + 4));
+    m_browseMenu->exec(pos);
+}
+
+void InstanceDetailPage::onBrowseActionTriggered()
+{
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    QString path = action->data().toString();
+    if (path.isEmpty()) return;
+    openBrowseTarget(path);
+}
+
+void InstanceDetailPage::openBrowseTarget(const QString &path)
+{
+    QFileInfo info(path);
+    if (!info.exists()) {
+        QMessageBox::information(this, tr("浏览"), tr("目标不存在：\n%1").arg(QDir::toNativeSeparators(path)));
+        return;
+    }
+    QUrl url = QUrl::fromLocalFile(path);
+    if (!QDesktopServices::openUrl(url)) {
+        QMessageBox::warning(this, tr("浏览"), tr("无法打开：\n%1").arg(QDir::toNativeSeparators(path)));
+    }
+}
+
 void InstanceDetailPage::loadLaunchArgs()
 {
     if (m_instanceId.isEmpty()) return;
@@ -516,5 +621,6 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
     m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
+    m_browseBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
 }

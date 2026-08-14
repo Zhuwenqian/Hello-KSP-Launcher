@@ -184,6 +184,68 @@
         <source>导出整合包时发生错误，请检查磁盘空间和权限。</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="107"/>
+        <source>  浏览</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="428"/>
+        <source>游戏根目录</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="437"/>
+        <source>KSP.log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="438"/>
+        <source>模块日志</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="439"/>
+        <source>Principia日志文件夹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="440"/>
+        <source>模组文件夹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="441"/>
+        <source>飞船文件夹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="442"/>
+        <source>kOS代码文件夹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="443"/>
+        <source>存档文件夹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="507"/>
+        <source>浏览</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="507"/>
+        <source>目标不存在：
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="512"/>
+        <source>无法打开：
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>InstanceListPage</name>

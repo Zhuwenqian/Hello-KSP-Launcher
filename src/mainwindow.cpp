@@ -40,7 +40,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&InstanceManager::instance(), &InstanceManager::gameError,
             this, &MainWindow::onGameError);
 
-    addTestInstanceIfEmpty();
     onCurrentInstanceChanged();
 
     // Default to home page
@@ -539,23 +538,6 @@ void MainWindow::onCurrentInstanceChanged()
         m_instanceManageBtn->setEnabled(true);
     }
     m_instanceListPage->refresh();
-}
-
-void MainWindow::addTestInstanceIfEmpty()
-{
-    QList<KSPInstance> instances = ConfigManager::instance().instances();
-    QString testPath = "D:/Game/KSP";
-    QString testExe = "D:/Game/KSP/KSP_x64.exe";
-
-    if (instances.isEmpty() &&
-        InstanceManager::instance().isValidKSPPath(testPath) &&
-        QFile::exists(testExe)) {
-        KSPInstance inst;
-        inst.name = "KSP 测试实例";
-        inst.path = testPath;
-        inst.exePath = testExe;
-        ConfigManager::instance().addInstance(inst);
-    }
 }
 
 void MainWindow::onSavesManageRequested()

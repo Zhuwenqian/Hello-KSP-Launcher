@@ -53,7 +53,7 @@ private:
     void setupLaunchBar();
     void showPage(QWidget* page);
     void setNavButtonChecked(QPushButton* btn);
-    void addTestInstanceIfEmpty();
+    
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();
     void applyTransparency();
