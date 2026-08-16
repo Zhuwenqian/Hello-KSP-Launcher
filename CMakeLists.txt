@@ -155,6 +155,7 @@ target_include_directories(test_libckan PRIVATE
 )
 target_link_libraries(test_libckan PRIVATE
     Qt6::Core
+    Qt6::Network
     Qt6::Test
     libckan
 )

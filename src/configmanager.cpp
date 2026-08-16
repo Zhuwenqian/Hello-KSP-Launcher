@@ -35,6 +35,10 @@ void ConfigManager::loadDefaults()
     m_config["language"] = "zh_CN";
     m_config["launchBehavior"] = static_cast<int>(Minimize);
     m_config["theme"] = "dark";
+    m_config["indexRefreshIntervalSecs"] = 6 * 60 * 60;
+    m_config["indexDownloadSource"] = static_cast<int>(OfficialFirst);
+    m_config["moduleDownloadSource"] = static_cast<int>(OfficialFirst);
+    m_config["downloadCacheDir"] = QString();
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -179,6 +183,64 @@ void ConfigManager::setShowIncompatibleMods(bool show)
 {
     if (showIncompatibleMods() != show) {
         m_config["showIncompatibleMods"] = show;
+        save();
+        emit configChanged();
+    }
+}
+
+int ConfigManager::indexRefreshIntervalSecs() const
+{
+    return m_config["indexRefreshIntervalSecs"].toInt(6 * 60 * 60);
+}
+
+void ConfigManager::setIndexRefreshIntervalSecs(int secs)
+{
+    if (indexRefreshIntervalSecs() != secs) {
+        m_config["indexRefreshIntervalSecs"] = secs;
+        save();
+        emit configChanged();
+    }
+}
+
+ConfigManager::DownloadSource ConfigManager::indexDownloadSource() const
+{
+    return static_cast<DownloadSource>(
+        m_config["indexDownloadSource"].toInt(static_cast<int>(OfficialFirst)));
+}
+
+void ConfigManager::setIndexDownloadSource(DownloadSource source)
+{
+    if (indexDownloadSource() != source) {
+        m_config["indexDownloadSource"] = static_cast<int>(source);
+        save();
+        emit configChanged();
+    }
+}
+
+ConfigManager::DownloadSource ConfigManager::moduleDownloadSource() const
+{
+    return static_cast<DownloadSource>(
+        m_config["moduleDownloadSource"].toInt(static_cast<int>(OfficialFirst)));
+}
+
+void ConfigManager::setModuleDownloadSource(DownloadSource source)
+{
+    if (moduleDownloadSource() != source) {
+        m_config["moduleDownloadSource"] = static_cast<int>(source);
+        save();
+        emit configChanged();
+    }
+}
+
+QString ConfigManager::downloadCacheDir() const
+{
+    return m_config["downloadCacheDir"].toString();
+}
+
+void ConfigManager::setDownloadCacheDir(const QString &dir)
+{
+    if (downloadCacheDir() != dir) {
+        m_config["downloadCacheDir"] = dir;
         save();
         emit configChanged();
     }

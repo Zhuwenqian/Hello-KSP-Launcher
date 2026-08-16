@@ -30,10 +30,31 @@ public:
     explicit ModuleInstaller(GameInstance *instance, QObject *parent = nullptr);
 
     // 安装一批模块（已由解析器展开依赖）。downloadDir 为 zip 缓存目录。
-    // mirrors 为下载镜像。
+    // 便捷入口：先 downloadModules 下载全部，再 installFromCache 写入。
     InstallResult install(const QVector<CkanModule> &modules,
                           const QString &downloadDir,
-                          const QStringList &mirrors = {});
+                          const QStringList &foldersToDelete = {},
+                          const QStringList &mirrorPrefixes = {},
+                          bool preferModuleMirrors = false);
+
+    // 阶段一：下载全部模块的 zip 到 downloadDir（复用已存在且有效的缓存，只补缺失/损坏的）。
+    // 全程报 byteProgress 聚合进度，支持 cancel() 中止。返回是否全部就绪。
+    bool downloadModules(const QVector<CkanModule> &modules,
+                         const QString &downloadDir,
+                         const QStringList &mirrorPrefixes,
+                         bool preferModuleMirrors,
+                         QString *error);
+
+    // 阶段二：从缓存安装（不再下载）。zip 缺失/损坏时返回错误。
+    // foldersToDelete 为相对 GameData 的顶层文件夹名：写入前若命中，先递归删除旧文件夹。
+    InstallResult installFromCache(const QVector<CkanModule> &modules,
+                                   const QString &downloadDir,
+                                   const QStringList &foldersToDelete = {});
+
+    // 以 zip 实际内容为准，返回该模块将写入的 GameData 顶层文件夹名列表（相对 GameData）。
+    // 读取 zip 条目后套用 install 规则推导真实目标，绝不依赖预估。可用于下载后冲突检测。
+    static QStringList actualGameDataFolders(const QString &zipPath, const CkanModule &mod,
+                                             QString *error = nullptr);
 
     // 卸载模块：删除 registry 记录的文件，更新 registry。
     InstallResult uninstall(const QString &identifier);
@@ -48,6 +69,9 @@ public:
     // 清洗缓存文件名中的非法字符（Windows 不含冒号/斜杠等）。
     // version 可能带 epoch（如 "1:3.4.0"），冒号在 NTFS 上会变成 ADS 分隔符导致读写错位。
     static QString safeCacheFileName(const QString &s);
+
+    // 递归删除目录（含所有子项）。返回是否成功。
+    static bool removeDirRecursively(const QString &absPath);
 
 signals:
     void installProgress(const QString &identifier, int percent);

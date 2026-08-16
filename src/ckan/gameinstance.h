@@ -41,6 +41,11 @@ public:
     // 返回 identifier -> 相对 GameDir 路径，对应官方 ScanUnmanagedFiles/DllPathToIdentifier。
     QMap<QString, QString> scanUnmanagedDlls() const;
 
+    // 扫描 GameData 下顶层文件夹，返回“手动占用”的文件夹（相对 GameDir，如 "GameData/SomeMod"）。
+    // 判定：存在且非官方目录(Squad/SquadExpansion)，且不属于任何已登记安装模组的文件。
+    // 覆盖无 DLL 的手动模组（纯配置/纹理），供安装前冲突预扫描使用。
+    QStringList manualGameDataFolders() const;
+
     // 注册表读写（自动加载/保存 registry.json）
     Registry *registry();
     const Registry *registry() const { return &m_registry; }

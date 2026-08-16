@@ -123,11 +123,12 @@ bool RepoIndex::parseTarGz(const QByteArray &tarGz, QMap<QString, QVector<CkanMo
 bool RepoIndex::build(const Repository &repo, const QStringList &mirrors,
                       QMap<QString, QVector<CkanModule>> *index, QString *error,
                       const std::function<void(qint64, qint64)> &onProgress,
-                      std::atomic_bool *cancelFlag)
+                      std::atomic_bool *cancelFlag, bool preferMirror)
 {
     Downloader dl;
     QByteArray data;
-    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress, cancelFlag))
+    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress,
+                               cancelFlag, 0, preferMirror))
         return false;
     return parseTarGz(data, index, error);
 }
@@ -146,11 +147,11 @@ bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
                             QMap<QString, QVector<CkanModule>> *index, QString *error,
                             bool forceRefresh, qint64 maxAgeSecs,
                             const std::function<void(qint64, qint64)> &onProgress,
-                            std::atomic_bool *cancelFlag)
+                            std::atomic_bool *cancelFlag, bool preferMirror)
 {
     // 未配置缓存目录：退回每次下载
     if (g_cacheDir.isEmpty())
-        return build(repo, mirrors, index, error, onProgress, cancelFlag);
+        return build(repo, mirrors, index, error, onProgress, cancelFlag, preferMirror);
 
     QDir().mkpath(g_cacheDir);
     const QString cacheFile = QDir(g_cacheDir).filePath(safeRepoName(repo.name) + QStringLiteral(".tar.gz"));
@@ -174,7 +175,8 @@ bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
     // 下载并写入缓存
     Downloader dl;
     QByteArray data;
-    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress, cancelFlag))
+    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress,
+                               cancelFlag, 0, preferMirror))
         return false;
     QSaveFile sf(cacheFile);
     if (sf.open(QIODevice::WriteOnly)) {

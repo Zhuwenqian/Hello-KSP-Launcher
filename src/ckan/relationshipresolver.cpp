@@ -78,6 +78,16 @@ ResolutionResult RelationshipResolver::resolve(const QVector<CkanModule> &module
             if (!providedToOwner.contains(p)) providedToOwner[p] = im.identifier;
     }
 
+    // 手动安装（DLL 扫描，AD）的模块也视为已提供：
+    // 若某个待装模组依赖一个 AD 模组，直接视为已满足，不再下载。
+    for (auto it = registry.installedDlls.constBegin();
+         it != registry.installedDlls.constEnd(); ++it) {
+        const QString id = it.key();
+        if (id.isEmpty()) continue;
+        selectedProvided.insert(id);
+        if (!providedToOwner.contains(id)) providedToOwner[id] = id;
+    }
+
     // 虚拟包索引：虚拟包名 -> 提供该虚拟包的候选模块列表
     QMap<QString, QVector<CkanModule>> virtualIndex;
     for (auto it = m_index.constBegin(); it != m_index.constEnd(); ++it) {

@@ -28,24 +28,30 @@ public:
     explicit Downloader(QObject *parent = nullptr);
 
     // 同步下载 URL 全部内容到内存。成功返回 true。
-    // mirrors 为可选镜像列表，按顺序尝试（主 URL 优先）。
+    // mirrors 为可选镜像列表。默认主 URL 优先；preferMirror=true 时镜像优先。
     // validator 可选：用于校验下载内容，不匹配则继续尝试下一个镜像。
     bool download(const QString &url,
                   const QStringList &mirrors,
                   QByteArray *out,
                   QString *error = nullptr,
-                  const Validator &validator = nullptr);
+                  const Validator &validator = nullptr,
+                  bool preferMirror = false);
 
     // 带进度/超时/取消的下载（在调用线程内驱动事件循环）。
     // 连接超时与传输空闲超时均 30 秒；cancelFlag 置真时立即中止，
     // 返回 false 且 error 为「已取消」。
+    // resumeAttempts > 0 时启用断点续传：同 URL 传输中断（如连接被关闭）后，
+    // 保留已收字节并用 Range 请求剩余部分，最多续传 resumeAttempts 次；
+    // 服务器忽略 Range（返回 200 全量）时自动清空已收、从零重下。
     bool downloadProgressed(const QString &url,
                             const QStringList &mirrors,
                             QByteArray *out,
                             QString *error = nullptr,
                             const Validator &validator = nullptr,
                             const ProgressCallback &onProgress = nullptr,
-                            std::atomic_bool *cancelFlag = nullptr);
+                            std::atomic_bool *cancelFlag = nullptr,
+                            int resumeAttempts = 0,
+                            bool preferMirror = false);
 
     // 异步下载（供 UI 使用），完成后发出 finished/failed 信号
     void downloadAsync(const QString &url, const QStringList &mirrors);

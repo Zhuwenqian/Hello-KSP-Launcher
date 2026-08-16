@@ -54,11 +54,7 @@ private slots:
     void onInstallModClicked();
     void onUninstallModClicked();
     void onUpgradeModClicked();
-    // 批量操作
     void onSelectAllClicked();
-    void onBatchInstallClicked();
-    void onBatchUpgradeClicked();
-    void onBatchUninstallClicked();
     void onIndexRefreshed(bool ok, const QString &error);
     void onModOperationFinished(bool ok, const QString &message);
     void onDownloadProgress(const QString &identifier, qint64 doneBytes,
@@ -128,9 +124,6 @@ private:
     QPushButton* m_installModBtn;
     QPushButton* m_uninstallModBtn;
     QPushButton* m_upgradeModBtn;
-    QPushButton* m_batchInstallBtn;
-    QPushButton* m_batchUpgradeBtn;
-    QPushButton* m_batchUninstallBtn;
     QTextEdit* m_modDetailText;
     QString m_currentModIdentifier;
     // 下载进度条与取消

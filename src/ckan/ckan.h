@@ -17,6 +17,7 @@
 #include "version.h"
 #include "relationshipresolver.h"
 #include "moduleinstaller.h"
+#include "repoindex.h"
 
 namespace ckan {
 
@@ -35,9 +36,11 @@ public:
     // ---- 仓库索引（mod 列表） ----
     // 从仓库下载并建立索引。mirrors 为镜像列表。
     // force=true 时忽略本地缓存，强制重新下载；否则使用缓存（见 RepoIndex::buildCached）。
+    // maxAgeSecs 为缓存有效期（秒）；preferMirror=true 时镜像优先（否则官方优先）。
     // onProgress 下载进度回调，cancelFlag 置真则中止索引下载。
     bool refreshIndex(const QStringList &mirrors = {}, QString *error = nullptr,
-                      bool force = false,
+                      bool force = false, qint64 maxAgeSecs = RepoIndex::kDefaultCacheAgeSecs,
+                      bool preferMirror = false,
                       const std::function<void(qint64, qint64)> &onProgress = {},
                       std::atomic_bool *cancelFlag = nullptr);
     QVector<CkanModule> search(const QString &query) const;    // 按名称/标识符搜索
@@ -45,6 +48,7 @@ public:
     CkanModule latestOf(const QString &identifier) const;
     bool indexReady() const { return m_indexReady; }
     int  indexSize() const { return static_cast<int>(m_index.size()); }
+    QStringList allIdentifiers() const;   // 索引中全部标识符（用于精确清理下载缓存）
 
     // ---- 安装相关 ----
     // 解析安装某模块所需的完整集合（含依赖）
@@ -53,8 +57,11 @@ public:
     ResolutionResult resolveInstallMany(const QVector<CkanModule> &mods,
                                         bool autoInstallRecommends = true);
     // 执行安装（downloadDir 为 zip 缓存目录）
+    // mirrorPrefixes 为模组下载镜像前缀（每个前缀拼接在官方 URL 前，如 "https://gh-proxy.com/"）；
+    // preferModuleMirrors=true 时镜像优先（否则官方优先）。
     InstallResult install(const QVector<CkanModule> &modules, const QString &downloadDir,
-                          const QStringList &mirrors = {});
+                          const QStringList &mirrorPrefixes = {},
+                          bool preferModuleMirrors = false);
     InstallResult uninstall(const QString &identifier);
 
     // ---- 镜像/代理配置 ----

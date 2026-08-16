@@ -11,6 +11,13 @@
 
 #include "ckan/ckan.h"
 
+// 阶段一（下载全部 zip + 计算实际冲突）的后台返回结果
+struct DownloadPhaseResult {
+    bool        ok = false;
+    QString     error;
+    QStringList conflicts; // 与手动占用冲突的 GameData 顶层文件夹
+};
+
 // 启动器 <-> libckan 适配层单例。
 // 负责：绑定当前实例、仓库索引异步刷新、mod 搜索/已安装查询、
 //       安装/卸载/升级（后台线程执行）、全局下载缓存目录管理。
@@ -28,7 +35,11 @@ public:
 
     // ---- 缓存目录 ----
     QString cacheRoot() const;      // exe目录/ckan_cache
-    QString downloadDir() const;    // cacheRoot/downloads
+    QString downloadDir() const;    // 配置的下载缓存目录（默认为 cacheRoot/downloads）
+
+    // 精确清理下载缓存：仅删除与已知模组（索引全部版本 + 已安装模组）对应的缓存 zip，
+    // 目录中其他文件一律保留。返回删除的文件数。
+    int cleanDownloadCache();
 
     // ---- 仓库索引 ----
     // force=true 时忽略本地缓存，强制重新下载（用户手动“刷新仓库”）。
@@ -63,8 +74,8 @@ public:
 
     // 请求中止当前下载/安装任务（线程安全）。
     void cancelCurrentOperation();
-    // 当前是否有进行中的安装任务（用于显示/隐藏取消按钮）
-    bool isInstalling() const { return m_installWatcher != nullptr; }
+    // 当前是否有进行中的下载/安装任务（用于显示/隐藏取消按钮）
+    bool isInstalling() const { return m_installWatcher != nullptr || m_downloadWatcher != nullptr; }
 
 signals:
     void indexRefreshed(bool ok, const QString &error);
@@ -81,18 +92,30 @@ private:
     CKanManager(const CKanManager&) = delete;
     CKanManager& operator=(const CKanManager&) = delete;
 
-    void runInstall(const QVector<ckan::CkanModule> &modules, const QString &doneMessage,
-                const QStringList &preUninstall = {});
     void resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool autoRecommends,
                            const QString &doneMessage);
+    // 手动占用的 GameData 顶层文件夹（相对 GameDir，如 "GameData/SomeMod"）
+    QStringList currentManualGameDataFolders() const;
+    // 下载全部 zip 后，以 zip 实际内容计算与手动占用冲突的顶层文件夹（后台线程调用）
+    QStringList computeActualFolderConflicts(const QVector<ckan::CkanModule> &modules,
+                                             const QString &downloadDir) const;
+    // 冲突弹窗（3 选项），返回待删除文件夹；用户取消返回占位 "__CANCEL__"
+    QStringList askFolderConflicts(const QStringList &conflicts);
+    // 安装阶段：前置卸载 + 从缓存安装
+    void startInstallPhase(const QVector<ckan::CkanModule> &modules,
+                           const QStringList &foldersToDelete, const QString &doneMessage,
+                           const QStringList &preUninstall);
     void clearWatchers();
+    void cleanupInstaller();
 
     ckan::CKan *m_ckan = nullptr;
     QString m_instanceName;
-    QStringList m_mirrors;
+    QStringList m_indexMirrors;         // 索引下载镜像（完整 CKAN-meta URL）
+    QStringList m_moduleMirrorPrefixes; // 模组下载镜像前缀（拼接在官方下载 URL 前）
 
     ckan::ModuleInstaller *m_installer = nullptr;
     QFutureWatcher<QPair<bool, QString>>  *m_indexWatcher = nullptr;
+    QFutureWatcher<DownloadPhaseResult>   *m_downloadWatcher = nullptr;
     QFutureWatcher<ckan::InstallResult>   *m_installWatcher = nullptr;
     std::atomic_bool m_indexCancelRequested{false};
 };

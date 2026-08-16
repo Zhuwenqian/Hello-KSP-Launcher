@@ -33,10 +33,12 @@ public:
 
     // 从仓库下载并建立索引（每次都会下载）。
     // onProgress：下载进度回调(received, total)，cancelFlag 置真则中止并返回失败。
+    // preferMirror=true 时镜像优先（否则官方优先）。
     static bool build(const Repository &repo, const QStringList &mirrors,
                       QMap<QString, QVector<CkanModule>> *index, QString *error = nullptr,
                       const std::function<void(qint64, qint64)> &onProgress = {},
-                      std::atomic_bool *cancelFlag = nullptr);
+                      std::atomic_bool *cancelFlag = nullptr,
+                      bool preferMirror = false);
 
     // 带缓存的构建：优先使用缓存（fresh 且未强制刷新时），否则下载并写入缓存。
     // maxAgeSecs 为缓存有效期（秒），默认 6 小时。
@@ -44,7 +46,8 @@ public:
                             QMap<QString, QVector<CkanModule>> *index, QString *error = nullptr,
                             bool forceRefresh = false, qint64 maxAgeSecs = kDefaultCacheAgeSecs,
                             const std::function<void(qint64, qint64)> &onProgress = {},
-                            std::atomic_bool *cancelFlag = nullptr);
+                            std::atomic_bool *cancelFlag = nullptr,
+                            bool preferMirror = false);
 
     // 便捷：取某 identifier 的全部版本（按版本降序）
     static QVector<CkanModule> versionsFor(const QMap<QString, QVector<CkanModule>> &index,

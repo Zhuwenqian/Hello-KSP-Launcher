@@ -79,6 +79,32 @@ QMap<QString, QString> GameInstance::scanUnmanagedDlls() const
     return dlls;
 }
 
+QStringList GameInstance::manualGameDataFolders() const
+{
+    QStringList manual;
+    const QString gameData = m_gameDir + QStringLiteral("/GameData");
+    QDir d(gameData);
+    if (!d.exists()) return manual;
+
+    static const QSet<QString> officialFolders = {
+        QStringLiteral("Squad"), QStringLiteral("SquadExpansion")
+    };
+    const Registry *reg = registry();
+    const QStringList entries = d.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QString &folder : entries) {
+        if (officialFolders.contains(folder)) continue;
+        // 该文件夹是否属于某个已登记安装模组（其任一文件落在此文件夹下）
+        const QString prefix = QStringLiteral("GameData/") + folder + QLatin1Char('/');
+        bool owned = false;
+        for (auto it = reg->installedFiles.constBegin();
+             it != reg->installedFiles.constEnd(); ++it) {
+            if (it.key().startsWith(prefix)) { owned = true; break; }
+        }
+        if (!owned) manual << QStringLiteral("GameData/") + folder;
+    }
+    return manual;
+}
+
 GameVersion GameInstance::detectVersion() const
 {
     // 1) buildID 文件

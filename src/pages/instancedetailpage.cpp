@@ -193,6 +193,7 @@ void InstanceDetailPage::setupDLCTab()
 void InstanceDetailPage::setupModsTab()
 {
     QWidget* tab = new QWidget(m_contentStack);
+    tab->setObjectName("modsContentWidget");
     QVBoxLayout* layout = new QVBoxLayout(tab);
     layout->setContentsMargins(15, 10, 15, 15);
     layout->setSpacing(8);
@@ -252,7 +253,6 @@ void InstanceDetailPage::setupModsTab()
     m_modTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_modTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_modTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_modTable->setAlternatingRowColors(true);
     m_modTable->verticalHeader()->setVisible(false);
     m_modTable->horizontalHeader()->setStretchLastSection(true);
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColCheck, QHeaderView::Fixed);
@@ -267,6 +267,7 @@ void InstanceDetailPage::setupModsTab()
     connect(m_modTable, &QTableView::doubleClicked, this, &InstanceDetailPage::onModDoubleClicked);
     connect(m_modsModel, &ModsTableModel::dataChanged, this, [this]() {
         updateSelectAllButtonText();
+        updateModActionButtons();
     });
     layout->addWidget(m_modTable, 1);
 
@@ -310,41 +311,19 @@ void InstanceDetailPage::setupModsTab()
     m_installModBtn->setMinimumHeight(36);
     connect(m_installModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onInstallModClicked);
 
-    m_uninstallModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#ffffff"),
-                                        tr(" 卸载"), btnBar);
-    m_uninstallModBtn->setObjectName("dangerButton");
-    m_uninstallModBtn->setMinimumHeight(36);
-    connect(m_uninstallModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onUninstallModClicked);
-
     m_upgradeModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/check.svg", "#ffffff"),
                                       tr(" 升级"), btnBar);
     m_upgradeModBtn->setObjectName("primaryButton");
     m_upgradeModBtn->setMinimumHeight(36);
     connect(m_upgradeModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onUpgradeModClicked);
 
-    // 批量操作
-    m_batchInstallBtn = new QPushButton(IconUtils::tintedIcon(":/icons/add.svg", "#ffffff"),
-                                        tr(" 批量安装"), btnBar);
-    m_batchInstallBtn->setObjectName("primaryButton");
-    m_batchInstallBtn->setMinimumHeight(36);
-    connect(m_batchInstallBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBatchInstallClicked);
-
-    m_batchUpgradeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/check.svg", "#ffffff"),
-                                        tr(" 批量升级"), btnBar);
-    m_batchUpgradeBtn->setObjectName("primaryButton");
-    m_batchUpgradeBtn->setMinimumHeight(36);
-    connect(m_batchUpgradeBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBatchUpgradeClicked);
-
-    m_batchUninstallBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#ffffff"),
-                                          tr(" 批量卸载"), btnBar);
-    m_batchUninstallBtn->setObjectName("dangerButton");
-    m_batchUninstallBtn->setMinimumHeight(36);
-    connect(m_batchUninstallBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBatchUninstallClicked);
+    m_uninstallModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#ffffff"),
+                                        tr(" 卸载"), btnBar);
+    m_uninstallModBtn->setObjectName("dangerButton");
+    m_uninstallModBtn->setMinimumHeight(36);
+    connect(m_uninstallModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onUninstallModClicked);
 
     btnLayout->addStretch();
-    btnLayout->addWidget(m_batchInstallBtn);
-    btnLayout->addWidget(m_batchUpgradeBtn);
-    btnLayout->addWidget(m_batchUninstallBtn);
     btnLayout->addWidget(m_installModBtn);
     btnLayout->addWidget(m_upgradeModBtn);
     btnLayout->addWidget(m_uninstallModBtn);
@@ -359,6 +338,12 @@ void InstanceDetailPage::setupModsTab()
             this, [this](const QString &id, int percent) {
         if (id == m_currentModIdentifier)
             m_modDetailText->setPlainText(tr("正在处理 %1 ... %2%").arg(id).arg(percent));
+        // 进入安装阶段：进度条切为不确定模式，文案改为“正在安装”
+        if (!m_modProgressWidget->isVisible())
+            m_modProgressWidget->setVisible(true);
+        m_modProgressBar->setRange(0, 0);
+        m_modProgressLabel->setText(tr("正在安装：%1").arg(id));
+        m_cancelDownloadBtn->setEnabled(true);
     });
     connect(&CKanManager::instance(), &CKanManager::downloadProgress,
             this, &InstanceDetailPage::onDownloadProgress);
@@ -648,19 +633,41 @@ void InstanceDetailPage::onModDoubleClicked(const QModelIndex &index)
 void InstanceDetailPage::updateModActionButtons()
 {
     if (!m_installModBtn || !m_uninstallModBtn || !m_upgradeModBtn) return;
-    const QString id = m_currentModIdentifier;
-    const bool hasSel = !id.isEmpty();
-    m_installModBtn->setEnabled(false);
-    m_uninstallModBtn->setEnabled(false);
-    m_upgradeModBtn->setEnabled(false);
-    if (!hasSel) return;
-
     CKanManager &mgr = CKanManager::instance();
-    // 手动安装模组（AD）无法进行任何操作
-    if (mgr.isAutoDetected(id)) return;
+    const QStringList checked = m_modsModel->checkedIdentifiers();
+    const bool batch = checked.size() >= 2;
 
-    const bool installed = mgr.isInstalled(id);
-    const bool upgradable = mgr.isUpgradable(id);
+    // 按钮文案：批量时显示数量
+    m_installModBtn->setText(batch ? tr(" 安装 (%1)").arg(checked.size()) : tr(" 安装"));
+    m_upgradeModBtn->setText(batch ? tr(" 升级 (%1)").arg(checked.size()) : tr(" 升级"));
+    m_uninstallModBtn->setText(batch ? tr(" 卸载 (%1)").arg(checked.size()) : tr(" 卸载"));
+
+    m_installModBtn->setEnabled(false);
+    m_upgradeModBtn->setEnabled(false);
+    m_uninstallModBtn->setEnabled(false);
+
+    if (batch) {
+        bool anyInstall = false, anyUpgrade = false, anyUninstall = false;
+        for (const QString &id : checked) {
+            if (mgr.isAutoDetected(id)) continue;
+            const bool installed = mgr.isInstalled(id);
+            const bool upgradable = mgr.isUpgradable(id);
+            if (!installed || upgradable) anyInstall = true;
+            if (upgradable) anyUpgrade = true;
+            if (installed) anyUninstall = true;
+        }
+        m_installModBtn->setEnabled(anyInstall);
+        m_upgradeModBtn->setEnabled(anyUpgrade);
+        m_uninstallModBtn->setEnabled(anyUninstall);
+        return;
+    }
+
+    // 单个：勾选 1 个时用勾选的模组，否则用当前选中行
+    const QString target = checked.size() == 1 ? checked.first() : m_currentModIdentifier;
+    if (target.isEmpty()) return;
+    if (mgr.isAutoDetected(target)) return;
+    const bool installed = mgr.isInstalled(target);
+    const bool upgradable = mgr.isUpgradable(target);
     m_installModBtn->setEnabled(!installed || upgradable);
     m_uninstallModBtn->setEnabled(installed && !mgr.indexReady() ? true : installed);
     m_upgradeModBtn->setEnabled(upgradable);
@@ -684,8 +691,16 @@ void InstanceDetailPage::showModDetails(const ckan::CkanModule &mod)
 
 void InstanceDetailPage::onInstallModClicked()
 {
-    if (m_currentModIdentifier.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先选择一个模组。"));
+    const QStringList ids = m_modsModel->checkedIdentifiers();
+    if (ids.size() >= 2) {
+        setModButtonsEnabled(false);
+        showDownloadProgress();
+        CKanManager::instance().installBatchAsync(ids);
+        return;
+    }
+    const QString target = ids.size() == 1 ? ids.first() : m_currentModIdentifier;
+    if (target.isEmpty()) {
+        QMessageBox::information(this, tr("提示"), tr("请先选择或勾选一个模组。"));
         return;
     }
     m_refreshModsBtn->setEnabled(false);
@@ -693,25 +708,35 @@ void InstanceDetailPage::onInstallModClicked()
     m_uninstallModBtn->setEnabled(false);
     m_upgradeModBtn->setEnabled(false);
     showDownloadProgress();
-    CKanManager::instance().installAsync(m_currentModIdentifier, true);
+    CKanManager::instance().installAsync(target, true);
 }
 
 void InstanceDetailPage::onUninstallModClicked()
 {
-    if (m_currentModIdentifier.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先选择一个模组。"));
+    const QStringList ids = m_modsModel->checkedIdentifiers();
+    if (ids.size() >= 2) {
+        if (QMessageBox::question(this, tr("确认批量卸载"),
+                tr("确定要卸载已勾选的 %1 个模组吗？").arg(ids.size()),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+            return;
+        }
+        setModButtonsEnabled(false);
+        CKanManager::instance().uninstallBatchAsync(ids);
         return;
     }
-    const QString id = m_currentModIdentifier;
-    QString name = id;
-    const QModelIndex cur = m_modTable->currentIndex();
-    if (cur.isValid()) {
-        const QModelIndex src = m_modsProxy->mapToSource(cur);
+    const QString target = ids.size() == 1 ? ids.first() : m_currentModIdentifier;
+    if (target.isEmpty()) {
+        QMessageBox::information(this, tr("提示"), tr("请先选择或勾选一个模组。"));
+        return;
+    }
+    QString name = target;
+    for (int r = 0; r < m_modsProxy->rowCount(); ++r) {
+        const QModelIndex src = m_modsProxy->mapToSource(m_modsProxy->index(r, ModsTableModel::ColCheck));
         const ckan::CkanModule mod = m_modsModel->moduleAt(src.row());
-        if (mod.isValid()) name = mod.name;
+        if (mod.isValid() && mod.identifier == target) { name = mod.name; break; }
     }
     if (QMessageBox::question(this, tr("确认卸载"),
-            tr("确定要卸载模组 %1 吗？").arg(name.isEmpty() ? id : name),
+            tr("确定要卸载模组 %1 吗？").arg(name.isEmpty() ? target : name),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
@@ -719,18 +744,26 @@ void InstanceDetailPage::onUninstallModClicked()
     m_installModBtn->setEnabled(false);
     m_uninstallModBtn->setEnabled(false);
     m_upgradeModBtn->setEnabled(false);
-    CKanManager::instance().uninstallAsync(id);
+    CKanManager::instance().uninstallAsync(target);
 }
 
 void InstanceDetailPage::onUpgradeModClicked()
 {
-    if (m_currentModIdentifier.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先选择一个模组。"));
+    const QStringList ids = m_modsModel->checkedIdentifiers();
+    if (ids.size() >= 2) {
+        setModButtonsEnabled(false);
+        showDownloadProgress();
+        CKanManager::instance().upgradeBatchAsync(ids);
+        return;
+    }
+    const QString target = ids.size() == 1 ? ids.first() : m_currentModIdentifier;
+    if (target.isEmpty()) {
+        QMessageBox::information(this, tr("提示"), tr("请先选择或勾选一个模组。"));
         return;
     }
     setModButtonsEnabled(false);
     showDownloadProgress();
-    CKanManager::instance().upgradeAsync(m_currentModIdentifier);
+    CKanManager::instance().upgradeAsync(target);
 }
 
 void InstanceDetailPage::setModButtonsEnabled(bool enabled)
@@ -739,9 +772,6 @@ void InstanceDetailPage::setModButtonsEnabled(bool enabled)
     m_installModBtn->setEnabled(enabled);
     m_uninstallModBtn->setEnabled(enabled);
     m_upgradeModBtn->setEnabled(enabled);
-    m_batchInstallBtn->setEnabled(enabled);
-    m_batchUpgradeBtn->setEnabled(enabled);
-    m_batchUninstallBtn->setEnabled(enabled);
     if (!enabled) return;
     updateModActionButtons();
     updateSelectAllButtonText();
@@ -775,46 +805,7 @@ void InstanceDetailPage::onSelectAllClicked()
         if (!m_modsModel->isChecked(m.identifier)) { allChecked = false; break; }
     m_modsModel->setAllChecked(visible, !allChecked);
     updateSelectAllButtonText();
-}
-
-void InstanceDetailPage::onBatchInstallClicked()
-{
-    const QStringList ids = m_modsModel->checkedIdentifiers();
-    if (ids.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先勾选要安装的模组。"));
-        return;
-    }
-    setModButtonsEnabled(false);
-    showDownloadProgress();
-    CKanManager::instance().installBatchAsync(ids);
-}
-
-void InstanceDetailPage::onBatchUpgradeClicked()
-{
-    const QStringList ids = m_modsModel->checkedIdentifiers();
-    if (ids.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先勾选要升级的模组。"));
-        return;
-    }
-    setModButtonsEnabled(false);
-    showDownloadProgress();
-    CKanManager::instance().upgradeBatchAsync(ids);
-}
-
-void InstanceDetailPage::onBatchUninstallClicked()
-{
-    const QStringList ids = m_modsModel->checkedIdentifiers();
-    if (ids.isEmpty()) {
-        QMessageBox::information(this, tr("提示"), tr("请先勾选要卸载的模组。"));
-        return;
-    }
-    if (QMessageBox::question(this, tr("确认批量卸载"),
-            tr("确定要批量卸载已勾选的 %1 个模组吗？").arg(ids.size()),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
-        return;
-    }
-    setModButtonsEnabled(false);
-    CKanManager::instance().uninstallBatchAsync(ids);
+    updateModActionButtons();
 }
 
 void InstanceDetailPage::onModOperationFinished(bool ok, const QString &message)

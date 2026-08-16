@@ -2,6 +2,7 @@
 #define SETTINGSPAGE_H
 
 #include <QWidget>
+#include <QScrollArea>
 #include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
@@ -24,6 +25,11 @@ private slots:
     void onChooseBackgroundClicked();
     void onResetBackgroundClicked();
     void refreshBackgroundPreview();
+    void onIndexIntervalChanged(int index);
+    void onIndexSourceChanged(int index);
+    void onModuleSourceChanged(int index);
+    void onChooseCacheDirClicked();
+    void onClearCacheClicked();
 
 private:
     void setupUI();
@@ -37,6 +43,14 @@ private:
     QLabel* m_backgroundPreviewLabel;
     QPushButton* m_chooseBackgroundBtn;
     QPushButton* m_resetBackgroundBtn;
+
+    // 模组管理相关
+    QComboBox* m_indexIntervalCombo;
+    QComboBox* m_indexSourceCombo;
+    QComboBox* m_moduleSourceCombo;
+    QLabel* m_cacheDirLabel;
+
+    QScrollArea* m_scrollArea;
 };
 
 #endif // SETTINGSPAGE_H

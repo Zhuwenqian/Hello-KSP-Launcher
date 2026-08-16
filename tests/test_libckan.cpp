@@ -1,5 +1,11 @@
 #include <QtTest/QtTest>
 #include <QSet>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QHostAddress>
+#include <QFileInfo>
+
+#include "miniz.h"
 
 #include "ckan/version.h"
 #include "ckan/relationship.h"
@@ -11,6 +17,7 @@
 #include "ckan/gameinstance.h"
 #include "ckan/relationshipresolver.h"
 #include "ckan/downloader.h"
+#include "ckan/repoindex.h"
 
 using namespace ckan;
 
@@ -64,6 +71,23 @@ static QMap<QString, QVector<CkanModule>> makeIndex(const QVector<CkanModule> &m
     for (const CkanModule &m : mods)
         idx[m.identifier].append(m);
     return idx;
+}
+
+// 用 miniz 构造一个内存 zip（供安装测试使用）
+static QByteArray makeZip(const QList<QPair<QString, QByteArray>> &files)
+{
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    mz_zip_writer_init_heap(&zip, 0, 0);
+    for (const auto &f : files)
+        mz_zip_writer_add_mem(&zip, f.first.toUtf8().constData(),
+                              f.second.constData(), f.second.size(), 0);
+    size_t size = 0;
+    void *buf = nullptr;
+    mz_zip_writer_finalize_heap_archive(&zip, &buf, &size);
+    QByteArray out(static_cast<const char *>(buf), static_cast<int>(size));
+    mz_free(buf);
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +316,74 @@ private slots:
         QCOMPARE(ModuleInstaller::safeCacheFileName(QStringLiteral("a:b\\c/d?e*f<g>h|i\"j")),
                  QStringLiteral("a_b_c_d_e_f_g_h_i_j"));
     }
+    void actualGameDataFolders_data()
+    {
+        QTest::addColumn<QByteArray>("zip");
+        QTest::addColumn<QJsonArray>("install");
+        QTest::addColumn<QStringList>("expected");
+
+        // 默认规则：find=identifier, install_to=GameData -> 顶层文件夹 = 标识符
+        QTest::newRow("default") << makeZip({{QStringLiteral("SomeMod/a.dll"), QByteArray("dll")}})
+                                 << QJsonArray{}
+                                 << QStringList({QStringLiteral("SomeMod")});
+
+        // as 重命名优先：zip 里是 Source/foo，目标是 GameData/Renamed/foo
+        QTest::newRow("asRename") << makeZip({{QStringLiteral("Source/foo.txt"), QByteArray("x")}})
+                                  << QJsonArray{QJsonObject{{QStringLiteral("find"), QStringLiteral("Source")},
+                                                            {QStringLiteral("as"),     QStringLiteral("Renamed")}}}
+                                  << QStringList({QStringLiteral("Renamed")});
+
+        // 嵌套 install_to：GameData/Sub -> 顶层文件夹 = Sub
+        QTest::newRow("nested") << makeZip({{QStringLiteral("Plugin/AB_Data/a.dll"), QByteArray("dll")}})
+                                << QJsonArray{QJsonObject{{QStringLiteral("file"), QStringLiteral("Plugin/AB_Data")},
+                                                          {QStringLiteral("install_to"), QStringLiteral("GameData/Sub")}}}
+                                << QStringList({QStringLiteral("Sub")});
+
+        // 多规则：同时写入两个不同顶层文件夹
+        QTest::newRow("multiFolders") << makeZip({{QStringLiteral("A/a.dll"), QByteArray("dll")},
+                                                  {QStringLiteral("B/b.dll"), QByteArray("dll")}})
+                                      << QJsonArray{QJsonObject{{QStringLiteral("find"), QStringLiteral("A")}},
+                                                    QJsonObject{{QStringLiteral("find"), QStringLiteral("B")}}}
+                                      << QStringList({QStringLiteral("A"), QStringLiteral("B")});
+
+        // 非 GameData 目标忽略
+        QTest::newRow("nonGameData") << makeZip({{QStringLiteral("Ships/MyShip/ship.craft"), QByteArray("x")}})
+                                     << QJsonArray{QJsonObject{{QStringLiteral("file"), QStringLiteral("Ships/MyShip")},
+                                                               {QStringLiteral("install_to"), QStringLiteral("Ships")}}}
+                                     << QStringList{};
+    }
+    void actualGameDataFolders()
+    {
+        QFETCH(QByteArray, zip);
+        QFETCH(QJsonArray, install);
+        QFETCH(QStringList, expected);
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString zipPath = dir.filePath(QStringLiteral("mod.zip"));
+        QFile zipFile(zipPath);
+        QVERIFY(zipFile.open(QIODevice::WriteOnly));
+        zipFile.write(zip);
+        zipFile.close();
+
+        CkanModule mod = makeModule(QStringLiteral("SomeMod"), QStringLiteral("1.0"));
+        if (!install.isEmpty()) {
+            QVector<ModuleInstallDescriptor> stanzas;
+            for (const QJsonValue &v : install) {
+                ModuleInstallDescriptor d;
+                QString err;
+                QVERIFY2(ModuleInstallDescriptor::fromJsonObject(v.toObject(), &d, &err),
+                         qPrintable(err));
+                stanzas.append(d);
+            }
+            mod.install = stanzas;
+        }
+
+        QString err;
+        const QStringList folders = ModuleInstaller::actualGameDataFolders(zipPath, mod, &err);
+        QCOMPARE(err, QString());
+        QCOMPARE(folders, expected);
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -499,6 +591,40 @@ private slots:
                 found300 = true;
         QVERIFY(found300);
     }
+    void adDependencySatisfied()
+    {
+        // A 依赖 FooLib，而 FooLib 是手动安装（DLL 扫描）的 AD 模组：
+        // 应视为已满足，不下载 FooLib，也不报缺失。
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("FooLib"))});
+        const CkanModule FooLib = makeModule(QStringLiteral("FooLib"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, FooLib});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        reg.installedDlls[QStringLiteral("FooLib")] = QStringLiteral("GameData/FooLib/FooLib.dll");
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("A")));
+        QVERIFY(!ids.contains(QStringLiteral("FooLib"))); // 依赖已被 AD 满足，不下载
+    }
+    void nonAdDependencyStillDownloaded()
+    {
+        // 依赖不是 AD 模组时，仍应进入待安装集合
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("B")));
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -601,6 +727,73 @@ private slots:
         QCOMPARE(r.installedIdentifiers, QStringList({QStringLiteral("D")}));
         QVERIFY(!gi.registry()->isInstalled(QStringLiteral("D")));
     }
+
+    void manualGameDataFoldersDetected()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        auto mkfile = [&](const QString &rel, const QByteArray &content) {
+            const QString abs = dir.filePath(rel);
+            QDir().mkpath(QFileInfo(abs).absolutePath());
+            QFile f(abs);
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(rel));
+            f.write(content);
+            f.close();
+        };
+        // 官方目录（排除）
+        mkfile(QStringLiteral("GameData/Squad/x.dll"), "x");
+        // 手动占用（无 DLL 的纯配置/纹理模组）
+        mkfile(QStringLiteral("GameData/ManualCfg/Config.cfg"), "x");
+        // 已登记安装模组的文件夹（应排除）
+        mkfile(QStringLiteral("GameData/Tracked/x.dll"), "x");
+
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        InstalledModule im;
+        im.identifier = QStringLiteral("Tracked");
+        im.module = makeModule(QStringLiteral("Tracked"), QStringLiteral("1.0"));
+        im.files = {QStringLiteral("GameData/Tracked/x.dll")};
+        gi.registry()->registerModule(im);
+
+        const QStringList manual = gi.manualGameDataFolders();
+        QCOMPARE(manual, QStringList({QStringLiteral("GameData/ManualCfg")}));
+    }
+
+    void installDeletesOldFolder()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        // 已有手动占用的 GameData/ModA 文件夹（含一个额外的、新模组不提供的文件）
+        const QString oldExtra = dir.filePath(QStringLiteral("GameData/ModA/legacy.cfg"));
+        QDir().mkpath(QFileInfo(oldExtra).absolutePath());
+        QFile fe(oldExtra);
+        QVERIFY(fe.open(QIODevice::WriteOnly));
+        fe.write("legacy");
+        fe.close();
+
+        // 构造 zip：ModA/a.dll
+        const QByteArray zip = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+        QFile zf(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zf.open(QIODevice::WriteOnly));
+        zf.write(zip);
+        zf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = QStringList{QStringLiteral("file:///dummy/mod.zip")}; // 缓存已预置，此 URL 不会真正使用
+        ModuleInstaller installer(&gi);
+        // foldersToDelete = {"ModA"}：写入前应删除整个 GameData/ModA
+        const InstallResult r = installer.install({mod}, dl, {QStringLiteral("ModA")});
+        QVERIFY2(r.ok, qPrintable(r.error));
+        // 旧的手动文件被删除
+        QVERIFY(!QFileInfo::exists(oldExtra));
+        // 新文件已安装
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        // 已登记为安装
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -659,6 +852,120 @@ private slots:
         QVERIFY(!ok);
         QCOMPARE(err, QStringLiteral("已取消"));
     }
+
+    void resumeAfterConnectionClosed()
+    {
+        // 本地 HTTP 服务器：首次请求只发一半就断开（模拟 connection closed），
+        // 后续 Range 请求返回 206 剩余部分。验证断点续传能拼出完整内容。
+        class RangeServer : public QTcpServer
+        {
+        public:
+            QByteArray payload;
+            int fullRequests = 0;
+            int rangeRequests = 0;
+            void startListening() { listen(QHostAddress::LocalHost, 0); }
+            quint16 port() const { return serverPort(); }
+
+        protected:
+            void incomingConnection(qintptr socketDescriptor) override
+            {
+                QTcpSocket *s = new QTcpSocket(this);
+                s->setSocketDescriptor(socketDescriptor);
+                connect(s, &QTcpSocket::readyRead, this, [this, s]() {
+                    const QByteArray req = s->readAll();
+                    if (!req.contains("\r\n\r\n"))
+                        return; // 头未收全，等待
+                    const int rangePos = req.indexOf("Range: bytes=");
+                    if (rangePos >= 0) {
+                        ++rangeRequests;
+                        const int start = rangePos + 13;
+                        int end = req.indexOf('\r', start);
+                        QByteArray rr = req.mid(start, end - start);
+                        // Qt 的 toLongLong 无法解析带尾随 '-' 的值（如 "153600-"），需先截取数字部分
+                        const int dashIdx = rr.indexOf('-');
+                        if (dashIdx >= 0)
+                            rr.truncate(dashIdx);
+                        qint64 offset = rr.toLongLong();
+                        const QByteArray body = payload.mid(static_cast<int>(offset));
+                        QByteArray resp;
+                        resp += "HTTP/1.1 206 Partial Content\r\n";
+                        resp += "Content-Range: bytes "
+                              + QByteArray::number(offset) + "-"
+                              + QByteArray::number(payload.size() - 1) + "/"
+                              + QByteArray::number(payload.size()) + "\r\n";
+                        resp += "Content-Length: " + QByteArray::number(body.size()) + "\r\n";
+                        resp += "Connection: close\r\n\r\n";
+                        resp += body;
+                        s->write(resp);
+                        s->flush();
+                        s->disconnectFromHost();
+                    } else {
+                        ++fullRequests;
+                        const int half = payload.size() / 2;
+                        QByteArray resp;
+                        resp += "HTTP/1.1 200 OK\r\n";
+                        resp += "Content-Length: " + QByteArray::number(payload.size()) + "\r\n";
+                        resp += "Connection: close\r\n\r\n";
+                        resp += payload.left(half);
+                        s->write(resp);
+                        s->flush();
+                        s->disconnectFromHost(); // 发送一半后断开 → connection closed
+                    }
+                });
+                connect(s, &QTcpSocket::disconnected, s, &QTcpSocket::deleteLater);
+            }
+        };
+
+        RangeServer server;
+        server.payload.resize(300 * 1024);
+        for (int i = 0; i < server.payload.size(); ++i)
+            server.payload[i] = static_cast<char>(i & 0xff);
+        server.startListening();
+        QVERIFY(server.isListening());
+
+        Downloader dl;
+        QByteArray out;
+        QString err;
+        const QString url = QStringLiteral("http://127.0.0.1:%1/mod.zip").arg(server.port());
+        const bool ok = dl.downloadProgressed(url, {}, &out, &err, nullptr,
+                                              nullptr, nullptr, /*resumeAttempts=*/5);
+        QVERIFY2(ok, qPrintable(err));
+        QCOMPARE(out, server.payload);
+        QCOMPARE(server.fullRequests, 1);  // 首次全量请求
+        QCOMPARE(server.rangeRequests, 1); // 续传一次取回剩余部分
+    }
+};
+
+// ---------------------------------------------------------------------------
+// 仓库索引：版本排序与最新版本选取（search() 依赖的逻辑）
+// ---------------------------------------------------------------------------
+class TestRepoIndex : public QObject
+{
+    Q_OBJECT
+private slots:
+    void latestPicksNewestNotAlphabeticalFirst()
+    {
+        // 回归：Kerbal Konstructs 这类含 v 前缀的版本，必须按版本取最新 v1.12.2.0，
+        // 而不能像旧逻辑那样取 m_index 首个（tar 字母序 0.5.1b）版本。
+        // 构造顺序故意模拟 tar 字母序：0.5.1b 排在最前。
+        auto idx = makeIndex({
+            makeModule(QStringLiteral("KerbalKonstructs"), QStringLiteral("0.5.1b")),
+            makeModule(QStringLiteral("KerbalKonstructs"), QStringLiteral("1.8.1.15")),
+            makeModule(QStringLiteral("KerbalKonstructs"), QStringLiteral("v1.12.2.0")),
+        });
+        const QVector<CkanModule> sorted =
+            RepoIndex::versionsFor(idx, QStringLiteral("KerbalKonstructs"));
+        QCOMPARE(sorted.size(), 3);
+        QCOMPARE(sorted.first().version, QStringLiteral("v1.12.2.0"));
+        QCOMPARE(RepoIndex::latestFor(idx, QStringLiteral("KerbalKonstructs")).version,
+                 QStringLiteral("v1.12.2.0"));
+    }
+
+    void latestEmptyIndex()
+    {
+        const QMap<QString, QVector<CkanModule>> idx;
+        QVERIFY(!RepoIndex::latestFor(idx, QStringLiteral("Missing")).isValid());
+    }
 };
 
 static int runSuite(int argc, char *argv[], QObject &suite)
@@ -680,6 +987,7 @@ int main(int argc, char *argv[])
     TestGameInstance tGameInst;
     TestRelationshipResolver tResolver;
     TestDownloader tDownloader;
+    TestRepoIndex tRepoIndex;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -689,6 +997,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tGameInst);
     failures += runSuite(argc, argv, tResolver);
     failures += runSuite(argc, argv, tDownloader);
+    failures += runSuite(argc, argv, tRepoIndex);
     return failures;
 }
 

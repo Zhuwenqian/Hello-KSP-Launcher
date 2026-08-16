@@ -141,14 +141,70 @@ QString ModuleInstaller::safeCacheFileName(const QString &s)
     return r;
 }
 
-InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
-                                       const QString &downloadDir,
-                                       const QStringList &mirrors)
+QStringList ModuleInstaller::actualGameDataFolders(const QString &zipPath, const CkanModule &mod,
+                                                   QString *error)
 {
-    InstallResult result;
+    // 以 zip 实际内容为准：读入内存后套用 install 规则，推导真实写入的 GameData 顶层文件夹。
+    // 用 init_mem 而非 init_file，规避 Windows fopen 按 ANSI 代码页解析非 ASCII 路径的问题。
+    QFile zf(zipPath);
+    if (!zf.open(QIODevice::ReadOnly)) {
+        if (error) *error = QStringLiteral("cannot open zip: %1").arg(zipPath);
+        return {};
+    }
+    const QByteArray data = zf.readAll();
+    zf.close();
+    if (!looksLikeZip(data)) {
+        if (error) *error = QStringLiteral("not a zip: %1").arg(zipPath);
+        return {};
+    }
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    if (!mz_zip_reader_init_mem(&zip, data.constData(),
+                                static_cast<size_t>(data.size()), 0)) {
+        if (error) *error = QStringLiteral("corrupt zip: %1").arg(zipPath);
+        return {};
+    }
+    QStringList entries;
+    const mz_uint count = mz_zip_reader_get_num_files(&zip);
+    for (mz_uint i = 0; i < count; ++i) {
+        mz_zip_archive_file_stat st;
+        if (mz_zip_reader_file_stat(&zip, i, &st))
+            entries.append(QString::fromUtf8(st.m_filename));
+    }
+    mz_zip_reader_end(&zip);
+
+    QSet<QString> folders;
+    const QString gameData = QStringLiteral("GameData");
+    for (const ModuleInstallDescriptor &stanza : mod.effectiveInstallStanzas()) {
+        QString err;
+        const QVector<InstallableFile> files = stanza.findInstallableFiles(entries, gameData, &err);
+        for (const InstallableFile &f : files) {
+            QString rel = f.destination;
+            rel.replace(QLatin1Char('\\'), QLatin1Char('/'));
+            if (rel.startsWith(QStringLiteral("GameData/"))) {
+                const QString top = rel.mid(9).section(QLatin1Char('/'), 0, 0);
+                if (!top.isEmpty()) folders.insert(top);
+            }
+        }
+    }
+    QStringList out = folders.values();
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool ModuleInstaller::removeDirRecursively(const QString &absPath)
+{
+    return QDir(absPath).removeRecursively();
+}
+
+bool ModuleInstaller::downloadModules(const QVector<CkanModule> &modules,
+                                      const QString &downloadDir,
+                                      const QStringList &mirrorPrefixes,
+                                      bool preferModuleMirrors,
+                                      QString *error)
+{
     m_cancelRequested.store(false);
     QDir().mkpath(downloadDir);
-    Registry *reg = m_instance->registry();
     Downloader dl;
 
     // 批量总字节数（downloadSize 未知时按 1 计，避免除零）
@@ -156,6 +212,84 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
     for (const CkanModule &m : modules)
         totalBytes += (m.downloadSize > 0 ? m.downloadSize : 1);
     qint64 baseline = 0; // 已完成模组的累计字节数
+
+    for (const CkanModule &mod : modules) {
+        if (m_cancelRequested.load()) {
+            if (error) *error = QStringLiteral("已取消");
+            return false;
+        }
+        if (mod.isMetapackage()) {
+            baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
+            continue;
+        }
+        if (mod.downloadUrls.isEmpty()) {
+            if (error) *error = QStringLiteral("%1 has no download URL").arg(mod.identifier);
+            return false;
+        }
+
+        // 缓存文件名含 version；version 可能带 epoch（如 "1:3.4.0"），需清洗非法字符
+        const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
+                              + safeCacheFileName(mod.version) + QStringLiteral(".zip");
+        // 复用已存在且有效的缓存，只补缺失/损坏的
+        if (QFileInfo::exists(zipPath) && isValidZipFile(zipPath)) {
+            baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
+            emit byteProgress(mod.identifier, baseline, totalBytes, 0);
+            continue;
+        }
+        if (QFile::exists(zipPath))
+            QFile::remove(zipPath); // 清理损坏/无效的缓存后再重新下载
+
+        QByteArray data;
+        QString err;
+        const Downloader::Validator zipValidator = [](const QByteArray &d) {
+            return looksLikeZip(d);
+        };
+
+        // 该模组下载进度与实时速度
+        QElapsedTimer spd;          spd.start();
+        qint64 lastRecv = 0;
+        const auto onProgress = [&](qint64 received, qint64) {
+            const qint64 now = spd.elapsed();
+            qint64 speed = 0;
+            if (now > 0) speed = (received - lastRecv) * 1000 / now;
+            lastRecv = received;
+            spd.restart();
+            emit byteProgress(mod.identifier, baseline + received, totalBytes, speed);
+        };
+
+        // 该模组下载镜像：每个前缀拼接官方 URL，作为回退（或镜像优先）
+        QStringList modMirrors;
+        const QString officialUrl = mod.downloadUrls.first();
+        for (const QString &p : mirrorPrefixes)
+            if (!p.isEmpty()) modMirrors << p + officialUrl;
+
+        if (!dl.downloadProgressed(officialUrl, modMirrors, &data, &err,
+                                   zipValidator, onProgress, &m_cancelRequested,
+                                   /*resumeAttempts=*/5, preferModuleMirrors)) {
+            if (error) *error = m_cancelRequested.load()
+                ? QStringLiteral("已取消：%1").arg(mod.identifier)
+                : QStringLiteral("failed to download %1: %2").arg(mod.identifier, err);
+            return false;
+        }
+        QFile zf(zipPath);
+        if (!zf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            if (error) *error = QStringLiteral("cannot write download cache: %1").arg(zipPath);
+            return false;
+        }
+        zf.write(data);
+        zf.close();
+        baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
+        emit byteProgress(mod.identifier, baseline, totalBytes, 0);
+    }
+    return true;
+}
+
+InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modules,
+                                                const QString &downloadDir,
+                                                const QStringList &foldersToDelete)
+{
+    InstallResult result;
+    Registry *reg = m_instance->registry();
 
     for (const CkanModule &mod : modules) {
         emit installProgress(mod.identifier, 0);
@@ -172,60 +306,22 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
             reg->registerModule(im);
             emit moduleInstalled(mod.identifier);
             result.installedIdentifiers << mod.identifier;
-            baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
             continue;
         }
-
         if (mod.downloadUrls.isEmpty()) {
             result.error = QStringLiteral("%1 has no download URL").arg(mod.identifier);
             return result;
         }
 
-        // 1. 下载 zip 到缓存目录（校验为 ZIP 归档，非预期内容会重试镜像）
-        //    文件名含 version；version 可能带 epoch（如 "1:3.4.0"），需清洗非法字符
         const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
                               + safeCacheFileName(mod.version) + QStringLiteral(".zip");
         if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath)) {
-            if (QFile::exists(zipPath))
-                QFile::remove(zipPath); // 清理损坏/无效的缓存后再重新下载
-            QByteArray data;
-            QString err;
-            const Downloader::Validator zipValidator = [](const QByteArray &d) {
-                return looksLikeZip(d);
-            };
-
-            // 该模组下载进度与实时速度
-            QElapsedTimer spd;          spd.start();
-            qint64 lastRecv = 0;
-            const auto onProgress = [&](qint64 received, qint64) {
-                const qint64 now = spd.elapsed();
-                qint64 speed = 0;
-                if (now > 0) speed = (received - lastRecv) * 1000 / now;
-                lastRecv = received;
-                spd.restart();
-                emit byteProgress(mod.identifier, baseline + received, totalBytes, speed);
-            };
-
-            if (!dl.downloadProgressed(mod.downloadUrls.first(), mirrors, &data, &err,
-                                       zipValidator, onProgress, &m_cancelRequested)) {
-                result.error = m_cancelRequested.load()
-                    ? QStringLiteral("已取消：%1").arg(mod.identifier)
-                    : QStringLiteral("failed to download %1: %2").arg(mod.identifier, err);
-                return result;
-            }
-            QFile zf(zipPath);
-            if (!zf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                result.error = QStringLiteral("cannot write download cache: %1").arg(zipPath);
-                return result;
-            }
-            zf.write(data);
-            zf.close();
+            result.error = QStringLiteral("download cache missing or invalid: %1，请先下载")
+                .arg(mod.identifier);
+            return result;
         }
-        baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
-        emit byteProgress(mod.identifier, baseline, totalBytes, 0);
-        emit installProgress(mod.identifier, 30);
 
-        // 2. 读取 zip 到内存并打开
+        // 读取 zip 到内存并打开
         //    不用 mz_zip_reader_init_file：其内部用 fopen 按 ANSI 代码页解析路径，
         //    当缓存路径含非 ASCII 字符时打开失败，会被误报为 "corrupt zip"。
         QFile zipFile(zipPath);
@@ -256,7 +352,7 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
                 entries.append(QString::fromUtf8(st.m_filename));
         }
 
-        // 3. 应用 install 规则，得到目标文件列表
+        // 应用 install 规则，得到目标文件列表
         const QString gameData = QStringLiteral("GameData");
         QVector<InstallableFile> files;
         for (const ModuleInstallDescriptor &stanza : mod.effectiveInstallStanzas()) {
@@ -271,7 +367,26 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
         }
         emit installProgress(mod.identifier, 60);
 
-        // 4. 提取并复制文件到 GameData
+        // 若用户选择“删除旧的保留新的”，先递归删除将写入的顶层 GameData 文件夹
+        if (!foldersToDelete.isEmpty()) {
+            QSet<QString> writeRoots;
+            for (const InstallableFile &f : files) {
+                QString rel = f.destination;
+                rel.replace(QLatin1Char('\\'), QLatin1Char('/'));
+                if (rel.startsWith(QStringLiteral("GameData/"))) {
+                    const QString top = rel.mid(9).section(QLatin1Char('/'), 0, 0);
+                    if (!top.isEmpty()) writeRoots.insert(top);
+                }
+            }
+            for (const QString &top : writeRoots) {
+                if (foldersToDelete.contains(top)) {
+                    removeDirRecursively(m_instance->toAbsoluteGameDir(
+                        QStringLiteral("GameData/") + top));
+                }
+            }
+        }
+
+        // 提取并复制文件到 GameData
         QStringList installedRelPaths;
         for (const InstallableFile &f : files) {
             QByteArray content;
@@ -294,7 +409,7 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
         mz_zip_reader_end(&zip);
         emit installProgress(mod.identifier, 90);
 
-        // 5. 更新 registry
+        // 更新 registry
         InstalledModule im;
         im.identifier = mod.identifier;
         im.module = mod;
@@ -309,6 +424,21 @@ InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
     m_instance->saveRegistry();
     result.ok = true;
     return result;
+}
+
+InstallResult ModuleInstaller::install(const QVector<CkanModule> &modules,
+                                       const QString &downloadDir,
+                                       const QStringList &foldersToDelete,
+                                       const QStringList &mirrorPrefixes,
+                                       bool preferModuleMirrors)
+{
+    QString err;
+    if (!downloadModules(modules, downloadDir, mirrorPrefixes, preferModuleMirrors, &err)) {
+        InstallResult r;
+        r.error = err;
+        return r;
+    }
+    return installFromCache(modules, downloadDir, foldersToDelete);
 }
 
 void ModuleInstaller::cancel()
