@@ -7,6 +7,10 @@
 #include <QJsonObject>
 #include <QElapsedTimer>
 #include <QSet>
+#include <QCryptographicHash>
+#include <QtConcurrent>
+#include <QThreadPool>
+#include <QFuture>
 
 #include "gameinstance.h"
 #include "registry.h"
@@ -69,13 +73,18 @@ bool looksLikeZip(const QByteArray &data)
     return d[0] == 'P' && d[1] == 'K';
 }
 
-// 校验缓存文件是否是一个可打开的 ZIP 归档
-bool isValidZipFile(const QString &path)
+// 校验缓存文件是否是一个可打开的 ZIP 归档；若提供了期望的 SHA256，则同时校验哈希一致。
+bool isValidZipFile(const QString &path, const QString &expectedSha256 = QString())
 {
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) return false;
     const QByteArray data = f.readAll();
     if (!looksLikeZip(data)) return false;
+    if (!expectedSha256.isEmpty()) {
+        const QString actual = QString::fromLatin1(
+            QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
+        if (actual.compare(expectedSha256, Qt::CaseInsensitive) != 0) return false;
+    }
     mz_zip_archive zip;
     memset(&zip, 0, sizeof(zip));
     const bool ok = mz_zip_reader_init_mem(&zip, data.constData(),
@@ -201,61 +210,44 @@ bool ModuleInstaller::downloadModules(const QVector<CkanModule> &modules,
                                       const QString &downloadDir,
                                       const QStringList &mirrorPrefixes,
                                       bool preferModuleMirrors,
-                                      QString *error)
+                                      QString *error,
+                                      int maxConcurrent)
 {
     m_cancelRequested.store(false);
     QDir().mkpath(downloadDir);
-    Downloader dl;
 
-    // 批量总字节数（downloadSize 未知时按 1 计，避免除零）
-    qint64 totalBytes = 0;
-    for (const CkanModule &m : modules)
-        totalBytes += (m.downloadSize > 0 ? m.downloadSize : 1);
-    qint64 baseline = 0; // 已完成模组的累计字节数
-
+    // 前置校验：非元包必须有下载地址
     for (const CkanModule &mod : modules) {
-        if (m_cancelRequested.load()) {
-            if (error) *error = QStringLiteral("已取消");
-            return false;
-        }
-        if (mod.isMetapackage()) {
-            baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
-            continue;
-        }
+        if (mod.isMetapackage()) continue;
         if (mod.downloadUrls.isEmpty()) {
             if (error) *error = QStringLiteral("%1 has no download URL").arg(mod.identifier);
             return false;
+        }
+    }
+
+    // 批量总字节数（downloadSize 未知时按 1 计，避免除零）；
+    // preDone 为无需下载（元包/命中有效缓存）模块的字节数，作为进度起点。
+    qint64 totalBytes = 0;
+    qint64 preDone = 0;
+    QVector<DownloadTask> tasks;
+    for (const CkanModule &mod : modules) {
+        const qint64 size = mod.downloadSize > 0 ? mod.downloadSize : 1;
+        totalBytes += size;
+        if (mod.isMetapackage()) {
+            preDone += size;
+            continue;
         }
 
         // 缓存文件名含 version；version 可能带 epoch（如 "1:3.4.0"），需清洗非法字符
         const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
                               + safeCacheFileName(mod.version) + QStringLiteral(".zip");
-        // 复用已存在且有效的缓存，只补缺失/损坏的
-        if (QFileInfo::exists(zipPath) && isValidZipFile(zipPath)) {
-            baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
-            emit byteProgress(mod.identifier, baseline, totalBytes, 0);
+        // 复用已存在且有效的缓存（含 SHA256 校验），只补缺失/损坏的
+        if (QFileInfo::exists(zipPath) && isValidZipFile(zipPath, mod.downloadHash.sha256)) {
+            preDone += size;
             continue;
         }
         if (QFile::exists(zipPath))
             QFile::remove(zipPath); // 清理损坏/无效的缓存后再重新下载
-
-        QByteArray data;
-        QString err;
-        const Downloader::Validator zipValidator = [](const QByteArray &d) {
-            return looksLikeZip(d);
-        };
-
-        // 该模组下载进度与实时速度
-        QElapsedTimer spd;          spd.start();
-        qint64 lastRecv = 0;
-        const auto onProgress = [&](qint64 received, qint64) {
-            const qint64 now = spd.elapsed();
-            qint64 speed = 0;
-            if (now > 0) speed = (received - lastRecv) * 1000 / now;
-            lastRecv = received;
-            spd.restart();
-            emit byteProgress(mod.identifier, baseline + received, totalBytes, speed);
-        };
 
         // 该模组下载镜像：每个前缀拼接官方 URL，作为回退（或镜像优先）
         QStringList modMirrors;
@@ -263,25 +255,112 @@ bool ModuleInstaller::downloadModules(const QVector<CkanModule> &modules,
         for (const QString &p : mirrorPrefixes)
             if (!p.isEmpty()) modMirrors << p + officialUrl;
 
-        if (!dl.downloadProgressed(officialUrl, modMirrors, &data, &err,
-                                   zipValidator, onProgress, &m_cancelRequested,
-                                   /*resumeAttempts=*/5, preferModuleMirrors)) {
-            if (error) *error = m_cancelRequested.load()
-                ? QStringLiteral("已取消：%1").arg(mod.identifier)
-                : QStringLiteral("failed to download %1: %2").arg(mod.identifier, err);
-            return false;
-        }
-        QFile zf(zipPath);
-        if (!zf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            if (error) *error = QStringLiteral("cannot write download cache: %1").arg(zipPath);
-            return false;
-        }
-        zf.write(data);
-        zf.close();
-        baseline += (mod.downloadSize > 0 ? mod.downloadSize : 1);
-        emit byteProgress(mod.identifier, baseline, totalBytes, 0);
+        DownloadTask t;
+        t.mod = mod;
+        t.zipPath = zipPath;
+        t.mirrors = modMirrors;
+        t.size = size;
+        tasks.append(t);
+    }
+
+    if (tasks.isEmpty()) {
+        // 全部命中有效缓存（或本批无实体模块）
+        if (!modules.isEmpty())
+            emit byteProgress(modules.first().identifier, totalBytes, totalBytes, 0);
+        return true;
+    }
+
+    // 跨线程累计的已下载字节数，起点为已完成（缓存/元包）的字节
+    std::atomic<qint64> doneBytes{preDone};
+    QThreadPool pool;
+    pool.setMaxThreadCount(std::max(1, maxConcurrent));
+
+    QVector<QFuture<DownloadOutcome>> futures;
+    futures.reserve(tasks.size());
+    for (const DownloadTask &t : tasks) {
+        futures.append(QtConcurrent::run(&pool,
+            [this, t, &doneBytes, totalBytes, preferModuleMirrors]() {
+                return downloadOneTask(t, doneBytes, totalBytes, preferModuleMirrors);
+            }));
+    }
+    for (QFuture<DownloadOutcome> &f : futures)
+        f.waitForFinished();
+
+    DownloadOutcome firstError;
+    for (const QFuture<DownloadOutcome> &f : futures) {
+        const DownloadOutcome o = f.result();
+        if (!o.ok && firstError.error.isEmpty()) firstError = o;
+    }
+    if (!firstError.error.isEmpty()) {
+        if (error) *error = firstError.error;
+        return false;
     }
     return true;
+}
+
+ModuleInstaller::DownloadOutcome ModuleInstaller::downloadOneTask(
+    const DownloadTask &task, std::atomic<qint64> &doneBytes,
+    qint64 totalBytes, bool preferModuleMirrors)
+{
+    DownloadOutcome out;
+    out.identifier = task.mod.identifier;
+    if (m_cancelRequested.load()) {
+        out.error = QStringLiteral("已取消");
+        return out;
+    }
+
+    Downloader dl;
+    QByteArray data;
+    QString err;
+    const QString expectedSha256 = task.mod.downloadHash.sha256;
+    // 内容校验器：必须为 ZIP 归档，且（若声明了哈希）SHA256 与仓库元数据一致
+    const Downloader::Validator zipValidator = [&](const QByteArray &d) {
+        if (!looksLikeZip(d)) return false;
+        if (!expectedSha256.isEmpty()) {
+            const QString actual = QString::fromLatin1(
+                QCryptographicHash::hash(d, QCryptographicHash::Sha256).toHex());
+            if (actual.compare(expectedSha256, Qt::CaseInsensitive) != 0) return false;
+        }
+        return true;
+    };
+
+    // 该模组下载进度与实时速度；增量累加进跨线程 doneBytes
+    QElapsedTimer spd;          spd.start();
+    qint64 lastRecv = 0;
+    const auto onProgress = [&](qint64 received, qint64) {
+        const qint64 now = spd.elapsed();
+        const qint64 delta = received - lastRecv;
+        lastRecv = received;
+        if (delta > 0) doneBytes.fetch_add(delta);
+        qint64 speed = 0;
+        if (now > 0) speed = delta * 1000 / now;
+        spd.restart();
+        emit byteProgress(task.mod.identifier, doneBytes.load(), totalBytes, speed);
+    };
+
+    const QString officialUrl = task.mod.downloadUrls.first();
+    if (!dl.downloadProgressed(officialUrl, task.mirrors, &data, &err,
+                               zipValidator, onProgress, &m_cancelRequested,
+                               /*resumeAttempts=*/5, preferModuleMirrors)) {
+        out.error = m_cancelRequested.load()
+            ? QStringLiteral("已取消：%1").arg(task.mod.identifier)
+            : QStringLiteral("failed to download %1: %2").arg(task.mod.identifier, err);
+        return out;
+    }
+    QFile zf(task.zipPath);
+    if (!zf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        out.error = QStringLiteral("cannot write download cache: %1").arg(task.zipPath);
+        return out;
+    }
+    zf.write(data);
+    zf.close();
+
+    // 实际字节与声明大小存在差异时按声明大小补齐，使总进度贴近 totalBytes
+    if (data.size() < task.size)
+        doneBytes.fetch_add(task.size - data.size());
+    emit byteProgress(task.mod.identifier, doneBytes.load(), totalBytes, 0);
+    out.ok = true;
+    return out;
 }
 
 InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modules,
@@ -315,7 +394,7 @@ InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modul
 
         const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
                               + safeCacheFileName(mod.version) + QStringLiteral(".zip");
-        if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath)) {
+        if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath, mod.downloadHash.sha256)) {
             result.error = QStringLiteral("download cache missing or invalid: %1，请先下载")
                 .arg(mod.identifier);
             return result;

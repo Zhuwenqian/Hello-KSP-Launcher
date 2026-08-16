@@ -68,6 +68,31 @@ private:
     int  m_major = 0, m_minor = 0, m_patch = 0, m_build = 0;
 };
 
+// 游戏版本区间 [lower, upper]，可开可闭（未设置一侧为无界）。
+// 对应官方 CKAN 的 GameVersionRange（CKAN-master/Core/Versioning/GameVersionRange.cs）。
+class CKAN_API GameVersionRange
+{
+public:
+    GameVersionRange();
+    GameVersionRange(const GameVersion &lower, bool lowerInclusive,
+                     const GameVersion &upper, bool upperInclusive);
+    // 区间判定：value 是否落在 [lower, upper] 内（未设置一侧视为无界）
+    bool contains(const GameVersion &value) const;
+    // 与另一区间是否相交（官方 IntersectWith：不相交返回空）
+    bool intersects(const GameVersionRange &other) const;
+
+    bool lowerSet() const { return m_lowerSet; }
+    bool upperSet() const { return m_upperSet; }
+    GameVersion lower() const { return m_lower; }
+    GameVersion upper() const { return m_upper; }
+
+private:
+    bool        m_lowerSet = false;
+    bool        m_upperSet = false;
+    GameVersion m_lower;
+    GameVersion m_upper;
+};
+
 } // namespace ckan
 
 #endif // CKAN_VERSION_H

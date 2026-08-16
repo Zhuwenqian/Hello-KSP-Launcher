@@ -34,7 +34,7 @@ public:
     QString toRelativeGameDir(const QString &abs) const;
     QString toAbsoluteGameDir(const QString &rel) const;
 
-    // 检测已安装的 KSP 版本（优先 buildID，其次 readme）
+    // 检测已安装的 KSP 版本（优先 buildID 文件经 build 映射表换算，其次 readme 兜底）
     GameVersion detectVersion() const;
 
     // 扫描 GameData 下所有 .dll（排除 KSP 官方目录），推导手动安装模组的标识符。

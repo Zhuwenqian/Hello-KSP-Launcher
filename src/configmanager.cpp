@@ -39,6 +39,7 @@ void ConfigManager::loadDefaults()
     m_config["indexDownloadSource"] = static_cast<int>(OfficialFirst);
     m_config["moduleDownloadSource"] = static_cast<int>(OfficialFirst);
     m_config["downloadCacheDir"] = QString();
+    m_config["downloadConcurrency"] = 3;
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -188,6 +189,20 @@ void ConfigManager::setShowIncompatibleMods(bool show)
     }
 }
 
+bool ConfigManager::installSuggests() const
+{
+    return m_config["installSuggests"].toBool(true);
+}
+
+void ConfigManager::setInstallSuggests(bool enable)
+{
+    if (installSuggests() != enable) {
+        m_config["installSuggests"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
 int ConfigManager::indexRefreshIntervalSecs() const
 {
     return m_config["indexRefreshIntervalSecs"].toInt(6 * 60 * 60);
@@ -241,6 +256,22 @@ void ConfigManager::setDownloadCacheDir(const QString &dir)
 {
     if (downloadCacheDir() != dir) {
         m_config["downloadCacheDir"] = dir;
+        save();
+        emit configChanged();
+    }
+}
+
+int ConfigManager::downloadConcurrency() const
+{
+    const int v = m_config["downloadConcurrency"].toInt(3);
+    return qBound(1, v, 8);
+}
+
+void ConfigManager::setDownloadConcurrency(int count)
+{
+    const int clamped = qBound(1, count, 8);
+    if (downloadConcurrency() != clamped) {
+        m_config["downloadConcurrency"] = clamped;
         save();
         emit configChanged();
     }

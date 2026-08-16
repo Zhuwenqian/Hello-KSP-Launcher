@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include "../configmanager.h"
+#include "../widgets/toggleswitch.h"
 
 class SettingsPage : public QWidget
 {
@@ -30,6 +31,7 @@ private slots:
     void onModuleSourceChanged(int index);
     void onChooseCacheDirClicked();
     void onClearCacheClicked();
+    void onConcurrencyChanged(int index);
 
 private:
     void setupUI();
@@ -48,7 +50,9 @@ private:
     QComboBox* m_indexIntervalCombo;
     QComboBox* m_indexSourceCombo;
     QComboBox* m_moduleSourceCombo;
+    QComboBox* m_concurrencyCombo;
     QLabel* m_cacheDirLabel;
+    ToggleSwitch* m_installSuggestsToggle;
 
     QScrollArea* m_scrollArea;
 };

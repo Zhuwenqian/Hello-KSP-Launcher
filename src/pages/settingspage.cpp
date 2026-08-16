@@ -22,7 +22,9 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_indexIntervalCombo(nullptr),
       m_indexSourceCombo(nullptr),
       m_moduleSourceCombo(nullptr),
-      m_cacheDirLabel(nullptr)
+      m_concurrencyCombo(nullptr),
+      m_cacheDirLabel(nullptr),
+      m_installSuggestsToggle(nullptr)
 {
     setupUI();
     loadSettings();
@@ -189,6 +191,26 @@ void SettingsPage::setupUI()
     modSrcLabel->setObjectName("settingLabel");
     modLayout->addRow(modSrcLabel, m_moduleSourceCombo);
 
+    // 下载并发数
+    m_concurrencyCombo = new QComboBox(modGroup);
+    m_concurrencyCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    for (int i = 1; i <= 8; ++i)
+        m_concurrencyCombo->addItem(tr("同时下载 %1 个").arg(i), i);
+    connect(m_concurrencyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SettingsPage::onConcurrencyChanged);
+    QLabel* concLabel = new QLabel(tr("下载并发数："), modGroup);
+    concLabel->setObjectName("settingLabel");
+    modLayout->addRow(concLabel, m_concurrencyCombo);
+
+    // 安装时显示建议模组
+    m_installSuggestsToggle = new ToggleSwitch(modGroup);
+    m_installSuggestsToggle->setToolTip(tr("安装模组时，如果它还有建议安装的可选模组，弹窗勾选"));
+    connect(m_installSuggestsToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setInstallSuggests(checked); });
+    QLabel* suggestLabel = new QLabel(tr("安装时显示建议模组："), modGroup);
+    suggestLabel->setObjectName("settingLabel");
+    modLayout->addRow(suggestLabel, m_installSuggestsToggle);
+
     // 下载缓存文件夹
     QHBoxLayout* cacheRow = new QHBoxLayout();
     m_cacheDirLabel = new QLabel(modGroup);
@@ -222,6 +244,8 @@ void SettingsPage::loadSettings()
     m_indexIntervalCombo->blockSignals(true);
     m_indexSourceCombo->blockSignals(true);
     m_moduleSourceCombo->blockSignals(true);
+    m_concurrencyCombo->blockSignals(true);
+    m_installSuggestsToggle->blockSignals(true);
 
     QString lang = ConfigManager::instance().language();
     int langIdx = m_languageCombo->findData(lang);
@@ -247,7 +271,13 @@ void SettingsPage::loadSettings()
     int modIdx = m_moduleSourceCombo->findData(modSrc);
     if (modIdx >= 0) m_moduleSourceCombo->setCurrentIndex(modIdx);
 
+    int concurrency = ConfigManager::instance().downloadConcurrency();
+    int concIdx = m_concurrencyCombo->findData(concurrency);
+    if (concIdx >= 0) m_concurrencyCombo->setCurrentIndex(concIdx);
+
     m_cacheDirLabel->setText(CKanManager::instance().downloadDir());
+
+    m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
 
     m_languageCombo->blockSignals(false);
     m_behaviorCombo->blockSignals(false);
@@ -255,6 +285,8 @@ void SettingsPage::loadSettings()
     m_indexIntervalCombo->blockSignals(false);
     m_indexSourceCombo->blockSignals(false);
     m_moduleSourceCombo->blockSignals(false);
+    m_concurrencyCombo->blockSignals(false);
+    m_installSuggestsToggle->blockSignals(false);
 }
 
 void SettingsPage::refreshBackgroundPreview()
@@ -354,6 +386,11 @@ void SettingsPage::onModuleSourceChanged(int index)
 {
     const auto source = static_cast<ConfigManager::DownloadSource>(m_moduleSourceCombo->itemData(index).toInt());
     ConfigManager::instance().setModuleDownloadSource(source);
+}
+
+void SettingsPage::onConcurrencyChanged(int index)
+{
+    ConfigManager::instance().setDownloadConcurrency(m_concurrencyCombo->itemData(index).toInt());
 }
 
 void SettingsPage::onChooseCacheDirClicked()

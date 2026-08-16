@@ -7,9 +7,6 @@
 namespace ckan {
 
 namespace {
-// 兼容门槛：模组 ksp_version 的中版本 >= 9 视为兼容（固定 1.9.0）
-constexpr int kCompatibleMinMinor = 9;
-
 QVector<Relationship> parseRelationships(const QJsonObject &obj, const QString &key, Relationship::Type type)
 {
     QVector<Relationship> out;
@@ -153,12 +150,44 @@ CkanModule CkanModule::fromJson(const QByteArray &json, QString *error)
 
 bool CkanModule::isCompatible(const GameVersion &ksp) const
 {
-    (void)ksp; // 兼容门槛固定为中版本>=9，不依赖当前 KSP 版本
-    if (kspVersion.isEmpty()) return true; // 未声明 ksp_version 视为兼容
-    const GameVersion v(kspVersion);
-    if (!v.isValid()) return true;
-    // 规则：只看中版本门槛，中版本 >= 9 兼容，< 9 不兼容（固定 1.9.0）
-    return v.minor() >= kCompatibleMinMinor;
+    // 官方 StrictGameComparator 语义（CKAN-master/Core/Types/GameComparator/StrictGameComparator.cs）：
+    // 1) 无任何 ksp_version 信息 -> 兼容一切
+    // 2) 安装了 ksp_version（非 strict） -> 视为下界 [ksp_version, +inf)
+    // 3) ksp_version + strict -> 等值区间 [ksp_version, ksp_version]
+    // 4) ksp_version_min / ksp_version_max -> 相应单侧区间
+    // 5) 两者都声明 -> [min, max]
+    // 游戏版本检测失败（ksp 无效）时按兼容处理。
+    if (!ksp.isValid())
+        return true;
+
+    if (kspVersion.isEmpty() && kspVersionMin.isEmpty() && kspVersionMax.isEmpty())
+        return true;
+
+    const GameVersion kspVer(kspVersion);
+    const GameVersion minVer(kspVersionMin);
+    const GameVersion maxVer(kspVersionMax);
+
+    GameVersion lower;   // 无效值代表无界
+    GameVersion upper;
+    if (!kspVersion.isEmpty()) {
+        if (kspVersionStrict) {
+            lower = kspVer;
+            upper = kspVer;
+        } else {
+            lower = kspVer; // 非 strict：作为最低兼容版本
+        }
+    }
+    if (!kspVersionMin.isEmpty())
+        lower = minVer; // 显式 min 优先于 ksp_version 推导出的下界
+    if (!kspVersionMax.isEmpty())
+        upper = maxVer; // 显式 max 优先于 ksp_version 推导出的上界
+
+    // 区间有效性：min > max 视为不兼容
+    if (lower.isValid() && upper.isValid() && lower > upper)
+        return false;
+
+    const GameVersionRange range(lower, true, upper, true);
+    return range.contains(ksp);
 }
 
 QVector<ModuleInstallDescriptor> CkanModule::effectiveInstallStanzas() const

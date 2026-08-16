@@ -130,6 +130,58 @@ bool ModuleVersion::equals(const ModuleVersion &other) const
 }
 
 // ---------------------------------------------------------------------------
+// GameVersionRange
+// ---------------------------------------------------------------------------
+
+GameVersionRange::GameVersionRange()
+{
+}
+
+GameVersionRange::GameVersionRange(const GameVersion &lower, bool lowerInclusive,
+                                   const GameVersion &upper, bool upperInclusive)
+{
+    // 无效的 GameVersion 表示该侧无界（对应官方 GameVersion.Any）。
+    if (lower.isValid()) {
+        m_lowerSet = true;
+        m_lower = lower;
+    }
+    if (upper.isValid()) {
+        m_upperSet = true;
+        m_upper = upper;
+    }
+    // 兼容判定只使用等值/无界区间，两侧边界恒为包含
+    (void)lowerInclusive;
+    (void)upperInclusive;
+}
+
+bool GameVersionRange::contains(const GameVersion &value) const
+{
+    if (m_lowerSet && value < m_lower) return false;
+    if (m_upperSet && value > m_upper) return false;
+    return true;
+}
+
+bool GameVersionRange::intersects(const GameVersionRange &other) const
+{
+    // 交集下界 = 两者下界较大者；交集上界 = 两者上界较小者。
+    // 当下界与上界都存在且 下界 > 上界 时无交集。
+    const bool hasLower = lowerSet() || other.lowerSet();
+    GameVersion lo;
+    if (hasLower) {
+        if (lowerSet() && other.lowerSet()) lo = lower() > other.lower() ? lower() : other.lower();
+        else lo = lowerSet() ? lower() : other.lower();
+    }
+    const bool hasUpper = upperSet() || other.upperSet();
+    GameVersion hi;
+    if (hasUpper) {
+        if (upperSet() && other.upperSet()) hi = upper() < other.upper() ? upper() : other.upper();
+        else hi = upperSet() ? upper() : other.upper();
+    }
+    if (hasLower && hasUpper && lo > hi) return false;
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // GameVersion
 // ---------------------------------------------------------------------------
 

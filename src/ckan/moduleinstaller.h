@@ -39,11 +39,13 @@ public:
 
     // 阶段一：下载全部模块的 zip 到 downloadDir（复用已存在且有效的缓存，只补缺失/损坏的）。
     // 全程报 byteProgress 聚合进度，支持 cancel() 中止。返回是否全部就绪。
+    // maxConcurrent 为并行下载数（>1 时多模块同时下载），默认 3。
     bool downloadModules(const QVector<CkanModule> &modules,
                          const QString &downloadDir,
                          const QStringList &mirrorPrefixes,
                          bool preferModuleMirrors,
-                         QString *error);
+                         QString *error,
+                         int maxConcurrent = 3);
 
     // 阶段二：从缓存安装（不再下载）。zip 缺失/损坏时返回错误。
     // foldersToDelete 为相对 GameData 的顶层文件夹名：写入前若命中，先递归删除旧文件夹。
@@ -83,6 +85,23 @@ signals:
 private:
     GameInstance *m_instance;
     std::atomic_bool m_cancelRequested{false};
+
+    // 单个模组下载任务（并行下载 worker 的输入）
+    struct DownloadTask {
+        CkanModule mod;
+        QString zipPath;      // 缓存写入路径
+        QStringList mirrors;  // 拼接了镜像前缀的备用 URL
+        qint64 size = 1;      // downloadSize（未知时为 1）
+    };
+    // 单个模组下载结果
+    struct DownloadOutcome {
+        bool ok = false;
+        QString identifier;
+        QString error;
+    };
+    // 下载单个模组（在并发池线程内执行）。doneBytes 为跨线程累计的已下载字节数。
+    DownloadOutcome downloadOneTask(const DownloadTask &task, std::atomic<qint64> &doneBytes,
+                                    qint64 totalBytes, bool preferModuleMirrors);
 };
 
 } // namespace ckan

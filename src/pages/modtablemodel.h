@@ -99,6 +99,14 @@ public:
         beginFilterChange();
         endFilterChange();
     }
+    // 设置当前实例实际检测到的 KSP 版本，用于按真实游戏版本过滤模组兼容性
+    void setGameVersion(const ckan::GameVersion &v)
+    {
+        if (m_gameVersion == v) return;
+        m_gameVersion = v;
+        beginFilterChange();
+        endFilterChange();
+    }
 
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
@@ -107,6 +115,7 @@ private:
     int m_statusFilter = -1;
     bool m_showIncompatible = false;
     QString m_search;
+    ckan::GameVersion m_gameVersion; // 当前实例实际 KSP 版本（无效表示未检测到，按兼容处理）
 };
 
 #endif // MODSTABLEMODEL_H

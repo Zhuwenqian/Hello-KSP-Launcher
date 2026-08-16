@@ -4,6 +4,8 @@
 #include <QTcpSocket>
 #include <QHostAddress>
 #include <QFileInfo>
+#include <QUrl>
+#include <QCryptographicHash>
 
 #include "miniz.h"
 
@@ -48,11 +50,19 @@ static Relationship prov(const QString &name)
     return r;
 }
 
+static Relationship sug(const QString &name, const QString &minVer = QString())
+{
+    Relationship r = rel(name, minVer);
+    r.type = Relationship::Type::Suggests;
+    return r;
+}
+
 static CkanModule makeModule(const QString &id, const QString &version,
                              const QVector<Relationship> &depends = {},
                              const QVector<Relationship> &recommends = {},
                              const QVector<Relationship> &conflicts = {},
-                             const QVector<Relationship> &provides = {})
+                             const QVector<Relationship> &provides = {},
+                             const QVector<Relationship> &suggests = {})
 {
     CkanModule m;
     m.identifier = id;
@@ -62,6 +72,7 @@ static CkanModule makeModule(const QString &id, const QString &version,
     m.recommends = recommends;
     m.conflicts = conflicts;
     m.provides = provides;
+    m.suggests = suggests;
     return m;
 }
 
@@ -146,6 +157,46 @@ private slots:
         QVERIFY(GameVersion(QStringLiteral("1.12.3")) < GameVersion(QStringLiteral("1.13.0")));
         QVERIFY(GameVersion(QStringLiteral("1.12.3")) == GameVersion(QStringLiteral("1.12.3.0")));
     }
+    void rangeContains()
+    {
+        const GameVersionRange range(GameVersion(QStringLiteral("1.10.0")), true,
+                                     GameVersion(QStringLiteral("1.12.0")), true);
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.10.0"))));
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.11.5"))));
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.12.0"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.9.9"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.1"))));
+    }
+    void rangeUnbounded()
+    {
+        // 仅下界：[lower, +inf)
+        const GameVersionRange lowerOnly(GameVersion(QStringLiteral("1.10.0")), true,
+                                         GameVersion(), true);
+        QVERIFY(lowerOnly.contains(GameVersion(QStringLiteral("1.10.0"))));
+        QVERIFY(lowerOnly.contains(GameVersion(QStringLiteral("2.0.0"))));
+        QVERIFY(!lowerOnly.contains(GameVersion(QStringLiteral("1.9.9"))));
+        // 仅上界：(-inf, upper]
+        const GameVersionRange upperOnly(GameVersion(), true,
+                                         GameVersion(QStringLiteral("1.12.0")), true);
+        QVERIFY(upperOnly.contains(GameVersion(QStringLiteral("1.0.0"))));
+        QVERIFY(upperOnly.contains(GameVersion(QStringLiteral("1.12.0"))));
+        QVERIFY(!upperOnly.contains(GameVersion(QStringLiteral("1.12.1"))));
+    }
+    void rangeIntersects()
+    {
+        const GameVersionRange a(GameVersion(QStringLiteral("1.10.0")), true,
+                                 GameVersion(QStringLiteral("1.12.0")), true);
+        const GameVersionRange b(GameVersion(QStringLiteral("1.11.0")), true,
+                                 GameVersion(QStringLiteral("1.13.0")), true);
+        QVERIFY(a.intersects(b));
+        const GameVersionRange c(GameVersion(QStringLiteral("1.13.0")), true,
+                                 GameVersion(QStringLiteral("1.14.0")), true);
+        QVERIFY(!a.intersects(c));
+        // 无界区间与任何区间相交
+        const GameVersionRange any;
+        QVERIFY(any.intersects(a));
+        QVERIFY(a.intersects(any));
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -221,25 +272,66 @@ private slots:
     }
     void compatible()
     {
-        // 新规则：只看中版本门槛（固定 1.9.0，中版本 >= 9 兼容），不依赖当前 KSP 版本
+        // 规则（官方 StrictGameComparator）：
+        //   ksp_version 且非 strict -> 下界 [ksp_version, +inf)
+        //   ksp_version + strict -> 等值 [ksp_version, ksp_version]
+        //   ksp_version_min + ksp_version_max -> [min, max]
+        //   游戏版本检测失败（无效）视为兼容
         CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
-        m.kspVersion = QStringLiteral("1.12.3"); // 中版本 12 >= 9
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        const GameVersion ksp(GameVersion(QStringLiteral("1.12.3")));
+
+        // 1) ksp_version 非 strict：兼容实际游戏版本及更高版本
+        m.kspVersion = QStringLiteral("1.12.3");
+        QVERIFY(m.isCompatible(ksp));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.13.0"))));
         QVERIFY(m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3.220"))));
-        QVERIFY(m.isCompatible(GameVersion())); // 参数不参与判断
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.11.0"))));
 
-        m.kspVersion = QStringLiteral("1.9.0"); // 中版本 9 == 门槛，兼容
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        // 2) ksp_version strict：等值匹配
+        m.kspVersion = QStringLiteral("1.12.3");
+        m.kspVersionStrict = true;
+        QVERIFY(m.isCompatible(ksp));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.4"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
 
-        m.kspVersion = QStringLiteral("1.8.1"); // 中版本 8 < 9，不兼容
-        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        // 3) ksp_version_min + ksp_version_max：区间
+        m.kspVersionStrict = false;
+        m.kspVersion.clear();
+        m.kspVersionMin = QStringLiteral("1.10.0");
+        m.kspVersionMax = QStringLiteral("1.12.0");
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.10.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.1"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.9.9"))));
 
-        m.kspVersion = QString(); // 未声明 ksp_version 视为兼容
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        // 4) 仅 ksp_version_min：下界
+        m.kspVersionMax.clear();
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.10.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.9.9"))));
 
-        m.kspVersion = QStringLiteral("not-a-version"); // 非法 ksp_version 视为兼容
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3"))));
+        // 5) 仅 ksp_version_max：上界
+        m.kspVersionMin.clear();
+        m.kspVersionMax = QStringLiteral("1.12.0");
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.0.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.1"))));
+
+        // 6) 未声明任何 ksp_version 信息 -> 兼容一切
+        m.kspVersion.clear();
+        m.kspVersionMin.clear();
+        m.kspVersionMax.clear();
+        QVERIFY(m.isCompatible(ksp));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.0.0"))));
+        QVERIFY(m.isCompatible(GameVersion()));
+
+        // 7) 游戏版本检测失败（无效）视为兼容
+        m.kspVersion = QStringLiteral("1.12.3");
+        QVERIFY(m.isCompatible(GameVersion()));
+
+        // 8) 非法 ksp_version 字符串 -> 无效版本 -> 视为兼容（因为无合法区间约束）
+        m.kspVersion = QStringLiteral("not-a-version");
+        QVERIFY(m.isCompatible(ksp));
     }
     void effectiveInstallDefault()
     {
@@ -625,6 +717,118 @@ private slots:
         for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
         QVERIFY(ids.contains(QStringLiteral("B")));
     }
+    void suggestsCollectedWhenEnabled()
+    {
+        // A 建议 S：withSuggests=true 时 S 出现在 suggestedModules，但不自动安装
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("S"))});
+        const CkanModule S = makeModule(QStringLiteral("S"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, S});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false, true);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> inst;
+        for (const CkanModule &m : r.modulesToInstall) inst.insert(m.identifier);
+        QVERIFY(inst.contains(QStringLiteral("A")));
+        QVERIFY(!inst.contains(QStringLiteral("S"))); // 建议不自动进入安装集
+        QSet<QString> sugSet;
+        for (const CkanModule &m : r.suggestedModules) sugSet.insert(m.identifier);
+        QVERIFY(sugSet.contains(QStringLiteral("S")));
+    }
+    void suggestsIgnoredWhenDisabled()
+    {
+        // withSuggests=false 时不收集建议
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("S"))});
+        const CkanModule S = makeModule(QStringLiteral("S"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, S});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false, false);
+        QVERIFY(r.suggestedModules.isEmpty());
+    }
+    void suggestsCascade()
+    {
+        // A 建议 B，B 建议 C：级联收集 B 和 C
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("C"))});
+        const CkanModule C = makeModule(QStringLiteral("C"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B, C});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false, true);
+        QSet<QString> sugSet;
+        for (const CkanModule &m : r.suggestedModules) sugSet.insert(m.identifier);
+        QVERIFY(sugSet.contains(QStringLiteral("B")));
+        QVERIFY(sugSet.contains(QStringLiteral("C")));
+    }
+    void suggestsExcludeInstalled()
+    {
+        // A 建议 S，但 S 已安装：不再出现在建议中
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("S"))});
+        const CkanModule S = makeModule(QStringLiteral("S"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, S});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("S");
+        im.module = S;
+        reg.installedModules[QStringLiteral("S")] = im;
+        const ResolutionResult r = resolver.resolve({A}, reg, false, true);
+        QVERIFY(r.suggestedModules.isEmpty());
+    }
+    void suggestsCycleTerminates()
+    {
+        // A 建议 B，B 建议 A：级联去重，不成环不重复
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("A"))});
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false, true);
+        QSet<QString> sugSet;
+        for (const CkanModule &m : r.suggestedModules) sugSet.insert(m.identifier);
+        QVERIFY(sugSet.contains(QStringLiteral("B")));
+        QVERIFY(!sugSet.contains(QStringLiteral("A"))); // A 在安装集，不作为建议
+    }
+    void suggestsSelectedThenResolvedWithDeps()
+    {
+        // 模拟"弹窗选中建议后重新解析"：选中 S 后，S 的依赖 D 也进入安装集
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("S"))});
+        const CkanModule S = makeModule(QStringLiteral("S"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("D"))});
+        const CkanModule D = makeModule(QStringLiteral("D"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, S, D});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r1 = resolver.resolve({A}, reg, false, true);
+        QSet<QString> sugSet;
+        for (const CkanModule &m : r1.suggestedModules) sugSet.insert(m.identifier);
+        QVERIFY(sugSet.contains(QStringLiteral("S")));
+
+        // 用户勾选 S，重新解析
+        QVector<CkanModule> selected;
+        for (const CkanModule &m : r1.suggestedModules)
+            if (m.identifier == QStringLiteral("S")) selected.append(m);
+        QVector<CkanModule> combined = {A};
+        combined += selected;
+        const ResolutionResult r2 = resolver.resolve(combined, reg, false, false);
+        QVERIFY(!r2.missing);
+        QVERIFY(!r2.conflicted);
+        QSet<QString> inst;
+        for (const CkanModule &m : r2.modulesToInstall) inst.insert(m.identifier);
+        QVERIFY(inst.contains(QStringLiteral("A")));
+        QVERIFY(inst.contains(QStringLiteral("S")));
+        QVERIFY(inst.contains(QStringLiteral("D"))); // S 的依赖被解析
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -794,6 +998,85 @@ private slots:
         // 已登记为安装
         QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
     }
+
+    void detectVersionFromBuildIDLine()
+    {
+        // 官方 buildID 格式："build id = 0*NNNN"，前导 0 忽略，经映射表换算成版本
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        auto mkfile = [&](const QString &name, const QByteArray &content) {
+            QFile f(dir.filePath(name));
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(name));
+            f.write(content);
+            f.close();
+        };
+        mkfile(QStringLiteral("buildID64.txt"),
+               "Kerbal Space Program\n\nbuild id = 03190\n\nsteam build id = 0xCA7\n");
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const GameVersion v = gi.detectVersion();
+        QVERIFY(v.isValid());
+        QCOMPARE(v.toString(), QStringLiteral("1.12.5.3190"));
+        QCOMPARE(v.major(), 1);
+        QCOMPARE(v.minor(), 12);
+        QCOMPARE(v.build(), 3190);
+    }
+
+    void detectVersionFromPlainNumericBuildID()
+    {
+        // 兼容整个文件就是纯数字的情况
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile f(dir.filePath(QStringLiteral("buildID.txt")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("3190");
+        f.close();
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        QCOMPARE(gi.detectVersion().toString(), QStringLiteral("1.12.5.3190"));
+    }
+
+    void detectVersionPicksMaxOfBothFiles()
+    {
+        // 同时存在 buildID64.txt / buildID.txt，取其中版本最大值（对齐官方 KspBuildIdVersionProvider）
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        auto mkfile = [&](const QString &name, const QByteArray &content) {
+            QFile f(dir.filePath(name));
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(name));
+            f.write(content);
+            f.close();
+        };
+        mkfile(QStringLiteral("buildID64.txt"), "build id = 03173\n"); // 1.12.3.3173
+        mkfile(QStringLiteral("buildID.txt"),   "build id = 03190\n"); // 1.12.5.3190
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        QCOMPARE(gi.detectVersion().toString(), QStringLiteral("1.12.5.3190"));
+    }
+
+    void detectVersionFallsBackToReadmeWhenBuildIDUnknown()
+    {
+        // buildID 存在但 id 未命中映射表（如 99999）→ 回退 readme.txt 中的版本行
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        auto mkfile = [&](const QString &name, const QByteArray &content) {
+            QFile f(dir.filePath(name));
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(name));
+            f.write(content);
+            f.close();
+        };
+        mkfile(QStringLiteral("buildID.txt"), "build id = 099999\n");
+        mkfile(QStringLiteral("readme.txt"),
+               "Kerbal Space Program\n\nVersion 1.12.3\n\nThanks for playing!\n");
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        QCOMPARE(gi.detectVersion().toString(), QStringLiteral("1.12.3"));
+    }
+
+    void detectVersionNoInfoReturnsInvalid()
+    {
+        // 既无 buildID 文件也无 readme → 无效版本
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        QVERIFY(!gi.detectVersion().isValid());
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -937,6 +1220,113 @@ private slots:
 };
 
 // ---------------------------------------------------------------------------
+// 模组下载：SHA256 校验与多线程并行
+// ---------------------------------------------------------------------------
+class TestModuleDownload : public QObject
+{
+    Q_OBJECT
+private slots:
+    void hashVerificationAcceptsMatch()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+
+        // 构造合法 zip 并计算其 SHA256
+        const QByteArray zip = makeZip({{QStringLiteral("GameData/ModA/a.dll"), QByteArray("dll")}});
+        const QString sha256 = QString::fromLatin1(
+            QCryptographicHash::hash(zip, QCryptographicHash::Sha256).toHex());
+
+        const QString srcPath = dir.filePath(QStringLiteral("src.zip"));
+        QFile sf(srcPath);
+        QVERIFY(sf.open(QIODevice::WriteOnly));
+        sf.write(zip);
+        sf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = {QUrl::fromLocalFile(srcPath).toString()};
+        mod.downloadSize = zip.size();
+        mod.downloadHash.sha256 = sha256;
+
+        QString err;
+        const QString downloadDir = dir.filePath(QStringLiteral("downloads"));
+        QVERIFY2(installer.downloadModules({mod}, downloadDir, {}, false, &err, 1),
+                 qPrintable(err));
+        const QString cached = downloadDir + QLatin1Char('/') + QStringLiteral("ModA_1.0.zip");
+        QVERIFY(QFile::exists(cached));
+        QFile cf(cached);
+        QVERIFY(cf.open(QIODevice::ReadOnly));
+        QCOMPARE(cf.readAll(), zip);
+    }
+
+    void hashVerificationRejectsMismatch()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+
+        const QByteArray zip = makeZip({{QStringLiteral("GameData/ModA/a.dll"), QByteArray("dll")}});
+        const QString srcPath = dir.filePath(QStringLiteral("src.zip"));
+        QFile sf(srcPath);
+        QVERIFY(sf.open(QIODevice::WriteOnly));
+        sf.write(zip);
+        sf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = {QUrl::fromLocalFile(srcPath).toString()};
+        mod.downloadSize = zip.size();
+        mod.downloadHash.sha256 = QStringLiteral("0000000000000000000000000000000000000000");
+
+        QString err;
+        const QString downloadDir = dir.filePath(QStringLiteral("downloads"));
+        QVERIFY(!installer.downloadModules({mod}, downloadDir, {}, false, &err, 1));
+        QVERIFY(!err.isEmpty());
+        // 校验失败的下载不应写入缓存
+        const QString cached = downloadDir + QLatin1Char('/') + QStringLiteral("ModA_1.0.zip");
+        QVERIFY(!QFile::exists(cached));
+    }
+
+    void parallelDownloads()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+
+        const QString srcDir = dir.filePath(QStringLiteral("src"));
+        QDir().mkpath(srcDir);
+        QVector<CkanModule> mods;
+        for (const QString &id : {QStringLiteral("ModA"), QStringLiteral("ModB")}) {
+            const QByteArray zip =
+                makeZip({{QStringLiteral("GameData/%1/x.dll").arg(id), QByteArray("dll")}});
+            const QString srcPath = srcDir + QLatin1Char('/') + id + QStringLiteral(".zip");
+            QFile sf(srcPath);
+            QVERIFY(sf.open(QIODevice::WriteOnly));
+            sf.write(zip);
+            sf.close();
+            CkanModule mod = makeModule(id, QStringLiteral("1.0"));
+            mod.downloadUrls = {QUrl::fromLocalFile(srcPath).toString()};
+            mod.downloadSize = zip.size();
+            mod.downloadHash.sha256 = QString::fromLatin1(
+                QCryptographicHash::hash(zip, QCryptographicHash::Sha256).toHex());
+            mods.append(mod);
+        }
+
+        QString err;
+        const QString downloadDir = dir.filePath(QStringLiteral("downloads"));
+        QVERIFY2(installer.downloadModules(mods, downloadDir, {}, false, &err, 2),
+                 qPrintable(err));
+        for (const CkanModule &mod : mods) {
+            const QString cached = downloadDir + QLatin1Char('/')
+                                 + mod.identifier + QStringLiteral("_1.0.zip");
+            QVERIFY(QFile::exists(cached));
+        }
+    }
+};
+
+// ---------------------------------------------------------------------------
 // 仓库索引：版本排序与最新版本选取（search() 依赖的逻辑）
 // ---------------------------------------------------------------------------
 class TestRepoIndex : public QObject
@@ -988,6 +1378,7 @@ int main(int argc, char *argv[])
     TestRelationshipResolver tResolver;
     TestDownloader tDownloader;
     TestRepoIndex tRepoIndex;
+    TestModuleDownload tModDownload;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -997,6 +1388,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tGameInst);
     failures += runSuite(argc, argv, tResolver);
     failures += runSuite(argc, argv, tDownloader);
+    failures += runSuite(argc, argv, tModDownload);
     failures += runSuite(argc, argv, tRepoIndex);
     return failures;
 }

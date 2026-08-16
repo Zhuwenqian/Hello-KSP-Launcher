@@ -60,18 +60,20 @@ QStringList CKan::allIdentifiers() const
     return m_index.keys();
 }
 
-ResolutionResult CKan::resolveInstall(const CkanModule &mod, bool autoInstallRecommends)
+ResolutionResult CKan::resolveInstall(const CkanModule &mod, bool autoInstallRecommends,
+                                       bool withSuggests)
 {
     QVector<CkanModule> toInstall;
     toInstall.append(mod);
-    return resolveInstallMany(toInstall, autoInstallRecommends);
+    return resolveInstallMany(toInstall, autoInstallRecommends, withSuggests);
 }
 
 ResolutionResult CKan::resolveInstallMany(const QVector<CkanModule> &mods,
-                                          bool autoInstallRecommends)
+                                          bool autoInstallRecommends,
+                                          bool withSuggests)
 {
     RelationshipResolver resolver(m_index);
-    return resolver.resolve(mods, *registry(), autoInstallRecommends);
+    return resolver.resolve(mods, *registry(), autoInstallRecommends, withSuggests);
 }
 
 InstallResult CKan::install(const QVector<CkanModule> &modules, const QString &downloadDir,

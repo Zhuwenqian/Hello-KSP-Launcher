@@ -60,7 +60,8 @@ QString conflictWith(const CkanModule &m, const QSet<QString> &selectedIds,
 
 ResolutionResult RelationshipResolver::resolve(const QVector<CkanModule> &modulesToInstall,
                                                const Registry &registry,
-                                               bool autoInstallRecommends)
+                                               bool autoInstallRecommends,
+                                               bool withSuggests)
 {
     ResolutionResult result;
     QMap<QString, CkanModule> selectedByIdent;   // identifier -> module
@@ -163,6 +164,39 @@ ResolutionResult RelationshipResolver::resolve(const QVector<CkanModule> &module
         for (const Relationship &rel : m.depends) processRel(rel, false);
         if (autoInstallRecommends)
             for (const Relationship &rel : m.recommends) processRel(rel, true);
+    }
+
+    // 收集级联建议模组（仅收集，不加入安装集；由 UI 层弹窗让用户勾选）
+    if (withSuggests) {
+        QSet<QString> suggestedSeen;   // 去重，防止级联成环
+        QVector<CkanModule> suggestQueue;
+        auto enqueueSuggests = [&](const CkanModule &m) {
+            for (const Relationship &rel : m.suggests) {
+                if (providedBySet(selectedProvided, rel.name))
+                    continue; // 已安装/已选中，无需建议
+                QVector<CkanModule> candidates;
+                const auto found = m_index.constFind(rel.name);
+                if (found != m_index.constEnd())
+                    candidates = found.value();
+                else {
+                    const auto vf = virtualIndex.constFind(rel.name);
+                    if (vf != virtualIndex.constEnd())
+                        candidates = vf.value();
+                }
+                if (candidates.isEmpty())
+                    continue; // 建议找不到对应的模组，忽略
+                const CkanModule sug = pickBest(candidates, rel);
+                if (!sug.isValid() || selectedProvided.contains(sug.identifier)
+                    || suggestedSeen.contains(sug.identifier))
+                    continue;
+                suggestedSeen.insert(sug.identifier);
+                result.suggestedModules.append(sug);
+                suggestQueue.append(sug); // 级联：建议模组的建议也继续收集
+            }
+        };
+        for (const CkanModule &m : queue) enqueueSuggests(m);
+        for (int i = 0; i < suggestQueue.size(); ++i)
+            enqueueSuggests(suggestQueue.at(i));
     }
 
     // 组装结果（保持依赖在前：按入队顺序）

@@ -6,6 +6,12 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QAbstractButton>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QCheckBox>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QScrollArea>
 #include <QSet>
 #include <QtConcurrent/QtConcurrent>
 #include <algorithm>
@@ -361,11 +367,28 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
                                     const QString &doneMessage)
 {
     if (!m_ckan || mods.isEmpty()) return;
-    const ckan::ResolutionResult res = m_ckan->resolveInstallMany(mods, autoRecommends);
+    const bool showSuggests = ConfigManager::instance().installSuggests();
+    ckan::ResolutionResult res = m_ckan->resolveInstallMany(mods, autoRecommends, showSuggests);
     if (res.conflicted) { emit operationFinished(false, res.conflicts.join(QLatin1Char('\n'))); return; }
     if (res.missing)    { emit operationFinished(false, tr("缺少依赖：%1").arg(res.notFound.join(QLatin1Char(',')))); return; }
 
-    const QVector<ckan::CkanModule> modules = res.modulesToInstall;
+    QVector<ckan::CkanModule> modules = res.modulesToInstall;
+
+    // 级联建议：弹窗让用户勾选可选模组；选中的并入安装集重新解析（连其依赖一起）
+    if (showSuggests && !res.suggestedModules.isEmpty()) {
+        bool cancelled = false;
+        const QVector<ckan::CkanModule> selected = askSuggests(res.suggestedModules, &cancelled);
+        if (cancelled) { emit operationFinished(false, tr("已取消")); return; }
+        if (!selected.isEmpty()) {
+            QVector<ckan::CkanModule> combined = mods;
+            combined += selected;
+            const ckan::ResolutionResult res2 = m_ckan->resolveInstallMany(combined, autoRecommends, false);
+            if (res2.conflicted) { emit operationFinished(false, res2.conflicts.join(QLatin1Char('\n'))); return; }
+            if (res2.missing)    { emit operationFinished(false, tr("缺少依赖：%1").arg(res2.notFound.join(QLatin1Char(',')))); return; }
+            modules = res2.modulesToInstall;
+        }
+    }
+
     if (modules.isEmpty()) { emit operationFinished(true, tr("无需操作")); return; }
 
     // 已安装但需更新的：安装前先卸载旧版本
@@ -384,12 +407,14 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
     // 阶段一（后台）：下载全部 zip 到缓存，并读取 zip 实际内容计算与手动占用的冲突
     const bool preferModuleMirrors =
         ConfigManager::instance().moduleDownloadSource() == ConfigManager::MirrorFirst;
+    const int concurrency = ConfigManager::instance().downloadConcurrency();
     auto watcher = new QFutureWatcher<DownloadPhaseResult>(this);
     m_downloadWatcher = watcher;
-    auto future = QtConcurrent::run([this, modules, preferModuleMirrors]() {
+    auto future = QtConcurrent::run([this, modules, preferModuleMirrors, concurrency]() {
         DownloadPhaseResult r;
         r.ok = m_installer->downloadModules(modules, downloadDir(),
-                                            m_moduleMirrorPrefixes, preferModuleMirrors, &r.error);
+                                            m_moduleMirrorPrefixes, preferModuleMirrors,
+                                            &r.error, concurrency);
         if (r.ok)
             r.conflicts = computeActualFolderConflicts(modules, downloadDir());
         return r;
@@ -468,6 +493,59 @@ QStringList CKanManager::askFolderConflicts(const QStringList &conflicts)
     if (clicked == cancel)    return QStringList{QStringLiteral("__CANCEL__")};
     if (clicked == allDelete) return conflicts; // 全部删除旧的保留新的
     return QStringList();                       // 全部覆盖：不删除任何文件夹
+}
+
+// 级联建议勾选弹窗：每个建议模组一个复选框（默认勾选）。
+// cancelled 输出用户是否取消（区别于"全都不选"）。
+QVector<ckan::CkanModule> CKanManager::askSuggests(const QVector<ckan::CkanModule> &suggests,
+                                                   bool *cancelled)
+{
+    *cancelled = false;
+    if (suggests.isEmpty()) return {};
+
+    QDialog dlg;
+    dlg.setWindowTitle(tr("建议安装的模组"));
+    dlg.setMinimumWidth(560);
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+
+    QLabel *info = new QLabel(tr("以下模组为可选建议（Suggests），可按需勾选："), &dlg);
+    info->setWordWrap(true);
+    lay->addWidget(info);
+
+    QScrollArea *scroll = new QScrollArea(&dlg);
+    scroll->setWidgetResizable(true);
+    QWidget *listHost = new QWidget(scroll);
+    QVBoxLayout *listLay = new QVBoxLayout(listHost);
+    QVector<QCheckBox*> boxes;
+    for (const ckan::CkanModule &m : suggests) {
+        QString text = m.name + QStringLiteral("  (") + m.identifier
+                     + QStringLiteral(" ") + m.version + QStringLiteral(")");
+        if (!m.abstract.isEmpty())
+            text += QStringLiteral("\n    ") + m.abstract;
+        QCheckBox *cb = new QCheckBox(text, listHost);
+        cb->setChecked(true);
+        boxes.append(cb);
+        listLay->addWidget(cb);
+    }
+    listLay->addStretch();
+    scroll->setWidget(listHost);
+    lay->addWidget(scroll, 1);
+
+    QDialogButtonBox *btnBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    btnBox->button(QDialogButtonBox::Ok)->setText(tr("安装所选"));
+    btnBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+    connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    lay->addWidget(btnBox);
+
+    if (dlg.exec() != QDialog::Accepted) {
+        *cancelled = true;
+        return {};
+    }
+    QVector<ckan::CkanModule> sel;
+    for (int i = 0; i < boxes.size(); ++i)
+        if (boxes.at(i)->isChecked()) sel.append(suggests.at(i));
+    return sel;
 }
 
 void CKanManager::startInstallPhase(const QVector<ckan::CkanModule> &modules,

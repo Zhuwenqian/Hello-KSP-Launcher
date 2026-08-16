@@ -52,10 +52,12 @@ public:
 
     // ---- 安装相关 ----
     // 解析安装某模块所需的完整集合（含依赖）
-    ResolutionResult resolveInstall(const CkanModule &mod, bool autoInstallRecommends = true);
+    ResolutionResult resolveInstall(const CkanModule &mod, bool autoInstallRecommends = true,
+                                    bool withSuggests = false);
     // 一次性解析多个模块的完整安装集（含相互依赖，用于批量安装）
     ResolutionResult resolveInstallMany(const QVector<CkanModule> &mods,
-                                        bool autoInstallRecommends = true);
+                                        bool autoInstallRecommends = true,
+                                        bool withSuggests = false);
     // 执行安装（downloadDir 为 zip 缓存目录）
     // mirrorPrefixes 为模组下载镜像前缀（每个前缀拼接在官方 URL 前，如 "https://gh-proxy.com/"）；
     // preferModuleMirrors=true 时镜像优先（否则官方优先）。

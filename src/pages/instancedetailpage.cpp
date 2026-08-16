@@ -535,8 +535,11 @@ void InstanceDetailPage::loadMods()
 
     // 扫描 GameData DLL，识别手动安装模组（AD）
     mgr.scanUnmanagedDlls();
-    if (m_modsProxy)
+    if (m_modsProxy) {
         m_modsProxy->setShowIncompatible(ConfigManager::instance().showIncompatibleMods());
+        // 传入实际检测到的 KSP 版本，按真实游戏版本过滤不兼容模组
+        m_modsProxy->setGameVersion(mgr.detectedVersion());
+    }
 
     if (!mgr.indexReady()) {
         // 首次进入：自动加载仓库索引（优先使用本地缓存）

@@ -32,6 +32,11 @@ public:
     void closeInstance();
     bool hasInstance() const { return m_ckan != nullptr; }
     QString gameDir() const;
+    // 当前实例实际检测到的 KSP 版本（检测失败返回无效版本）
+    ckan::GameVersion detectedVersion() const
+    {
+        return m_ckan ? m_ckan->instance()->detectVersion() : ckan::GameVersion();
+    }
 
     // ---- 缓存目录 ----
     QString cacheRoot() const;      // exe目录/ckan_cache
@@ -101,6 +106,9 @@ private:
                                              const QString &downloadDir) const;
     // 冲突弹窗（3 选项），返回待删除文件夹；用户取消返回占位 "__CANCEL__"
     QStringList askFolderConflicts(const QStringList &conflicts);
+    // 级联建议勾选弹窗；cancelled 输出用户是否取消（区别于"全都不选"）
+    QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests,
+                                          bool *cancelled);
     // 安装阶段：前置卸载 + 从缓存安装
     void startInstallPhase(const QVector<ckan::CkanModule> &modules,
                            const QStringList &foldersToDelete, const QString &doneMessage,

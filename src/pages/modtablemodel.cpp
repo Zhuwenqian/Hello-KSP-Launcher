@@ -197,7 +197,7 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     if (!mod.isValid()) return false;
 
     // 不兼容模组默认隐藏（除非开启显示）
-    if (!m_showIncompatible && !mod.isCompatible(ckan::GameVersion()))
+    if (!m_showIncompatible && !mod.isCompatible(m_gameVersion))
         return false;
 
     if (!m_search.isEmpty()) {

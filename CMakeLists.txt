@@ -66,6 +66,7 @@ target_include_directories(libckan PUBLIC
 target_link_libraries(libckan PUBLIC
     Qt6::Core
     Qt6::Network
+    Qt6::Concurrent
 )
 
 set(SOURCES
