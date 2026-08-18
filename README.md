@@ -18,6 +18,10 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **One-Click Launch** — Launch your selected KSP instance immediately. Configurable post-launch behavior: keep the launcher open, minimize to tray, or auto-close.
 - **Game Settings Editor** — Browse and edit KSP settings.cfg values in a tree view. Boolean values use a smooth toggle switch. Save changes directly.
 - **Mod & DLC Detection** — Automatically list installed DLCs and third-party mods in the GameData directory.
+- **Mod Management (CKAN)** — Install, upgrade, and uninstall mods from the CKAN repository with automatic dependency resolution (depends/recommends/suggests), strict KSP version compatibility checks based on your actual game version, and SHA256 integrity verification for every download.
+- **Parallel Downloads** — Modules download concurrently (configurable up to 8 at a time) with a unified progress view and cancel button.
+- **Mod Suggestions** — During installation, optional suggested mods (from the "suggests" field) are shown in a checkbox dialog; selected suggestions and their dependencies are resolved and installed automatically. Can be toggled in settings.
+- **Flexible Sources & Cache** — Switch between official and mirror download sources, configure the index refresh interval, and manage the download cache folder (precise cleanup and cache migration).
 - **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
 - **Backup Management** — Create, browse, and delete save backups with a progress dialog.
 - **Modpack Export** — Export GameData as a ZIP file, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files).
@@ -75,6 +79,10 @@ Settings are persisted in `HKSPL.json` next to the executable, including:
 - Language (zh_CN / en_US)
 - Launch behavior (keep open / minimize / close)
 - Background image path
+- Mod index refresh interval and download source (official / mirror)
+- Download concurrency (1–8)
+- Show suggested mods during installation
+- Download cache folder
 
 ---
 
@@ -130,6 +138,10 @@ Copyright (C) 2026. Licensed under the **GNU General Public License v3.0**. See 
 - **一键启动** — 立即启动所选 KSP 实例。支持启动后行为：保持打开、最小化到任务栏或自动关闭启动器。
 - **游戏设置编辑** — 以树形视图浏览和编辑 KSP 的 settings.cfg 配置。布尔值使用平滑动画开关控件，修改后一键保存。
 - **模组与 DLC 检测** — 自动检测已安装的 DLC 和 GameData 目录下的第三方模组。
+- **模组管理（CKAN）** — 从 CKAN 仓库安装、升级、卸载模组，自动解析依赖（Depends/Recommends/Suggests），根据实际游戏版本做严格兼容性检查，并对每次下载做 SHA256 完整性校验。
+- **并行下载** — 模组并发下载（并发数可配，最高 8），统一进度显示与取消按钮。
+- **模组建议** — 安装过程中弹窗显示可选建议模组（源自 "suggests" 字段），勾选后连同其依赖自动解析安装；可在设置中关闭。
+- **灵活的下载源与缓存** — 官方/镜像下载源可切换，索引刷新间隔可配置，支持下载缓存文件夹管理（精确清理与缓存迁移）。
 - **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑 Kerbal 属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
 - **整合包导出** — 将 GameData 目录打包为 ZIP 文件，自动排除 Squad、SquadExpansion 和 ModuleManager 缓存文件。
@@ -187,6 +199,10 @@ cmake --build .
 - 语言（zh_CN / en_US）
 - 启动后行为（保持打开 / 最小化 / 关闭）
 - 背景图片路径
+- 模组索引刷新间隔与下载源（官方 / 镜像）
+- 下载并发数（1–8）
+- 安装时是否显示建议模组
+- 下载缓存文件夹
 
 ---
 
