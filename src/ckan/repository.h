@@ -20,6 +20,11 @@ struct CKAN_API Repository {
     static Repository defaultKspRepo();
     static QString defaultRepoUrl();
     static QString repositoryListUrl();
+
+    // 预设备用仓库（供设置页“添加预设”使用）
+    static Repository presetKspCkanBackup(); // KSP-CKAN 备用（GitLab 归档）
+    static Repository presetSol();           // Sol / RSS-Reborn
+    static Repository presetMechJeb2Dev();   // MechJeb2-dev（CI 构建）
 };
 
 } // namespace ckan

@@ -277,6 +277,45 @@ void ConfigManager::setDownloadConcurrency(int count)
     }
 }
 
+QVector<ckan::Repository> ConfigManager::repositories() const
+{
+    QVector<ckan::Repository> repos;
+    const QJsonArray arr = m_config["repositories"].toArray();
+    if (arr.isEmpty()) {
+        repos.append(ckan::Repository::defaultKspRepo());
+        return repos;
+    }
+    for (int i = 0; i < arr.size(); ++i) {
+        const QJsonObject obj = arr.at(i).toObject();
+        ckan::Repository r;
+        r.name = obj["name"].toString();
+        r.uri  = obj["uri"].toString();
+        r.priority = i; // 数组顺序即优先级（首位优先级最高）
+        r.mirror = obj["mirror"].toBool(false);
+        r.comment = obj["comment"].toString();
+        if (r.isValid())
+            repos.append(r);
+    }
+    return repos;
+}
+
+void ConfigManager::setRepositories(const QVector<ckan::Repository> &repos)
+{
+    QJsonArray arr;
+    for (int i = 0; i < repos.size(); ++i) {
+        const ckan::Repository &r = repos.at(i);
+        QJsonObject obj;
+        obj["name"] = r.name;
+        obj["uri"] = r.uri;
+        obj["mirror"] = r.mirror;
+        obj["comment"] = r.comment;
+        arr.append(obj);
+    }
+    m_config["repositories"] = arr;
+    save();
+    emit configChanged();
+}
+
 QList<KSPInstance> ConfigManager::instances() const
 {
     return m_instances;

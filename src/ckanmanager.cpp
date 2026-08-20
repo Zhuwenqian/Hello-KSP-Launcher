@@ -23,10 +23,10 @@
 CKanManager::CKanManager(QObject *parent)
     : QObject(parent)
 {
-    // 索引镜像：完整 CKAN-meta 仓库 URL（官方 GitHub 优先，镜像回退）
-    m_indexMirrors = {
-        QStringLiteral("https://gh-proxy.com/https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz"),
-        QStringLiteral("https://ghfast.top/https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz"),
+    // 索引镜像前缀：拼接在仓库自身 URL 前（仅 GitHub 托管的仓库适用；官方 GitHub 优先，镜像回退）
+    m_indexMirrorPrefixes = {
+        QStringLiteral("https://gh-proxy.com/"),
+        QStringLiteral("https://ghfast.top/"),
     };
     // 模组下载镜像前缀：拼接在官方下载 URL 前（gh 代理，可代理任意 GitHub 资源）
     m_moduleMirrorPrefixes = {
@@ -151,19 +151,20 @@ void CKanManager::refreshIndexAsync(bool force)
     ckan::RepoIndex::setCacheDir(QDir(cacheRoot()).filePath(QStringLiteral("index")));
     m_indexCancelRequested.store(false);
 
-    // 从配置读取缓存有效期与镜像偏好
+    // 从配置读取仓库列表、缓存有效期与镜像偏好
+    const QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
     const qint64 maxAgeSecs = ConfigManager::instance().indexRefreshIntervalSecs();
     const bool preferMirror =
         ConfigManager::instance().indexDownloadSource() == ConfigManager::MirrorFirst;
 
     auto watcher = new QFutureWatcher<QPair<bool, QString>>(this);
     m_indexWatcher = watcher;
-    auto future = QtConcurrent::run([this, force, maxAgeSecs, preferMirror]() {
+    auto future = QtConcurrent::run([this, repos, force, maxAgeSecs, preferMirror]() {
         QString err;
-        const bool ok = m_ckan->refreshIndex(m_indexMirrors, &err, force, maxAgeSecs,
+        const bool ok = m_ckan->refreshIndex(repos, m_indexMirrorPrefixes, &err, force, maxAgeSecs,
             preferMirror,
-            [this](qint64 received, qint64 total) {
-                emit downloadProgress(QStringLiteral("仓库索引"), received, total, 0);
+            [this](const QString &repoName, qint64 received, qint64 total) {
+                emit downloadProgress(repoName, received, total, 0);
             },
             &m_indexCancelRequested);
         if (!ok && m_indexCancelRequested.load())
@@ -202,6 +203,11 @@ QVector<ckan::CkanModule> CKanManager::versionsOf(const QString &identifier) con
 ckan::CkanModule CKanManager::latestOf(const QString &identifier) const
 {
     return m_ckan ? m_ckan->latestOf(identifier) : ckan::CkanModule();
+}
+
+int CKanManager::downloadCount(const QString &identifier) const
+{
+    return m_ckan ? m_ckan->downloadCount(identifier) : -1;
 }
 
 QVector<ckan::InstalledModule> CKanManager::installedModules() const

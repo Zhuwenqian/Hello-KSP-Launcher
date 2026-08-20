@@ -20,6 +20,7 @@
 #include "ckan/relationshipresolver.h"
 #include "ckan/downloader.h"
 #include "ckan/repoindex.h"
+#include "steamdiscovery.h"
 
 using namespace ckan;
 
@@ -99,6 +100,59 @@ static QByteArray makeZip(const QList<QPair<QString, QByteArray>> &files)
     QByteArray out(static_cast<const char *>(buf), static_cast<int>(size));
     mz_free(buf);
     return out;
+}
+
+// 构造单个 tar 512 字节文件头 + 数据块（供 repoindex 解析测试使用）
+static QByteArray makeTarEntry(const QString &name, const QByteArray &data)
+{
+    QByteArray block(512, '\0');
+    const QByteArray nameBytes = name.toUtf8();
+    memcpy(block.data(), nameBytes.constData(), qMin(nameBytes.size(), 100));
+    memcpy(block.data() + 100, "0000644\0", 8);      // mode
+    memcpy(block.data() + 108, "0000000\0", 8);      // uid
+    memcpy(block.data() + 116, "0000000\0", 8);      // gid
+    memcpy(block.data() + 124,
+           QByteArray::number(data.size(), 8).rightJustified(11, '0').constData(), 11); // size
+    memcpy(block.data() + 136, "00000000000\0", 12); // mtime
+    block[156] = '0';                                // typeflag: regular file
+    memcpy(block.data() + 257, "ustar\0", 6);        // magic
+    memcpy(block.data() + 263, "00", 2);             // version
+    // checksum（先置空格再求和，再回填 6 位八进制 + NUL + 空格）
+    memset(block.data() + 148, ' ', 8);
+    unsigned sum = 0;
+    for (int i = 0; i < 512; ++i)
+        sum += static_cast<unsigned char>(block.at(i));
+    const QByteArray chk = QByteArray::number(sum, 8).rightJustified(6, '0') + '\0' + ' ';
+    memcpy(block.data() + 148, chk.constData(), 8);
+
+    QByteArray out = block;
+    out.append(data);
+    const int padded = ((data.size() + 511) / 512) * 512;
+    out.append(QByteArray(padded - data.size(), '\0'));
+    return out;
+}
+
+// 用 miniz raw deflate 构造 gzip（仓库归档测试使用；尾部 CRC/ISIZE 以 0 填充，解析器不校验）
+static QByteArray makeTarGz(const QList<QPair<QString, QByteArray>> &files)
+{
+    QByteArray tar;
+    for (const auto &f : files)
+        tar.append(makeTarEntry(f.first, f.second));
+    tar.append(QByteArray(1024, '\0')); // 两个全零块 = EOF
+
+    size_t compLen = 0;
+    void *comp = tdefl_compress_mem_to_heap(tar.constData(), static_cast<size_t>(tar.size()),
+                                            &compLen, TDEFL_DEFAULT_MAX_PROBES);
+    QByteArray gz;
+    gz.append(char(0x1f)); gz.append(char(0x8b)); gz.append(char(0x08)); // magic + deflate
+    gz.append(char(0));                                                  // flags
+    gz.append(QByteArray(4, '\0'));                                      // mtime
+    gz.append(char(0));                                                  // XFL
+    gz.append(char(0xff));                                               // OS
+    gz.append(QByteArray(static_cast<const char *>(comp), static_cast<int>(compLen)));
+    mz_free(comp);
+    gz.append(QByteArray(8, '\0')); // CRC32 + ISIZE（解析器不校验）
+    return gz;
 }
 
 // ---------------------------------------------------------------------------
@@ -1356,6 +1410,129 @@ private slots:
         const QMap<QString, QVector<CkanModule>> idx;
         QVERIFY(!RepoIndex::latestFor(idx, QStringLiteral("Missing")).isValid());
     }
+
+    void mergePrioritizesFirstRepo()
+    {
+        // 仓库1（优先级高）：A 有 1.0/2.0，B 有 1.0；计数 A=100、B=50
+        QMap<QString, QVector<CkanModule>> r1 = makeIndex({
+            makeModule(QStringLiteral("A"), QStringLiteral("1.0")),
+            makeModule(QStringLiteral("A"), QStringLiteral("2.0")),
+            makeModule(QStringLiteral("B"), QStringLiteral("1.0")),
+        });
+        QMap<QString, int> c1;
+        c1[QStringLiteral("A")] = 100;
+        c1[QStringLiteral("B")] = 50;
+
+        // 仓库2（优先级低）：A 有 2.0（与仓库1重复）/3.0；计数 A=999 应被仓库1覆盖
+        QMap<QString, QVector<CkanModule>> r2 = makeIndex({
+            makeModule(QStringLiteral("A"), QStringLiteral("2.0")),
+            makeModule(QStringLiteral("A"), QStringLiteral("3.0")),
+        });
+        QMap<QString, int> c2;
+        c2[QStringLiteral("A")] = 999;
+
+        QMap<QString, QVector<CkanModule>> index;
+        QMap<QString, int> counts;
+        RepoIndex::mergeSubIndexes({r1, r2}, {c1, c2}, &index, &counts);
+
+        // A 版本去重：2.0 只保留一次
+        const QVector<CkanModule> aVersions = index.value(QStringLiteral("A"));
+        QCOMPARE(aVersions.size(), 3);
+        QSet<QString> versions;
+        for (const CkanModule &m : aVersions) versions.insert(m.version);
+        QVERIFY(versions.contains(QStringLiteral("1.0")));
+        QVERIFY(versions.contains(QStringLiteral("2.0")));
+        QVERIFY(versions.contains(QStringLiteral("3.0")));
+        // B 只来自仓库1
+        QCOMPARE(index.value(QStringLiteral("B")).size(), 1);
+        // 计数：高优先级仓库优先
+        QCOMPARE(counts.value(QStringLiteral("A")), 100);
+        QCOMPARE(counts.value(QStringLiteral("B")), 50);
+    }
+
+    void parseTarGzReadsDownloadCounts()
+    {
+        const QByteArray tarGz = makeTarGz({
+            {QStringLiteral("CKAN-meta-master/ModA/ModA-1.2.3.ckan"),
+             QByteArrayLiteral("{\"identifier\":\"ModA\",\"name\":\"Mod A\",\"version\":\"1.2.3\"}")},
+            {QStringLiteral("CKAN-meta-master/download_counts.json"),
+             QByteArrayLiteral("{\"ModA\": 12345, \"ModB\": -1}")},
+        });
+        QMap<QString, QVector<CkanModule>> index;
+        QMap<QString, int> counts;
+        QString err;
+        QVERIFY(RepoIndex::parseTarGz(tarGz, &index, &counts, &err));
+        QCOMPARE(index.size(), 1);
+        QCOMPARE(index.value(QStringLiteral("ModA")).size(), 1);
+        QCOMPARE(index.value(QStringLiteral("ModA")).at(0).version, QStringLiteral("1.2.3"));
+        QCOMPARE(counts.value(QStringLiteral("ModA")), 12345);
+        QVERIFY(!counts.contains(QStringLiteral("ModB"))); // 负数不计入
+    }
+};
+
+class TestSteamDiscovery : public QObject
+{
+    Q_OBJECT
+private slots:
+    void parseLibraryFoldersExtractsPaths()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString vdfPath = dir.filePath(QStringLiteral("libraryfolders.vdf"));
+        QFile f(vdfPath);
+        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
+        f.write(
+            "\"libraryfolders\"\n"
+            "{\n"
+            "\t\"0\"\n"
+            "\t{\n"
+            "\t\t\"path\"\t\t\"C:\\\\Program Files (x86)\\\\Steam\"\n"
+            "\t\t\"label\"\t\t\"\"\n"
+            "\t\t\"apps\"\n"
+            "\t\t{\n"
+            "\t\t\t\"220200\"\t\t\"0\"\n"
+            "\t\t}\n"
+            "\t}\n"
+            "\t\"1\"\n"
+            "\t{\n"
+            "\t\t\"path\"\t\t\"D:\\\\SteamLibrary\"\n"
+            "\t\t\"label\"\t\t\"\"\n"
+            "\t}\n"
+            "\t// 注释行应被忽略\n"
+            "\t\"692030\"\n"
+            "\t{\n"
+            "\t\t\"path\"\t\t\"E:\\\\SteamGames\"\n"
+            "\t}\n"
+            "}\n");
+        f.close();
+
+        // 解析出的库路径应包含主库与所有附加库（含注释行之后的条目）
+        const QStringList paths = SteamDiscovery::parseLibraryFolders(vdfPath);
+        QCOMPARE(paths.size(), 3);
+        QVERIFY(paths.contains(QStringLiteral("C:\\Program Files (x86)\\Steam")));
+        QVERIFY(paths.contains(QStringLiteral("D:\\SteamLibrary")));
+        QVERIFY(paths.contains(QStringLiteral("E:\\SteamGames")));
+    }
+
+    void parseLibraryFoldersMissingFileReturnsEmpty()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(SteamDiscovery::parseLibraryFolders(
+                    dir.filePath(QStringLiteral("not_exist.vdf"))).isEmpty());
+    }
+
+    void parseLibraryFoldersMalformedReturnsEmpty()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString vdfPath = dir.filePath(QStringLiteral("bad.vdf"));
+        QFile f(vdfPath);
+        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
+        f.write("\"libraryfolders\"\n{\n\t\"0\" \"unterminated\n"); // 未闭合字符串
+        f.close();
+        QVERIFY(SteamDiscovery::parseLibraryFolders(vdfPath).isEmpty());
+    }
 };
 
 static int runSuite(int argc, char *argv[], QObject &suite)
@@ -1379,6 +1556,7 @@ int main(int argc, char *argv[])
     TestDownloader tDownloader;
     TestRepoIndex tRepoIndex;
     TestModuleDownload tModDownload;
+    TestSteamDiscovery tSteamDisc;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -1390,6 +1568,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tDownloader);
     failures += runSuite(argc, argv, tModDownload);
     failures += runSuite(argc, argv, tRepoIndex);
+    failures += runSuite(argc, argv, tSteamDisc);
     return failures;
 }
 

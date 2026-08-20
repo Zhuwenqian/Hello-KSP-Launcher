@@ -30,6 +30,7 @@ private slots:
     void applyTheme(const QString& theme);
     void onNavButtonClicked();
     void onAddInstanceRequested();
+    void runSteamDiscovery();
     void onInstanceEntered(const QString& id);
     void onBackToInstanceList();
     void onBackToHome();

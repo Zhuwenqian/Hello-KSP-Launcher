@@ -3,8 +3,12 @@
 
 #include <QObject>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QStringList>
 #include <QMap>
+#include <QVector>
+
+#include "ckan/repository.h"
 
 struct KSPInstance {
     QString id;
@@ -69,6 +73,11 @@ public:
     // 模组下载并发数（1~8），默认 3
     int downloadConcurrency() const;
     void setDownloadConcurrency(int count);
+
+    // 仓库列表（多仓库）：数组顺序即优先级（首位优先级最高）。
+    // 默认仅含 KSP-CKAN 官方仓库；可自由增删。
+    QVector<ckan::Repository> repositories() const;
+    void setRepositories(const QVector<ckan::Repository> &repos);
 
     QList<KSPInstance> instances() const;
     void addInstance(const KSPInstance& inst);

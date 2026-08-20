@@ -54,6 +54,8 @@ public:
     QVector<ckan::CkanModule> search(const QString &query) const;
     QVector<ckan::CkanModule> versionsOf(const QString &identifier) const;
     ckan::CkanModule latestOf(const QString &identifier) const;
+    // 某标识符的下载次数（来自仓库 download_counts.json）；无数据返回 -1
+    int downloadCount(const QString &identifier) const;
 
     // ---- 已安装 ----
     QVector<ckan::InstalledModule> installedModules() const;
@@ -118,7 +120,7 @@ private:
 
     ckan::CKan *m_ckan = nullptr;
     QString m_instanceName;
-    QStringList m_indexMirrors;         // 索引下载镜像（完整 CKAN-meta URL）
+    QStringList m_indexMirrorPrefixes;  // 索引下载镜像前缀（拼接在仓库自身 GitHub URL 前）
     QStringList m_moduleMirrorPrefixes; // 模组下载镜像前缀（拼接在官方下载 URL 前）
 
     ckan::ModuleInstaller *m_installer = nullptr;

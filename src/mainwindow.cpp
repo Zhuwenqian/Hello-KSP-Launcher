@@ -12,6 +12,10 @@
 #include "instancemanager.h"
 #include "iconutils.h"
 #include "backgroundmanager.h"
+#include "steamdiscovery.h"
+#include "ckan/gameinstance.h"
+#include <QSet>
+#include <QFileInfo>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_gameRunning(false),
@@ -46,6 +50,9 @@ MainWindow::MainWindow(QWidget *parent)
     setNavButtonChecked(m_homeBtn);
     showPage(m_homePage);
     m_homePage->refreshCurrentInstance();
+
+    // 启动时自动扫描 Steam 库，把发现的 KSP 直接加入实例列表（窗口显示后执行）
+    QTimer::singleShot(0, this, &MainWindow::runSteamDiscovery);
 }
 
 MainWindow::~MainWindow()
@@ -388,6 +395,49 @@ void MainWindow::onAddInstanceRequested()
     ConfigManager::instance().addInstance(inst);
 
     onCurrentInstanceChanged();
+}
+
+void MainWindow::runSteamDiscovery()
+{
+#ifdef Q_OS_WIN
+    const QStringList kspDirs = SteamDiscovery::discoverKSPDirs();
+    if (kspDirs.isEmpty()) return;
+
+    // 已存在实例按规范化路径去重，避免重复加入
+    QSet<QString> existingPaths;
+    const QList<KSPInstance> instances = ConfigManager::instance().instances();
+    for (const KSPInstance &inst : instances)
+        existingPaths.insert(QDir::cleanPath(inst.path));
+
+    int added = 0;
+    for (const QString &dir : kspDirs) {
+        const QString cleanDir = QDir::cleanPath(dir);
+        if (existingPaths.contains(cleanDir)) continue;
+
+        KSPInstance inst;
+        inst.path = cleanDir;
+        // Windows 上优先 KSP_x64.exe，回退 KSP.exe
+        const QString exe64 = QDir(cleanDir).filePath(QStringLiteral("KSP_x64.exe"));
+        const QString exe32 = QDir(cleanDir).filePath(QStringLiteral("KSP.exe"));
+        inst.exePath = QFile::exists(exe64) ? exe64 : exe32;
+
+        // 名称 = 目录名 + 检测到的版本号（如 "Kerbal Space Program (1.12.5)"）
+        inst.name = QFileInfo(cleanDir).fileName();
+        const ckan::GameVersion version = ckan::GameInstance::detectVersionFromDir(cleanDir);
+        if (version.isValid())
+            inst.name += QStringLiteral(" (%1)").arg(version.toString());
+
+        // 仅加入实例列表，不切换当前实例（实例列表页经 instancesChanged 自动刷新）
+        ConfigManager::instance().addInstance(inst);
+        existingPaths.insert(cleanDir);
+        ++added;
+    }
+
+    if (added > 0) {
+        qInfo().noquote() << QStringLiteral("Steam 发现：自动加入 %1 个 KSP 实例").arg(added);
+        onCurrentInstanceChanged();
+    }
+#endif
 }
 
 void MainWindow::onInstanceEntered(const QString &id)

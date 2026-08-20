@@ -260,6 +260,7 @@ void InstanceDetailPage::setupModsTab()
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColName, QHeaderView::Stretch);
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColIdentifier, QHeaderView::ResizeToContents);
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColStatus, QHeaderView::ResizeToContents);
+    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColDownloads, QHeaderView::ResizeToContents);
     m_modTable->setSortingEnabled(true);
     m_modTable->sortByColumn(ModsTableModel::ColName, Qt::AscendingOrder);
     connect(m_modTable->selectionModel(), &QItemSelectionModel::selectionChanged,
@@ -597,6 +598,10 @@ void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
     const int n = m_modsModel->rowCount();
     m_modDetailText->setPlainText(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
     updateModActionButtons();
+    // 部分仓库获取失败：提示用户（避免“静默缺失”）；页面不可见（如在设置页）时不弹窗
+    if (!error.isEmpty() && isVisible())
+        QMessageBox::warning(this, tr("仓库刷新"),
+                             tr("部分仓库获取失败，已用其他仓库/旧缓存：\n%1").arg(error));
 }
 
 void InstanceDetailPage::onModSelectionChanged()

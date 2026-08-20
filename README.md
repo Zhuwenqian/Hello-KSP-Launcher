@@ -15,6 +15,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 ## Features
 
 - **Instance Management** — Add, rename, delete, and switch between multiple KSP installations with ease.
+- **Steam Discovery** — On startup, automatically scans Steam libraries (via Windows registry + libraryfolders.vdf), finds KSP installations, and adds them to the instance list (named with the detected version, deduplicated by path).
 - **One-Click Launch** — Launch your selected KSP instance immediately. Configurable post-launch behavior: keep the launcher open, minimize to tray, or auto-close.
 - **Game Settings Editor** — Browse and edit KSP settings.cfg values in a tree view. Boolean values use a smooth toggle switch. Save changes directly.
 - **Mod & DLC Detection** — Automatically list installed DLCs and third-party mods in the GameData directory.
@@ -135,6 +136,7 @@ Copyright (C) 2026. Licensed under the **GNU General Public License v3.0**. See 
 ## 功能特色
 
 - **实例管理** — 轻松添加、重命名、删除和切换多个 KSP 游戏实例。
+- **Steam 发现** — 启动时自动扫描 Steam 库（通过 Windows 注册表 + libraryfolders.vdf），找到 KSP 安装并自动加入实例列表（按检测到的版本命名，按路径去重）。
 - **一键启动** — 立即启动所选 KSP 实例。支持启动后行为：保持打开、最小化到任务栏或自动关闭启动器。
 - **游戏设置编辑** — 以树形视图浏览和编辑 KSP 的 settings.cfg 配置。布尔值使用平滑动画开关控件，修改后一键保存。
 - **模组与 DLC 检测** — 自动检测已安装的 DLC 和 GameData 目录下的第三方模组。

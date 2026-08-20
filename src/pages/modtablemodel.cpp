@@ -141,6 +141,10 @@ QVariant ModsTableModel::data(const QModelIndex &index, int role) const
             return mb >= 1.0 ? QString::number(mb, 'f', 1) + tr(" MB")
                              : QString::number(mod.downloadSize / 1024.0, 'f', 0) + tr(" KB");
         }
+        case ColDownloads: {
+            const int n = CKanManager::instance().downloadCount(mod.identifier);
+            return n >= 0 ? QString::number(n) : QStringLiteral("-");
+        }
         }
     }
 
@@ -162,6 +166,7 @@ QVariant ModsTableModel::headerData(int section, Qt::Orientation orientation, in
     case ColVersion:    return tr("版本");
     case ColStatus:     return tr("状态");
     case ColSize:       return tr("大小");
+    case ColDownloads:  return tr("下载");
     }
     return QVariant();
 }

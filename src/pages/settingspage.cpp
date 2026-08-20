@@ -10,6 +10,11 @@
 #include <QPixmap>
 #include <QDir>
 #include <QFile>
+#include <QMenu>
+#include <QDialog>
+#include <QLineEdit>
+#include <QDialogButtonBox>
+#include <QSet>
 #include "../backgroundmanager.h"
 #include "../ckanmanager.h"
 
@@ -232,6 +237,70 @@ void SettingsPage::setupUI()
 
     mainLayout->addWidget(modGroup);
 
+    // ---- 仓库列表 ----
+    QGroupBox* repoGroup = new QGroupBox(tr("仓库列表"), this);
+    QVBoxLayout* repoLayout = new QVBoxLayout(repoGroup);
+    repoLayout->setContentsMargins(20, 20, 20, 20);
+    repoLayout->setSpacing(10);
+
+    QLabel* repoHint = new QLabel(tr("多个仓库的模组会按优先级合并，排在上方的优先级更高（冲突时优先采用）。修改仓库后会自动刷新索引。"), repoGroup);
+    repoHint->setObjectName("settingHint");
+    repoHint->setWordWrap(true);
+    repoLayout->addWidget(repoHint);
+
+    m_repoList = new QListWidget(repoGroup);
+    m_repoList->setMinimumHeight(120);
+    m_repoList->setAlternatingRowColors(true);
+    repoLayout->addWidget(m_repoList);
+
+    QHBoxLayout* repoBtnRow = new QHBoxLayout();
+    QPushButton* addPresetBtn = new QPushButton(tr("添加预设..."), repoGroup);
+    addPresetBtn->setMinimumHeight(32);
+    QMenu* presetMenu = new QMenu(addPresetBtn);
+    QAction* actBackup = presetMenu->addAction(tr("KSP-CKAN 备用仓库"));
+    QAction* actSol = presetMenu->addAction(tr("Sol 仓库"));
+    QAction* actMJ2 = presetMenu->addAction(tr("MechJeb2-dev 仓库"));
+    connect(actBackup, &QAction::triggered, this, [this]() {
+        onAddPresetRepo(ckan::Repository::presetKspCkanBackup());
+    });
+    connect(actSol, &QAction::triggered, this, [this]() {
+        onAddPresetRepo(ckan::Repository::presetSol());
+    });
+    connect(actMJ2, &QAction::triggered, this, [this]() {
+        onAddPresetRepo(ckan::Repository::presetMechJeb2Dev());
+    });
+    addPresetBtn->setMenu(presetMenu);
+    repoBtnRow->addWidget(addPresetBtn);
+
+    QPushButton* addCustomBtn = new QPushButton(tr("自定义添加..."), repoGroup);
+    addCustomBtn->setMinimumHeight(32);
+    connect(addCustomBtn, &QPushButton::clicked, this, &SettingsPage::onAddCustomRepo);
+    repoBtnRow->addWidget(addCustomBtn);
+
+    QPushButton* removeBtn = new QPushButton(tr("删除"), repoGroup);
+    removeBtn->setMinimumHeight(32);
+    connect(removeBtn, &QPushButton::clicked, this, &SettingsPage::onRemoveRepo);
+    repoBtnRow->addWidget(removeBtn);
+
+    QPushButton* upBtn = new QPushButton(tr("上移"), repoGroup);
+    upBtn->setMinimumHeight(32);
+    connect(upBtn, &QPushButton::clicked, this, &SettingsPage::onMoveRepoUp);
+    repoBtnRow->addWidget(upBtn);
+
+    QPushButton* downBtn = new QPushButton(tr("下移"), repoGroup);
+    downBtn->setMinimumHeight(32);
+    connect(downBtn, &QPushButton::clicked, this, &SettingsPage::onMoveRepoDown);
+    repoBtnRow->addWidget(downBtn);
+
+    QPushButton* refreshBtn = new QPushButton(tr("立即刷新索引"), repoGroup);
+    refreshBtn->setMinimumHeight(32);
+    connect(refreshBtn, &QPushButton::clicked, this, &SettingsPage::onRefreshRepos);
+    repoBtnRow->addWidget(refreshBtn);
+    repoBtnRow->addStretch();
+    repoLayout->addLayout(repoBtnRow);
+
+    mainLayout->addWidget(repoGroup);
+
     mainLayout->addStretch();
 }
 
@@ -278,6 +347,8 @@ void SettingsPage::loadSettings()
     m_cacheDirLabel->setText(CKanManager::instance().downloadDir());
 
     m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
+
+    loadRepoList();
 
     m_languageCombo->blockSignals(false);
     m_behaviorCombo->blockSignals(false);
@@ -434,4 +505,124 @@ void SettingsPage::onClearCacheClicked()
         QMessageBox::information(this, tr("清理完成"), tr("已清理 %1 个模组缓存文件。").arg(removed));
     else
         QMessageBox::information(this, tr("清理完成"), tr("没有可清理的模组缓存文件。"));
+}
+
+void SettingsPage::loadRepoList()
+{
+    const QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
+    m_repoList->clear();
+    for (int i = 0; i < repos.size(); ++i) {
+        const ckan::Repository &r = repos.at(i);
+        QListWidgetItem *item = new QListWidgetItem(
+            QStringLiteral("%1. %2").arg(i + 1).arg(r.name), m_repoList);
+        item->setToolTip(r.uri);
+        item->setData(Qt::UserRole, r.uri);
+    }
+    if (m_repoList->count() > 0)
+        m_repoList->setCurrentRow(0);
+}
+
+void SettingsPage::applyRepos(const QVector<ckan::Repository> &repos, bool refresh)
+{
+    // 按 URI 去重，避免同一仓库重复添加
+    QVector<ckan::Repository> dedup;
+    QSet<QString> seen;
+    for (const ckan::Repository &r : repos) {
+        if (seen.contains(r.uri)) continue;
+        seen.insert(r.uri);
+        dedup.append(r);
+    }
+    ConfigManager::instance().setRepositories(dedup);
+    loadRepoList();
+    if (refresh)
+        CKanManager::instance().refreshIndexAsync(true); // 仓库变更：强制重新下载索引
+}
+
+void SettingsPage::onAddPresetRepo(const ckan::Repository &preset)
+{
+    if (!preset.isValid()) return;
+    QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
+    // 已存在相同 URI 时不再添加
+    for (const ckan::Repository &r : repos) {
+        if (r.uri == preset.uri) {
+            QMessageBox::information(this, tr("仓库列表"), tr("该仓库已在列表中。"));
+            return;
+        }
+    }
+    repos.append(preset);
+    applyRepos(repos);
+}
+
+void SettingsPage::onAddCustomRepo()
+{
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("自定义添加仓库"));
+    dlg.setMinimumWidth(460);
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+
+    QFormLayout *form = new QFormLayout();
+    QLineEdit *nameEdit = new QLineEdit(&dlg);
+    nameEdit->setPlaceholderText(tr("仓库名称（显示用，如 MyRepo）"));
+    form->addRow(tr("名称："), nameEdit);
+    QLineEdit *urlEdit = new QLineEdit(&dlg);
+    urlEdit->setPlaceholderText(tr("https://.../CKAN-meta-xxx.tar.gz"));
+    form->addRow(tr("地址："), urlEdit);
+    lay->addLayout(form);
+
+    QDialogButtonBox *box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    lay->addWidget(box);
+
+    if (dlg.exec() != QDialog::Accepted) return;
+    const QString name = nameEdit->text().trimmed();
+    const QString url = urlEdit->text().trimmed();
+    if (name.isEmpty() || url.isEmpty()) {
+        QMessageBox::warning(this, tr("自定义添加仓库"), tr("名称和地址都不能为空。"));
+        return;
+    }
+    ckan::Repository r;
+    r.name = name;
+    r.uri = url;
+    onAddPresetRepo(r);
+}
+
+void SettingsPage::onRemoveRepo()
+{
+    const int row = m_repoList->currentRow();
+    if (row < 0) return;
+    QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
+    if (row >= repos.size()) return;
+    const QString name = repos.at(row).name;
+    if (QMessageBox::question(this, tr("删除仓库"),
+            tr("确定删除仓库「%1」吗？").arg(name)) != QMessageBox::Yes)
+        return;
+    repos.removeAt(row);
+    applyRepos(repos);
+}
+
+void SettingsPage::onMoveRepoUp()
+{
+    const int row = m_repoList->currentRow();
+    if (row <= 0) return;
+    QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
+    if (row >= repos.size()) return;
+    repos.swapItemsAt(row, row - 1);
+    applyRepos(repos);
+    m_repoList->setCurrentRow(row - 1);
+}
+
+void SettingsPage::onMoveRepoDown()
+{
+    const int row = m_repoList->currentRow();
+    QVector<ckan::Repository> repos = ConfigManager::instance().repositories();
+    if (row < 0 || row >= repos.size() - 1) return;
+    repos.swapItemsAt(row, row + 1);
+    applyRepos(repos);
+    m_repoList->setCurrentRow(row + 1);
+}
+
+void SettingsPage::onRefreshRepos()
+{
+    CKanManager::instance().refreshIndexAsync(true);
 }

@@ -34,14 +34,18 @@ public:
     Registry *registry() { return m_instance.registry(); }
 
     // ---- 仓库索引（mod 列表） ----
-    // 从仓库下载并建立索引。mirrors 为镜像列表。
-    // force=true 时忽略本地缓存，强制重新下载；否则使用缓存（见 RepoIndex::buildCached）。
+    // 从多个仓库下载并按优先级合并建立索引。repos 为仓库列表（priority 值越小优先级越高）。
+    // mirrors 为镜像前缀列表，仅对 GitHub 托管的仓库生效（前缀 + 仓库自身 URL）；
+    // 非 GitHub 仓库忽略镜像，避免错误回退到其他仓库的内容。
+    // force=true 时忽略本地缓存，强制重新下载；否则使用缓存
+    // （见 RepoIndex::buildManyCached，单个仓库失败时回退其旧缓存）。
     // maxAgeSecs 为缓存有效期（秒）；preferMirror=true 时镜像优先（否则官方优先）。
-    // onProgress 下载进度回调，cancelFlag 置真则中止索引下载。
-    bool refreshIndex(const QStringList &mirrors = {}, QString *error = nullptr,
+    // onProgress 下载进度回调(repoName, received, total)，cancelFlag 置真则中止索引下载。
+    bool refreshIndex(const QVector<Repository> &repos, const QStringList &mirrors = {},
+                      QString *error = nullptr,
                       bool force = false, qint64 maxAgeSecs = RepoIndex::kDefaultCacheAgeSecs,
                       bool preferMirror = false,
-                      const std::function<void(qint64, qint64)> &onProgress = {},
+                      const std::function<void(const QString &, qint64, qint64)> &onProgress = {},
                       std::atomic_bool *cancelFlag = nullptr);
     QVector<CkanModule> search(const QString &query) const;    // 按名称/标识符搜索
     QVector<CkanModule> versionsOf(const QString &identifier) const;
@@ -49,6 +53,9 @@ public:
     bool indexReady() const { return m_indexReady; }
     int  indexSize() const { return static_cast<int>(m_index.size()); }
     QStringList allIdentifiers() const;   // 索引中全部标识符（用于精确清理下载缓存）
+    // 某标识符的下载次数（来自仓库 download_counts.json）；无数据返回 -1
+    int  downloadCount(const QString &identifier) const { return m_downloadCounts.value(identifier, -1); }
+    bool hasDownloadCount(const QString &identifier) const { return m_downloadCounts.contains(identifier); }
 
     // ---- 安装相关 ----
     // 解析安装某模块所需的完整集合（含依赖）
@@ -75,6 +82,7 @@ public:
 private:
     GameInstance m_instance;
     QMap<QString, QVector<CkanModule>> m_index;
+    QMap<QString, int> m_downloadCounts; // identifier -> 下载次数（高优先级仓库优先）
     bool m_indexReady = false;
 };
 

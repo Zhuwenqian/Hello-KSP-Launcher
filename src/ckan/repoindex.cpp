@@ -6,7 +6,11 @@
 #include <QDateTime>
 #include <QSaveFile>
 #include <QRegularExpression>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 #include <functional>
+#include <algorithm>
 
 #include "downloader.h"
 #include "version.h"
@@ -26,6 +30,21 @@ QString safeRepoName(const QString &name)
     QString s = name;
     s.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_.-]")), QStringLiteral("_"));
     return s.isEmpty() ? QStringLiteral("default") : s;
+}
+
+// 按仓库自身 URL 生成镜像地址：仅 GitHub 托管的仓库适用（前缀 + 仓库 URL）。
+// 非 GitHub 仓库返回空，避免下载失败时错误回退到其他仓库（如官方 KSP-CKAN）的内容。
+QStringList repoMirrorUrls(const Repository &repo, const QStringList &prefixes)
+{
+    QStringList out;
+    if (!repo.uri.startsWith(QStringLiteral("https://github.com/"))
+        && !repo.uri.startsWith(QStringLiteral("http://github.com/")))
+        return out;
+    for (const QString &p : prefixes) {
+        if (p.isEmpty()) continue;
+        out << p + repo.uri;
+    }
+    return out;
 }
 
 // 从 gzip 格式内存数据解压为原始 tar 字节。
@@ -101,36 +120,53 @@ void parseTar(const QByteArray &tar,
 } // namespace
 
 bool RepoIndex::parseTarGz(const QByteArray &tarGz, QMap<QString, QVector<CkanModule>> *index,
-                           QString *error)
+                           QMap<QString, int> *downloadCounts, QString *error)
 {
     QByteArray tar;
     if (!gunzip(tarGz, &tar)) {
         if (error) *error = QStringLiteral("failed to gunzip repository archive");
         return false;
     }
-    index->clear();
+    if (index) index->clear();
+    if (downloadCounts) downloadCounts->clear();
     parseTar(tar, [&](const QString &entryName, const QByteArray &data) {
-        if (!entryName.endsWith(QStringLiteral(".ckan"), Qt::CaseInsensitive))
-            return;
-        QString err;
-        const CkanModule m = CkanModule::fromJson(data, &err);
-        if (m.isValid())
-            (*index)[m.identifier].append(m);
+        if (entryName.endsWith(QStringLiteral(".ckan"), Qt::CaseInsensitive)) {
+            if (!index) return;
+            QString err;
+            const CkanModule m = CkanModule::fromJson(data, &err);
+            if (m.isValid())
+                (*index)[m.identifier].append(m);
+        } else if (downloadCounts
+                   && entryName.endsWith(QStringLiteral("download_counts.json"), Qt::CaseInsensitive)) {
+            const QJsonDocument doc = QJsonDocument::fromJson(data);
+            if (!doc.isObject()) return;
+            const QJsonObject obj = doc.object();
+            for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+                const int n = it.value().toInt(-1);
+                if (n >= 0)
+                    (*downloadCounts)[it.key()] = n;
+            }
+        }
     });
     return true;
 }
 
 bool RepoIndex::build(const Repository &repo, const QStringList &mirrors,
-                      QMap<QString, QVector<CkanModule>> *index, QString *error,
-                      const std::function<void(qint64, qint64)> &onProgress,
+                      QMap<QString, QVector<CkanModule>> *index,
+                      QMap<QString, int> *downloadCounts, QString *error,
+                      const std::function<void(const QString &, qint64, qint64)> &onProgress,
                       std::atomic_bool *cancelFlag, bool preferMirror)
 {
     Downloader dl;
     QByteArray data;
-    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress,
+    const auto progress = [&onProgress, &repo](qint64 received, qint64 total) {
+        if (onProgress) onProgress(repo.name, received, total);
+    };
+    const QStringList mirrorUrls = repoMirrorUrls(repo, mirrors);
+    if (!dl.downloadProgressed(repo.uri, mirrorUrls, &data, error, nullptr, progress,
                                cancelFlag, 0, preferMirror))
         return false;
-    return parseTarGz(data, index, error);
+    return parseTarGz(data, index, downloadCounts, error);
 }
 
 void RepoIndex::setCacheDir(const QString &dir)
@@ -144,14 +180,16 @@ QString RepoIndex::cacheDir()
 }
 
 bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
-                            QMap<QString, QVector<CkanModule>> *index, QString *error,
+                            QMap<QString, QVector<CkanModule>> *index,
+                            QMap<QString, int> *downloadCounts, QString *error,
                             bool forceRefresh, qint64 maxAgeSecs,
-                            const std::function<void(qint64, qint64)> &onProgress,
+                            const std::function<void(const QString &, qint64, qint64)> &onProgress,
                             std::atomic_bool *cancelFlag, bool preferMirror)
 {
     // 未配置缓存目录：退回每次下载
     if (g_cacheDir.isEmpty())
-        return build(repo, mirrors, index, error, onProgress, cancelFlag, preferMirror);
+        return build(repo, mirrors, index, downloadCounts, error, onProgress,
+                     cancelFlag, preferMirror);
 
     QDir().mkpath(g_cacheDir);
     const QString cacheFile = QDir(g_cacheDir).filePath(safeRepoName(repo.name) + QStringLiteral(".tar.gz"));
@@ -165,7 +203,7 @@ bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
                 QFile f(cacheFile);
                 if (f.open(QIODevice::ReadOnly)) {
                     const QByteArray data = f.readAll();
-                    if (parseTarGz(data, index, error))
+                    if (parseTarGz(data, index, downloadCounts, error))
                         return true;
                 }
             }
@@ -175,15 +213,113 @@ bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
     // 下载并写入缓存
     Downloader dl;
     QByteArray data;
-    if (!dl.downloadProgressed(repo.uri, mirrors, &data, error, nullptr, onProgress,
-                               cancelFlag, 0, preferMirror))
-        return false;
-    QSaveFile sf(cacheFile);
-    if (sf.open(QIODevice::WriteOnly)) {
-        sf.write(data);
-        sf.commit();
+    const auto progress = [&onProgress, &repo](qint64 received, qint64 total) {
+        if (onProgress) onProgress(repo.name, received, total);
+    };
+    const QStringList mirrorUrls = repoMirrorUrls(repo, mirrors);
+    if (dl.downloadProgressed(repo.uri, mirrorUrls, &data, error, nullptr, progress,
+                              cancelFlag, 0, preferMirror)) {
+        QSaveFile sf(cacheFile);
+        if (sf.open(QIODevice::WriteOnly)) {
+            sf.write(data);
+            sf.commit();
+        }
+        return parseTarGz(data, index, downloadCounts, error);
     }
-    return parseTarGz(data, index, error);
+
+    // 下载失败：回退到旧缓存（即使已过期），避免仓库故障导致索引整体不可用
+    QFile stale(cacheFile);
+    if (stale.exists() && stale.open(QIODevice::ReadOnly)) {
+        const QByteArray data = stale.readAll();
+        if (parseTarGz(data, index, downloadCounts, error))
+            return true;
+    }
+    return false;
+}
+
+bool RepoIndex::buildManyCached(const QVector<Repository> &repos, const QStringList &mirrors,
+                                QMap<QString, QVector<CkanModule>> *index,
+                                QMap<QString, int> *downloadCounts, QString *error,
+                                bool forceRefresh, qint64 maxAgeSecs,
+                                const std::function<void(const QString &, qint64, qint64)> &onProgress,
+                                std::atomic_bool *cancelFlag, bool preferMirror)
+{
+    if (index) index->clear();
+    if (downloadCounts) downloadCounts->clear();
+
+    // 按优先级升序处理：priority 值越小优先级越高，先处理者在其版本/计数冲突时获胜
+    QVector<Repository> ordered = repos;
+    std::stable_sort(ordered.begin(), ordered.end(),
+                     [](const Repository &a, const Repository &b) { return a.priority < b.priority; });
+
+    if (ordered.isEmpty()) {
+        if (error) *error = QStringLiteral("仓库列表为空，无法建立索引");
+        return false;
+    }
+
+    QStringList failed;
+    int okCount = 0;
+    QVector<QMap<QString, QVector<CkanModule>>> subIndexes;
+    QVector<QMap<QString, int>> subCounts;
+
+    for (const Repository &repo : ordered) {
+        QMap<QString, QVector<CkanModule>> subIndex;
+        QMap<QString, int> subCount;
+        QString repoErr;
+        const bool ok = buildCached(repo, mirrors, &subIndex, &subCount, &repoErr,
+                                    forceRefresh, maxAgeSecs,
+                                    onProgress,
+                                    cancelFlag, preferMirror);
+        if (!ok) {
+            failed << QStringLiteral("%1: %2").arg(repo.name, repoErr);
+            continue;
+        }
+        ++okCount;
+        subIndexes.append(subIndex);
+        subCounts.append(subCount);
+    }
+
+    if (okCount == 0) {
+        if (error) *error = failed.join(QStringLiteral("；"));
+        return false;
+    }
+    // 部分仓库失败：仍视为整体成功，但把失败仓库透出，便于 UI 提示用户
+    if (!failed.isEmpty() && error)
+        *error = failed.join(QStringLiteral("；"));
+    mergeSubIndexes(subIndexes, subCounts, index, downloadCounts);
+    return true;
+}
+
+void RepoIndex::mergeSubIndexes(const QVector<QMap<QString, QVector<CkanModule>>> &subIndexes,
+                                const QVector<QMap<QString, int>> &subCounts,
+                                QMap<QString, QVector<CkanModule>> *index,
+                                QMap<QString, int> *downloadCounts)
+{
+    if (index) index->clear();
+    if (downloadCounts) downloadCounts->clear();
+
+    QSet<QString> seenVersionKeys; // "identifier\x1fversion"，跨仓库去重
+    for (int i = 0; i < subIndexes.size(); ++i) {
+        if (index) {
+            for (auto it = subIndexes.at(i).constBegin(); it != subIndexes.at(i).constEnd(); ++it) {
+                const QString &id = it.key();
+                QVector<CkanModule> &dest = (*index)[id];
+                for (const CkanModule &m : it.value()) {
+                    const QString key = id + QChar(0x1f) + m.version;
+                    if (seenVersionKeys.contains(key)) continue;
+                    seenVersionKeys.insert(key);
+                    dest.append(m);
+                }
+            }
+        }
+        // 合并下载次数（同 identifier 高优先级先到先得）
+        if (downloadCounts && i < subCounts.size()) {
+            for (auto it = subCounts.at(i).constBegin(); it != subCounts.at(i).constEnd(); ++it) {
+                if (!downloadCounts->contains(it.key()))
+                    (*downloadCounts)[it.key()] = it.value();
+            }
+        }
+    }
 }
 
 QVector<CkanModule> RepoIndex::versionsFor(const QMap<QString, QVector<CkanModule>> &index,

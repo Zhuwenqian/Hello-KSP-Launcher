@@ -22,6 +22,7 @@ public:
         ColVersion,
         ColStatus,
         ColSize,
+        ColDownloads,
         ColumnCount
     };
 

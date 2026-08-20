@@ -37,6 +37,10 @@ public:
     // 检测已安装的 KSP 版本（优先 buildID 文件经 build 映射表换算，其次 readme 兜底）
     GameVersion detectVersion() const;
 
+    // 只读版本检测：直接按游戏目录检测版本，不创建任何 CKAN 目录结构。
+    // 供 Steam 发现等只读扫描场景使用（不产生副作用）。
+    static GameVersion detectVersionFromDir(const QString &gameDir);
+
     // 扫描 GameData 下所有 .dll（排除 KSP 官方目录），推导手动安装模组的标识符。
     // 返回 identifier -> 相对 GameDir 路径，对应官方 ScanUnmanagedFiles/DllPathToIdentifier。
     QMap<QString, QString> scanUnmanagedDlls() const;

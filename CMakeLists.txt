@@ -74,6 +74,7 @@ set(SOURCES
     src/mainwindow.cpp
     src/configmanager.cpp
     src/instancemanager.cpp
+    src/steamdiscovery.cpp
     src/iconutils.cpp
     src/backgroundmanager.cpp
     src/ckanmanager.cpp
@@ -92,6 +93,7 @@ set(HEADERS
     src/mainwindow.h
     src/configmanager.h
     src/instancemanager.h
+    src/steamdiscovery.h
     src/iconutils.h
     src/backgroundmanager.h
     src/ckanmanager.h
@@ -148,6 +150,7 @@ enable_testing()
 
 add_executable(test_libckan
     tests/test_libckan.cpp
+    src/steamdiscovery.cpp
 )
 target_include_directories(test_libckan PRIVATE
     ${CMAKE_SOURCE_DIR}/src

@@ -5,105 +5,105 @@
     <name>CKanManager</name>
     <message>
         <location filename="../src/ckanmanager.cpp" line="147"/>
-        <location filename="../src/ckanmanager.cpp" line="247"/>
-        <location filename="../src/ckanmanager.cpp" line="261"/>
-        <location filename="../src/ckanmanager.cpp" line="283"/>
-        <location filename="../src/ckanmanager.cpp" line="292"/>
-        <location filename="../src/ckanmanager.cpp" line="311"/>
-        <location filename="../src/ckanmanager.cpp" line="327"/>
+        <location filename="../src/ckanmanager.cpp" line="253"/>
+        <location filename="../src/ckanmanager.cpp" line="267"/>
+        <location filename="../src/ckanmanager.cpp" line="289"/>
+        <location filename="../src/ckanmanager.cpp" line="298"/>
+        <location filename="../src/ckanmanager.cpp" line="317"/>
+        <location filename="../src/ckanmanager.cpp" line="333"/>
         <source>尚未绑定游戏实例</source>
         <translation>No game instance bound</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="249"/>
-        <location filename="../src/ckanmanager.cpp" line="285"/>
+        <location filename="../src/ckanmanager.cpp" line="255"/>
+        <location filename="../src/ckanmanager.cpp" line="291"/>
         <source>仓库中未找到：%1</source>
         <translation>Not found in repository: %1</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="253"/>
+        <location filename="../src/ckanmanager.cpp" line="259"/>
         <source>该模组已是最新版本</source>
         <translation>This mod is already the latest version</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="256"/>
+        <location filename="../src/ckanmanager.cpp" line="262"/>
         <source>安装完成</source>
         <translation>Installation complete</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="273"/>
+        <location filename="../src/ckanmanager.cpp" line="279"/>
         <source>已卸载：%1</source>
         <translation>Uninstalled: %1</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="286"/>
+        <location filename="../src/ckanmanager.cpp" line="292"/>
         <source>该模组尚未安装</source>
         <translation>This mod is not installed</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="287"/>
+        <location filename="../src/ckanmanager.cpp" line="293"/>
         <source>升级完成</source>
         <translation>Upgrade complete</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="302"/>
+        <location filename="../src/ckanmanager.cpp" line="308"/>
         <source>所选模组均已安装，无需安装</source>
         <translation>All selected mods are already installed, nothing to install</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="303"/>
+        <location filename="../src/ckanmanager.cpp" line="309"/>
         <source>没有可安装的模组</source>
         <translation>No mods to install</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="306"/>
+        <location filename="../src/ckanmanager.cpp" line="312"/>
         <source>批量安装完成（%1 个）</source>
         <translation>Batch install complete (%1 mods)</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="319"/>
+        <location filename="../src/ckanmanager.cpp" line="325"/>
         <source>没有可升级的模组</source>
         <translation>No mods to upgrade</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="322"/>
+        <location filename="../src/ckanmanager.cpp" line="328"/>
         <source>批量升级完成（%1 个）</source>
         <translation>Batch upgrade complete (%1 mods)</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="332"/>
+        <location filename="../src/ckanmanager.cpp" line="338"/>
         <source>没有可卸载的模组</source>
         <translation>No mods to uninstall</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="351"/>
+        <location filename="../src/ckanmanager.cpp" line="357"/>
         <source>批量卸载完成（%1 个）</source>
         <translation>Batch uninstall complete (%1 mods)</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="373"/>
-        <location filename="../src/ckanmanager.cpp" line="387"/>
+        <location filename="../src/ckanmanager.cpp" line="379"/>
+        <location filename="../src/ckanmanager.cpp" line="393"/>
         <source>缺少依赖：%1</source>
         <translation>Missing dependency: %1</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="381"/>
-        <location filename="../src/ckanmanager.cpp" line="436"/>
+        <location filename="../src/ckanmanager.cpp" line="387"/>
+        <location filename="../src/ckanmanager.cpp" line="442"/>
         <source>已取消</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="392"/>
+        <location filename="../src/ckanmanager.cpp" line="398"/>
         <source>无需操作</source>
         <translation>Nothing to do</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="486"/>
+        <location filename="../src/ckanmanager.cpp" line="492"/>
         <source>发现文件夹冲突</source>
         <translation>Folder conflicts detected</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="487"/>
+        <location filename="../src/ckanmanager.cpp" line="493"/>
         <source>下载完成后检查到以下文件夹已被手动安装的模组占用：
 
 %1
@@ -116,33 +116,33 @@
 Please choose how to proceed:</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="488"/>
+        <location filename="../src/ckanmanager.cpp" line="494"/>
         <source>全部覆盖（保留额外文件）</source>
         <translation>Overwrite all (keep extra files)</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="489"/>
+        <location filename="../src/ckanmanager.cpp" line="495"/>
         <source>全部删除旧的保留新的</source>
         <translation>Delete old folders, keep new ones</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="490"/>
-        <location filename="../src/ckanmanager.cpp" line="536"/>
+        <location filename="../src/ckanmanager.cpp" line="496"/>
+        <location filename="../src/ckanmanager.cpp" line="542"/>
         <source>取消</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="507"/>
+        <location filename="../src/ckanmanager.cpp" line="513"/>
         <source>建议安装的模组</source>
         <translation>Suggested Mods</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="511"/>
+        <location filename="../src/ckanmanager.cpp" line="517"/>
         <source>以下模组为可选建议（Suggests），可按需勾选：</source>
         <translation>The following mods are optional suggestions (Suggests); select as needed:</translation>
     </message>
     <message>
-        <location filename="../src/ckanmanager.cpp" line="535"/>
+        <location filename="../src/ckanmanager.cpp" line="541"/>
         <source>安装所选</source>
         <translation>Install Selected</translation>
     </message>
@@ -217,22 +217,22 @@ Please choose how to proceed:</translation>
         <translation type="vanished">Note: Mod list only shows folders under the GameData directory</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="483"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="484"/>
         <source>保存成功</source>
         <translation>Saved</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="483"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="484"/>
         <source>游戏设置已保存！</source>
         <translation>Game settings have been saved!</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="485"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="486"/>
         <source>保存失败</source>
         <translation>Save Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="485"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="486"/>
         <source>无法保存游戏设置，请检查文件权限。</source>
         <translation>Unable to save game settings. Please check file permissions.</translation>
     </message>
@@ -241,30 +241,30 @@ Please choose how to proceed:</translation>
         <translation type="vanished">(No third-party mods detected)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="896"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="901"/>
         <source>启动参数</source>
         <translation>Launch Arguments</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="900"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="905"/>
         <source>在这里输入附加启动参数，例如：-force-d3d11 -popupwindow</source>
         <translation>Enter additional launch arguments here, e.g. -force-d3d11 -popupwindow</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="906"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="911"/>
         <source>输入启动参数，多个参数用空格分隔</source>
         <translation>Enter launch arguments, separated by spaces</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="914"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="919"/>
         <source> 确认保存</source>
         <translation> Save</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="706"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="732"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="764"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1033"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="711"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="737"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="769"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1038"/>
         <source>提示</source>
         <translation>Info</translation>
     </message>
@@ -300,7 +300,7 @@ Please choose how to proceed:</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="229"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="794"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="799"/>
         <source> 全选</source>
         <translation> Select All</translation>
     </message>
@@ -310,35 +310,35 @@ Please choose how to proceed:</translation>
         <translation>Show incompatible</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="283"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="284"/>
         <source>就绪</source>
         <translation>Ready</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="286"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="287"/>
         <source> 取消</source>
         <translation> Cancel</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="300"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="301"/>
         <source>选中一个模组查看详情，双击查看依赖信息</source>
         <translation>Select a mod to view details, double-click to view dependency info</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="309"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="644"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="310"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="649"/>
         <source> 安装</source>
         <translation> Install</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="321"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="646"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="322"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="651"/>
         <source> 卸载</source>
         <translation> Uninstall</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="315"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="645"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="316"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="650"/>
         <source> 升级</source>
         <translation> Upgrade</translation>
     </message>
@@ -355,126 +355,138 @@ Please choose how to proceed:</translation>
         <translation type="vanished"> Batch Uninstall</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="340"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="341"/>
         <source>正在处理 %1 ... %2%</source>
         <translation>Processing %1 ... %2%</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="345"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="346"/>
         <source>正在安装：%1</source>
         <translation>Installing: %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="547"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="548"/>
         <source>正在加载 CKAN 仓库索引，请稍候...</source>
         <translation>Loading CKAN repository index, please wait...</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="578"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="579"/>
         <source>正在刷新仓库索引...</source>
         <translation>Refreshing repository index...</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="587"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="588"/>
         <source>已取消仓库索引加载。</source>
         <translation>Repository index loading cancelled.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="592"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="593"/>
         <source>仓库索引刷新失败：%1</source>
         <translation>Repository index refresh failed: %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="593"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="594"/>
         <source>刷新失败</source>
         <translation>Refresh Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="593"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="594"/>
         <source>无法获取仓库索引：
 %1</source>
         <translation>Unable to fetch repository index:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="598"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="599"/>
         <source>仓库索引已就绪，共 %1 个模组。</source>
         <translation>Repository index ready, %1 mods total.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="627"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="603"/>
+        <source>仓库刷新</source>
+        <translation>Repository Refresh</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="604"/>
+        <source>部分仓库获取失败，已用其他仓库/旧缓存：
+%1</source>
+        <translation>Some repositories failed to fetch, using the others or old cache:
+%1</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="632"/>
         <source>依赖：</source>
         <translation>Dependencies:</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="627"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="629"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="631"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="632"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="634"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="636"/>
         <source>（无）</source>
         <translation>(None)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="629"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="634"/>
         <source>推荐：</source>
         <translation>Recommended:</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="631"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="636"/>
         <source>冲突：</source>
         <translation>Conflicts:</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="644"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="649"/>
         <source> 安装 (%1)</source>
         <translation> Install (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="645"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="650"/>
         <source> 升级 (%1)</source>
         <translation> Upgrade (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="646"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="651"/>
         <source> 卸载 (%1)</source>
         <translation> Uninstall (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="685"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="690"/>
         <source>作者：%1
 </source>
         <translation>Author: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="686"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="691"/>
         <source>许可：%1
 </source>
         <translation>License: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="687"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="692"/>
         <source>KSP 版本：%1
 </source>
         <translation>KSP version: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="689"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="694"/>
         <source>下载大小：%1 MB
 </source>
         <translation>Download size: %1 MB
 </translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="690"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="695"/>
         <source>
 依赖：%1</source>
         <translation>
 Dependencies: %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="691"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="696"/>
         <source>
 冲突：%1</source>
         <translation>
@@ -485,17 +497,17 @@ Conflicts: %1</translation>
         <translation type="vanished">Please select a mod first.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="741"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="746"/>
         <source>确认卸载</source>
         <translation>Confirm Uninstall</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="742"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="747"/>
         <source>确定要卸载模组 %1 吗？</source>
         <translation>Are you sure you want to uninstall mod %1?</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="794"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="799"/>
         <source> 清空</source>
         <translation> Clear</translation>
     </message>
@@ -512,7 +524,7 @@ Conflicts: %1</translation>
         <translation type="vanished">Please check the mods to uninstall first.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="721"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="726"/>
         <source>确认批量卸载</source>
         <translation>Confirm Batch Uninstall</translation>
     </message>
@@ -521,91 +533,91 @@ Conflicts: %1</translation>
         <translation type="vanished">Are you sure you want to batch uninstall %1 selected mods?</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="823"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="828"/>
         <source>完成</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="826"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="831"/>
         <source>操作失败</source>
         <translation>Operation Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="834"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="839"/>
         <source>准备下载...</source>
         <translation>Preparing download...</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="870"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="875"/>
         <source>正在下载：%1  %2 / %3</source>
         <translation>Downloading: %1  %2 / %3</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="880"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="885"/>
         <source>正在取消...</source>
         <translation>Cancelling...</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1033"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1038"/>
         <source>启动参数已保存</source>
         <translation>Launch arguments saved</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1039"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1045"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1113"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1044"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1050"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1118"/>
         <source>导出失败</source>
         <translation>Export Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1039"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1044"/>
         <source>实例路径为空，无法导出整合包。</source>
         <translation>Instance path is empty, cannot export modpack.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1045"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1050"/>
         <source>GameData 目录不存在，无法导出整合包。</source>
         <translation>GameData directory does not exist, cannot export modpack.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1056"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1061"/>
         <source>导出整合包 - 选择保存位置</source>
         <translation>Export Modpack - Choose save location</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1058"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1063"/>
         <source>ZIP 文件 (*.zip)</source>
         <translation>ZIP files (*.zip)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1076"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1081"/>
         <source>正在导出整合包...</source>
         <translation>Exporting modpack...</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1077"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1082"/>
         <source>导出整合包</source>
         <translation>Export Modpack</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1108"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1113"/>
         <source>导出已取消。</source>
         <translation>Export cancelled.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1110"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1115"/>
         <source>导出成功</source>
         <translation>Export Successful</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1111"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1116"/>
         <source>整合包已成功导出到：
 %1</source>
         <translation>Modpack successfully exported to:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1113"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1118"/>
         <source>导出整合包时发生错误，请检查磁盘空间和权限。</source>
         <translation>An error occurred while exporting the modpack. Please check disk space and permissions.</translation>
     </message>
@@ -615,72 +627,72 @@ Conflicts: %1</translation>
         <translation>  Browse</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="706"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="732"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="764"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="711"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="737"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="769"/>
         <source>请先选择或勾选一个模组。</source>
         <translation>Please select or check a mod first.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="722"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="727"/>
         <source>确定要卸载已勾选的 %1 个模组吗？</source>
         <translation>Are you sure you want to uninstall the %1 checked mod(s)?</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="934"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="939"/>
         <source>游戏根目录</source>
         <translation>Game Root</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="943"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="948"/>
         <source>KSP.log</source>
         <translation>KSP.log</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="944"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="949"/>
         <source>模块日志</source>
         <translation>Mod Logs</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="945"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="950"/>
         <source>Principia日志文件夹</source>
         <translation>Principia Log Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="946"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="951"/>
         <source>模组文件夹</source>
         <translation>Mods Folder (GameData)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="947"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="952"/>
         <source>飞船文件夹</source>
         <translation>Ships Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="948"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="953"/>
         <source>kOS代码文件夹</source>
         <translation>kOS Scripts Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="949"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="954"/>
         <source>存档文件夹</source>
         <translation>Saves Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1013"/>
         <location filename="../src/pages/instancedetailpage.cpp" line="1018"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1023"/>
         <source>浏览</source>
         <translation>Browse</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1013"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1018"/>
         <source>目标不存在：
 %1</source>
         <translation>Target does not exist:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="1018"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="1023"/>
         <source>无法打开：
 %1</source>
         <translation>Unable to open:
@@ -883,29 +895,34 @@ Game files will not be deleted.</translation>
         <translation> KB</translation>
     </message>
     <message>
-        <location filename="../src/pages/modtablemodel.cpp" line="160"/>
+        <location filename="../src/pages/modtablemodel.cpp" line="164"/>
         <source>名称</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location filename="../src/pages/modtablemodel.cpp" line="161"/>
+        <location filename="../src/pages/modtablemodel.cpp" line="165"/>
         <source>标识符</source>
         <translation>Identifier</translation>
     </message>
     <message>
-        <location filename="../src/pages/modtablemodel.cpp" line="162"/>
+        <location filename="../src/pages/modtablemodel.cpp" line="166"/>
         <source>版本</source>
         <translation>Version</translation>
     </message>
     <message>
-        <location filename="../src/pages/modtablemodel.cpp" line="163"/>
+        <location filename="../src/pages/modtablemodel.cpp" line="167"/>
         <source>状态</source>
         <translation>Status</translation>
     </message>
     <message>
-        <location filename="../src/pages/modtablemodel.cpp" line="164"/>
+        <location filename="../src/pages/modtablemodel.cpp" line="168"/>
         <source>大小</source>
         <translation>Size</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/modtablemodel.cpp" line="169"/>
+        <source>下载</source>
+        <translation>Downloads</translation>
     </message>
 </context>
 <context>
@@ -1314,231 +1331,231 @@ This action cannot be undone.</translation>
 <context>
     <name>SettingsPage</name>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="57"/>
+        <location filename="../src/pages/settingspage.cpp" line="62"/>
         <source>启动器设置</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="62"/>
+        <location filename="../src/pages/settingspage.cpp" line="67"/>
         <source>通用设置</source>
         <translation>General Settings</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="68"/>
+        <location filename="../src/pages/settingspage.cpp" line="73"/>
         <source>简体中文</source>
         <translation>简体中文</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="69"/>
+        <location filename="../src/pages/settingspage.cpp" line="74"/>
         <source>English</source>
         <translation>English</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="73"/>
+        <location filename="../src/pages/settingspage.cpp" line="78"/>
         <source>启动器语言：</source>
         <translation>Language:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="78"/>
+        <location filename="../src/pages/settingspage.cpp" line="83"/>
         <source>保持窗口打开</source>
         <translation>Keep window open</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="79"/>
+        <location filename="../src/pages/settingspage.cpp" line="84"/>
         <source>最小化到任务栏</source>
         <translation>Minimize to tray</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="80"/>
+        <location filename="../src/pages/settingspage.cpp" line="85"/>
         <source>自动关闭启动器</source>
         <translation>Auto-close launcher</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="84"/>
+        <location filename="../src/pages/settingspage.cpp" line="89"/>
         <source>游戏启动后行为：</source>
         <translation>After launch:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="89"/>
+        <location filename="../src/pages/settingspage.cpp" line="94"/>
         <source>深色主题</source>
         <translation>Dark theme</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="90"/>
+        <location filename="../src/pages/settingspage.cpp" line="95"/>
         <source>浅色主题</source>
         <translation>Light theme</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="94"/>
+        <location filename="../src/pages/settingspage.cpp" line="99"/>
         <source>主题：</source>
         <translation>Theme:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="101"/>
+        <location filename="../src/pages/settingspage.cpp" line="106"/>
         <source>背景图片</source>
         <translation>Background Image</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="106"/>
+        <location filename="../src/pages/settingspage.cpp" line="111"/>
         <source>选择一张图片作为启动器背景。支持 PNG / JPG / JPEG。</source>
         <translation>Choose an image as the launcher background. Supports PNG / JPG / JPEG.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="116"/>
-        <location filename="../src/pages/settingspage.cpp" line="306"/>
+        <location filename="../src/pages/settingspage.cpp" line="121"/>
+        <location filename="../src/pages/settingspage.cpp" line="377"/>
         <source>（无预览）</source>
         <translation>(No preview)</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="121"/>
+        <location filename="../src/pages/settingspage.cpp" line="126"/>
         <source>当前背景：</source>
         <translation>Current background:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="133"/>
+        <location filename="../src/pages/settingspage.cpp" line="138"/>
         <source> 选择图片...</source>
         <translation> Choose Image...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="139"/>
+        <location filename="../src/pages/settingspage.cpp" line="144"/>
         <source>重置为默认</source>
         <translation>Reset to default</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="152"/>
+        <location filename="../src/pages/settingspage.cpp" line="157"/>
         <source>模组管理</source>
         <translation>Mod Management</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="162"/>
+        <location filename="../src/pages/settingspage.cpp" line="167"/>
         <source>6 小时</source>
         <translation>6 hours</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="163"/>
+        <location filename="../src/pages/settingspage.cpp" line="168"/>
         <source>1 天</source>
         <translation>1 day</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="164"/>
+        <location filename="../src/pages/settingspage.cpp" line="169"/>
         <source>3 天</source>
         <translation>3 days</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="165"/>
+        <location filename="../src/pages/settingspage.cpp" line="170"/>
         <source>5 天</source>
         <translation>5 days</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="168"/>
+        <location filename="../src/pages/settingspage.cpp" line="173"/>
         <source>索引刷新间隔：</source>
         <translation>Index refresh interval:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="175"/>
-        <location filename="../src/pages/settingspage.cpp" line="186"/>
+        <location filename="../src/pages/settingspage.cpp" line="180"/>
+        <location filename="../src/pages/settingspage.cpp" line="191"/>
         <source>尽量选择官方源</source>
         <translation>Prefer official source</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="176"/>
-        <location filename="../src/pages/settingspage.cpp" line="187"/>
+        <location filename="../src/pages/settingspage.cpp" line="181"/>
+        <location filename="../src/pages/settingspage.cpp" line="192"/>
         <source>尽量选择镜像源</source>
         <translation>Prefer mirror source</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="179"/>
+        <location filename="../src/pages/settingspage.cpp" line="184"/>
         <source>索引下载源：</source>
         <translation>Index download source:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="190"/>
+        <location filename="../src/pages/settingspage.cpp" line="195"/>
         <source>模组下载源：</source>
         <translation>Mod download source:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="198"/>
+        <location filename="../src/pages/settingspage.cpp" line="203"/>
         <source>同时下载 %1 个</source>
         <translation>Download %1 at a time</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="201"/>
+        <location filename="../src/pages/settingspage.cpp" line="206"/>
         <source>下载并发数：</source>
         <translation>Download concurrency:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="207"/>
+        <location filename="../src/pages/settingspage.cpp" line="212"/>
         <source>安装模组时，如果它还有建议安装的可选模组，弹窗勾选</source>
         <translation>When installing a mod, if it has optional suggested mods, show a popup to check them</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="210"/>
+        <location filename="../src/pages/settingspage.cpp" line="215"/>
         <source>安装时显示建议模组：</source>
         <translation>Show suggested mods during installation:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="220"/>
+        <location filename="../src/pages/settingspage.cpp" line="225"/>
         <source>选择文件夹...</source>
         <translation>Choose folder...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="223"/>
-        <location filename="../src/pages/settingspage.cpp" line="427"/>
+        <location filename="../src/pages/settingspage.cpp" line="228"/>
+        <location filename="../src/pages/settingspage.cpp" line="498"/>
         <source>清理缓存</source>
         <translation>Clear cache</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="229"/>
+        <location filename="../src/pages/settingspage.cpp" line="234"/>
         <source>下载缓存文件夹：</source>
         <translation>Download cache folder:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="298"/>
+        <location filename="../src/pages/settingspage.cpp" line="369"/>
         <source>默认背景</source>
         <translation>Default background</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="332"/>
+        <location filename="../src/pages/settingspage.cpp" line="403"/>
         <source>选择背景图片</source>
         <translation>Select background image</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="334"/>
+        <location filename="../src/pages/settingspage.cpp" line="405"/>
         <source>图片文件 (*.png *.jpg *.jpeg);;PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;所有文件 (*.*)</source>
         <translation>Image files (*.png *.jpg *.jpeg);;PNG images (*.png);;JPEG images (*.jpg *.jpeg);;All files (*.*)</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="342"/>
+        <location filename="../src/pages/settingspage.cpp" line="413"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="343"/>
+        <location filename="../src/pages/settingspage.cpp" line="414"/>
         <source>无法应用所选图片。请确认文件是有效的 PNG/JPG/JPEG 格式，且未被占用。</source>
         <translation>Unable to apply the selected image. Please ensure the file is a valid PNG/JPG/JPEG and is not in use.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="356"/>
+        <location filename="../src/pages/settingspage.cpp" line="427"/>
         <source>切换语言</source>
         <translation>Switch Language</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="357"/>
+        <location filename="../src/pages/settingspage.cpp" line="428"/>
         <source>语言切换将在重启启动器后生效。</source>
         <translation>Language change will take effect after restarting the launcher.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="400"/>
+        <location filename="../src/pages/settingspage.cpp" line="471"/>
         <source>选择下载缓存文件夹</source>
         <translation>Choose download cache folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="405"/>
+        <location filename="../src/pages/settingspage.cpp" line="476"/>
         <source>迁移缓存</source>
         <translation>Migrate cache</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="406"/>
+        <location filename="../src/pages/settingspage.cpp" line="477"/>
         <source>是否将旧缓存目录中的文件移动到新目录？
 
 旧目录：%1
@@ -1549,7 +1566,7 @@ Old directory: %1
 New directory: %2</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="428"/>
+        <location filename="../src/pages/settingspage.cpp" line="499"/>
         <source>将删除下载缓存文件夹中的模组缓存文件（仅精确删除与已知模组对应的 .zip，不会误删其他文件）。
 
 目录：%1
@@ -1562,20 +1579,122 @@ Directory: %1
 Are you sure you want to clear the cache?</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="434"/>
-        <location filename="../src/pages/settingspage.cpp" line="436"/>
+        <location filename="../src/pages/settingspage.cpp" line="505"/>
+        <location filename="../src/pages/settingspage.cpp" line="507"/>
         <source>清理完成</source>
         <translation>Cache cleared</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="434"/>
+        <location filename="../src/pages/settingspage.cpp" line="505"/>
         <source>已清理 %1 个模组缓存文件。</source>
         <translation>Cleared %1 mod cache file(s).</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="436"/>
+        <location filename="../src/pages/settingspage.cpp" line="507"/>
         <source>没有可清理的模组缓存文件。</source>
         <translation>No mod cache files to clear.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="241"/>
+        <location filename="../src/pages/settingspage.cpp" line="548"/>
+        <source>仓库列表</source>
+        <translation>Repositories</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="246"/>
+        <source>多个仓库的模组会按优先级合并，排在上方的优先级更高（冲突时优先采用）。修改仓库后会自动刷新索引。</source>
+        <translation>Mods from multiple repositories are merged by priority; entries higher up have higher priority (taken first on conflict). The index refreshes automatically after changes.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="257"/>
+        <source>添加预设...</source>
+        <translation>Add preset...</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="260"/>
+        <source>KSP-CKAN 备用仓库</source>
+        <translation>KSP-CKAN backup repository</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="261"/>
+        <source>Sol 仓库</source>
+        <translation>Sol repository</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="262"/>
+        <source>MechJeb2-dev 仓库</source>
+        <translation>MechJeb2-dev repository</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="275"/>
+        <source>自定义添加...</source>
+        <translation>Add custom...</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="280"/>
+        <source>删除</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="285"/>
+        <source>上移</source>
+        <translation>Move up</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="290"/>
+        <source>下移</source>
+        <translation>Move down</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="295"/>
+        <source>立即刷新索引</source>
+        <translation>Refresh index now</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="548"/>
+        <source>该仓库已在列表中。</source>
+        <translation>This repository is already in the list.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="559"/>
+        <location filename="../src/pages/settingspage.cpp" line="581"/>
+        <source>自定义添加仓库</source>
+        <translation>Add custom repository</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="565"/>
+        <source>仓库名称（显示用，如 MyRepo）</source>
+        <translation>Repository name (display only, e.g. MyRepo)</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="566"/>
+        <source>名称：</source>
+        <translation>Name:</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="568"/>
+        <source>https://.../CKAN-meta-xxx.tar.gz</source>
+        <translation>https://.../CKAN-meta-xxx.tar.gz</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="569"/>
+        <source>地址：</source>
+        <translation>URL:</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="581"/>
+        <source>名称和地址都不能为空。</source>
+        <translation>Name and URL must not be empty.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="597"/>
+        <source>删除仓库</source>
+        <translation>Remove repository</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="598"/>
+        <source>确定删除仓库「%1」吗？</source>
+        <translation>Remove repository &quot;%1&quot;?</translation>
     </message>
 </context>
 <context>

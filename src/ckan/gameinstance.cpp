@@ -259,12 +259,17 @@ QStringList GameInstance::manualGameDataFolders() const
 
 GameVersion GameInstance::detectVersion() const
 {
+    return detectVersionFromDir(m_gameDir);
+}
+
+GameVersion GameInstance::detectVersionFromDir(const QString &gameDir)
+{
     // 1) buildID 文件：解析 "build id = NNNN"，经 build 映射表换算成版本。
     //    buildID64 / buildID 两个文件都读取，去重后取版本最大值（对齐官方 KspBuildIdVersionProvider）。
     QVector<GameVersion> found;
     const QStringList buildFiles = { QStringLiteral("buildID64.txt"), QStringLiteral("buildID.txt") };
     for (const QString &bf : buildFiles) {
-        QFile f(m_gameDir + QLatin1Char('/') + bf);
+        QFile f(gameDir + QLatin1Char('/') + bf);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
             const QString content = QString::fromUtf8(f.readAll());
             f.close();
@@ -279,7 +284,7 @@ GameVersion GameInstance::detectVersion() const
     }
 
     // 2) readme.txt 中的版本行（buildID 缺失/未命中映射时的兜底）
-    QFile rf(m_gameDir + QStringLiteral("/readme.txt"));
+    QFile rf(gameDir + QStringLiteral("/readme.txt"));
     if (rf.open(QIODevice::ReadOnly | QIODevice::Text)) {
         const QString content = QString::fromUtf8(rf.readAll());
         rf.close();

@@ -12,14 +12,13 @@ CKan::CKan(const QString &gameDir, const QString &instanceName)
 {
 }
 
-bool CKan::refreshIndex(const QStringList &mirrors, QString *error, bool force,
-                        qint64 maxAgeSecs, bool preferMirror,
-                        const std::function<void(qint64, qint64)> &onProgress,
+bool CKan::refreshIndex(const QVector<Repository> &repos, const QStringList &mirrors,
+                        QString *error, bool force, qint64 maxAgeSecs, bool preferMirror,
+                        const std::function<void(const QString &, qint64, qint64)> &onProgress,
                         std::atomic_bool *cancelFlag)
 {
-    const Repository repo = Repository::defaultKspRepo();
-    m_indexReady = RepoIndex::buildCached(repo, mirrors, &m_index, error, force,
-                                          maxAgeSecs, onProgress, cancelFlag, preferMirror);
+    m_indexReady = RepoIndex::buildManyCached(repos, mirrors, &m_index, &m_downloadCounts, error,
+                                              force, maxAgeSecs, onProgress, cancelFlag, preferMirror);
     return m_indexReady;
 }
 

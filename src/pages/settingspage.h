@@ -6,6 +6,7 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
+#include <QListWidget>
 #include "../configmanager.h"
 #include "../widgets/toggleswitch.h"
 
@@ -32,9 +33,17 @@ private slots:
     void onChooseCacheDirClicked();
     void onClearCacheClicked();
     void onConcurrencyChanged(int index);
+    void onAddPresetRepo(const ckan::Repository &preset);
+    void onAddCustomRepo();
+    void onRemoveRepo();
+    void onMoveRepoUp();
+    void onMoveRepoDown();
+    void onRefreshRepos();
 
 private:
     void setupUI();
+    void loadRepoList();
+    void applyRepos(const QVector<ckan::Repository> &repos, bool refresh = true);
 
     QComboBox* m_languageCombo;
     QComboBox* m_behaviorCombo;
@@ -53,6 +62,9 @@ private:
     QComboBox* m_concurrencyCombo;
     QLabel* m_cacheDirLabel;
     ToggleSwitch* m_installSuggestsToggle;
+
+    // 仓库列表相关
+    QListWidget* m_repoList;
 
     QScrollArea* m_scrollArea;
 };
