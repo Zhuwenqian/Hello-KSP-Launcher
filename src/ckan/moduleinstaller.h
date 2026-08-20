@@ -9,6 +9,7 @@
 #include "ckan_export.h"
 #include "ckanmodule.h"
 #include "installedmodule.h"
+#include "txfilemanager.h"
 
 namespace ckan {
 
@@ -49,9 +50,14 @@ public:
 
     // 阶段二：从缓存安装（不再下载）。zip 缺失/损坏时返回错误。
     // foldersToDelete 为相对 GameData 的顶层文件夹名：写入前若命中，先递归删除旧文件夹。
+    //
+    // tx 为空时自动创建内部事务：任一步失败整体回滚（恢复被覆盖/删除的文件、删除本批
+    // 已写入的文件、还原注册表），成功则提交。传入外部 tx 时（如升级：卸载旧版+安装新版
+    // 合并为单事务），文件操作计入该事务，本方法不做保存/回滚，由调用方负责提交或回滚。
     InstallResult installFromCache(const QVector<CkanModule> &modules,
                                    const QString &downloadDir,
-                                   const QStringList &foldersToDelete = {});
+                                   const QStringList &foldersToDelete = {},
+                                   TxFileManager *tx = nullptr);
 
     // 以 zip 实际内容为准，返回该模块将写入的 GameData 顶层文件夹名列表（相对 GameData）。
     // 读取 zip 条目后套用 install 规则推导真实目标，绝不依赖预估。可用于下载后冲突检测。
@@ -59,7 +65,8 @@ public:
                                              QString *error = nullptr);
 
     // 卸载模块：删除 registry 记录的文件，更新 registry。
-    InstallResult uninstall(const QString &identifier);
+    // tx 语义同 installFromCache：为空时自动事务（失败整体回滚），否则计入外部事务。
+    InstallResult uninstall(const QString &identifier, TxFileManager *tx = nullptr);
 
     // 请求中止当前安装任务（线程安全）。正在下载的模组会被中止，
     // 已下载的临时数据不会写入缓存文件。
@@ -71,9 +78,6 @@ public:
     // 清洗缓存文件名中的非法字符（Windows 不含冒号/斜杠等）。
     // version 可能带 epoch（如 "1:3.4.0"），冒号在 NTFS 上会变成 ADS 分隔符导致读写错位。
     static QString safeCacheFileName(const QString &s);
-
-    // 递归删除目录（含所有子项）。返回是否成功。
-    static bool removeDirRecursively(const QString &absPath);
 
 signals:
     void installProgress(const QString &identifier, int percent);

@@ -11,6 +11,7 @@
 #include <QtConcurrent>
 #include <QThreadPool>
 #include <QFuture>
+#include <memory>
 
 #include "gameinstance.h"
 #include "registry.h"
@@ -201,11 +202,6 @@ QStringList ModuleInstaller::actualGameDataFolders(const QString &zipPath, const
     return out;
 }
 
-bool ModuleInstaller::removeDirRecursively(const QString &absPath)
-{
-    return QDir(absPath).removeRecursively();
-}
-
 bool ModuleInstaller::downloadModules(const QVector<CkanModule> &modules,
                                       const QString &downloadDir,
                                       const QStringList &mirrorPrefixes,
@@ -365,17 +361,36 @@ ModuleInstaller::DownloadOutcome ModuleInstaller::downloadOneTask(
 
 InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modules,
                                                 const QString &downloadDir,
-                                                const QStringList &foldersToDelete)
+                                                const QStringList &foldersToDelete,
+                                                TxFileManager *tx)
 {
     InstallResult result;
     Registry *reg = m_instance->registry();
 
+    // 事务化安装：所有文件操作（删除旧文件夹、写入）都经过事务管理器，任一步失败整体回滚，
+    // 保证“安装失败不残留文件”。tx 为空时自动创建内部事务并负责提交/回滚；
+    // 外部传入 tx（升级场景）时由调用方统一提交/回滚。
+    std::unique_ptr<TxFileManager> autoTx;
+    if (!tx) {
+        autoTx.reset(new TxFileManager(m_instance->ckanDir() + QStringLiteral("/transactions")));
+        tx = autoTx.get();
+    }
+    const QByteArray regSnapshot = reg->toJson(); // 事务开始时的注册表快照
+
+    const auto fail = [&](const QString &err) {
+        if (autoTx) {
+            tx->rollback();
+            m_instance->restoreRegistrySnapshot(regSnapshot);
+        }
+        InstallResult r;
+        r.error = err;
+        return r;
+    };
+
     for (const CkanModule &mod : modules) {
         emit installProgress(mod.identifier, 0);
-        if (m_cancelRequested.load()) {
-            result.error = QStringLiteral("已取消");
-            return result;
-        }
+        if (m_cancelRequested.load())
+            return fail(QStringLiteral("已取消"));
         if (mod.isMetapackage()) {
             // 元包无文件，仅注册
             InstalledModule im;
@@ -387,42 +402,32 @@ InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modul
             result.installedIdentifiers << mod.identifier;
             continue;
         }
-        if (mod.downloadUrls.isEmpty()) {
-            result.error = QStringLiteral("%1 has no download URL").arg(mod.identifier);
-            return result;
-        }
+        if (mod.downloadUrls.isEmpty())
+            return fail(QStringLiteral("%1 has no download URL").arg(mod.identifier));
 
         const QString zipPath = downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
                               + safeCacheFileName(mod.version) + QStringLiteral(".zip");
-        if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath, mod.downloadHash.sha256)) {
-            result.error = QStringLiteral("download cache missing or invalid: %1，请先下载")
-                .arg(mod.identifier);
-            return result;
-        }
+        if (!QFileInfo::exists(zipPath) || !isValidZipFile(zipPath, mod.downloadHash.sha256))
+            return fail(QStringLiteral("download cache missing or invalid: %1，请先下载")
+                .arg(mod.identifier));
 
         // 读取 zip 到内存并打开
         //    不用 mz_zip_reader_init_file：其内部用 fopen 按 ANSI 代码页解析路径，
         //    当缓存路径含非 ASCII 字符时打开失败，会被误报为 "corrupt zip"。
         QFile zipFile(zipPath);
-        if (!zipFile.open(QIODevice::ReadOnly)) {
-            result.error = QStringLiteral("cannot open cached download: %1").arg(zipPath);
-            return result;
-        }
+        if (!zipFile.open(QIODevice::ReadOnly))
+            return fail(QStringLiteral("cannot open cached download: %1").arg(zipPath));
         const QByteArray zipData = zipFile.readAll();
         zipFile.close();
-        if (!looksLikeZip(zipData)) {
-            result.error = QStringLiteral("corrupt zip for %1 (size=%2 bytes, 下载内容并非 ZIP 归档)")
-                .arg(mod.identifier).arg(zipData.size());
-            return result;
-        }
+        if (!looksLikeZip(zipData))
+            return fail(QStringLiteral("corrupt zip for %1 (size=%2 bytes, 下载内容并非 ZIP 归档)")
+                .arg(mod.identifier).arg(zipData.size()));
         mz_zip_archive zip;
         memset(&zip, 0, sizeof(zip));
         if (!mz_zip_reader_init_mem(&zip, zipData.constData(),
-                                    static_cast<size_t>(zipData.size()), 0)) {
-            result.error = QStringLiteral("corrupt zip for %1 (size=%2 bytes)")
-                .arg(mod.identifier).arg(zipData.size());
-            return result;
-        }
+                                    static_cast<size_t>(zipData.size()), 0))
+            return fail(QStringLiteral("corrupt zip for %1 (size=%2 bytes)")
+                .arg(mod.identifier).arg(zipData.size()));
         const mz_uint count = mz_zip_reader_get_num_files(&zip);
         QStringList entries;
         for (mz_uint i = 0; i < count; ++i) {
@@ -441,12 +446,11 @@ InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modul
         }
         if (files.isEmpty()) {
             mz_zip_reader_end(&zip);
-            result.error = QStringLiteral("no files matched install rules for %1").arg(mod.identifier);
-            return result;
+            return fail(QStringLiteral("no files matched install rules for %1").arg(mod.identifier));
         }
         emit installProgress(mod.identifier, 60);
 
-        // 若用户选择“删除旧的保留新的”，先递归删除将写入的顶层 GameData 文件夹
+        // 若用户选择“删除旧的保留新的”，先递归删除将写入的顶层 GameData 文件夹（事务化）
         if (!foldersToDelete.isEmpty()) {
             QSet<QString> writeRoots;
             for (const InstallableFile &f : files) {
@@ -459,30 +463,28 @@ InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modul
             }
             for (const QString &top : writeRoots) {
                 if (foldersToDelete.contains(top)) {
-                    removeDirRecursively(m_instance->toAbsoluteGameDir(
-                        QStringLiteral("GameData/") + top));
+                    if (!tx->deleteDir(m_instance->toAbsoluteGameDir(
+                            QStringLiteral("GameData/") + top))) {
+                        mz_zip_reader_end(&zip);
+                        return fail(QStringLiteral("cannot delete old folder: %1").arg(top));
+                    }
                 }
             }
         }
 
-        // 提取并复制文件到 GameData
+        // 提取并复制文件到 GameData（事务化写入，失败整体回滚）
         QStringList installedRelPaths;
         for (const InstallableFile &f : files) {
             QByteArray content;
             if (!extractToMem(zip, f.sourceName.toUtf8().constData(), &content, &result.error)) {
                 mz_zip_reader_end(&zip);
-                return result;
+                return fail(result.error);
             }
             const QString abs = m_instance->toAbsoluteGameDir(f.destination);
-            QDir().mkpath(QFileInfo(abs).absolutePath());
-            QFile of(abs);
-            if (!of.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            if (!tx->writeFile(abs, content)) {
                 mz_zip_reader_end(&zip);
-                result.error = QStringLiteral("cannot write %1").arg(abs);
-                return result;
+                return fail(QStringLiteral("cannot write %1").arg(abs));
             }
-            of.write(content);
-            of.close();
             installedRelPaths << f.destination;
         }
         mz_zip_reader_end(&zip);
@@ -500,7 +502,10 @@ InstallResult ModuleInstaller::installFromCache(const QVector<CkanModule> &modul
         emit installProgress(mod.identifier, 100);
     }
 
-    m_instance->saveRegistry();
+    if (autoTx) {
+        m_instance->saveRegistry();
+        tx->commit();
+    }
     result.ok = true;
     return result;
 }
@@ -525,7 +530,7 @@ void ModuleInstaller::cancel()
     m_cancelRequested.store(true);
 }
 
-InstallResult ModuleInstaller::uninstall(const QString &identifier)
+InstallResult ModuleInstaller::uninstall(const QString &identifier, TxFileManager *tx)
 {
     InstallResult result;
     Registry *reg = m_instance->registry();
@@ -533,26 +538,48 @@ InstallResult ModuleInstaller::uninstall(const QString &identifier)
         result.error = QStringLiteral("%1 is not installed").arg(identifier);
         return result;
     }
+
+    // 事务化卸载：删除的文件先备份，任一步失败整体回滚（恢复已删除文件、还原注册表）。
+    std::unique_ptr<TxFileManager> autoTx;
+    if (!tx) {
+        autoTx.reset(new TxFileManager(m_instance->ckanDir() + QStringLiteral("/transactions")));
+        tx = autoTx.get();
+    }
+    const QByteArray regSnapshot = reg->toJson(); // 事务开始时的注册表快照
+
+    const auto fail = [&](const QString &err) {
+        if (autoTx) {
+            tx->rollback();
+            m_instance->restoreRegistrySnapshot(regSnapshot);
+        }
+        InstallResult r;
+        r.error = err;
+        return r;
+    };
+
     // 级联卸载：收集所有（直接/间接）依赖 identifier 的模组，
     // 顺序为依赖链自外向内，先卸载依赖者，最后卸载 identifier 本身。
     QSet<QString> visited;
     QStringList order;
-    if (!collectReverseDeps(reg, identifier, visited, order)) {
-        result.error = QStringLiteral("%1 is not installed").arg(identifier);
-        return result;
-    }
+    if (!collectReverseDeps(reg, identifier, visited, order))
+        return fail(QStringLiteral("%1 is not installed").arg(identifier));
     for (const QString &id : order) {
         const InstalledModule *im = reg->installed(id);
         if (!im) continue;
-        // 删除文件（仅删除归属此模块的文件）
+        // 删除文件（仅删除归属此模块的文件，事务化）
         for (const QString &rel : im->files) {
             const QString abs = m_instance->toAbsoluteGameDir(rel);
-            QFile::remove(abs);
+            if (!tx->deleteFile(abs))
+                return fail(QStringLiteral("cannot delete %1").arg(abs));
         }
         reg->unregisterModule(id);
         result.installedIdentifiers << id;
     }
-    m_instance->saveRegistry();
+
+    if (autoTx) {
+        m_instance->saveRegistry();
+        tx->commit();
+    }
     result.ok = true;
     return result;
 }

@@ -325,6 +325,17 @@ void GameInstance::saveRegistry() const
     }
 }
 
+void GameInstance::restoreRegistrySnapshot(const QByteArray &json)
+{
+    QString err;
+    if (json.isEmpty())
+        m_registry = Registry();
+    else
+        m_registry = Registry::fromJson(json, &err);
+    m_registryLoaded = true;
+    saveRegistry(); // 同步写回磁盘，保证内存与 registry.json 一致
+}
+
 bool GameInstance::isValid() const
 {
     const bool hasExec = QFileInfo::exists(m_gameDir + QStringLiteral("/KSP_x64.exe"))

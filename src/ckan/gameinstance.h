@@ -56,6 +56,10 @@ public:
     void loadRegistry();
     void saveRegistry() const;
 
+    // 事务回滚：用事务开始时的注册表 JSON 快照恢复内存状态，并同步写回 registry.json。
+    // 空快照表示事务开始时注册表为空（会写入空注册表）。
+    void restoreRegistrySnapshot(const QByteArray &json);
+
     // 报告是否有效（存在游戏文件）
     bool isValid() const;
 

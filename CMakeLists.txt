@@ -32,6 +32,7 @@ set(CKAN_SOURCES
     src/ckan/repoindex.cpp
     src/ckan/relationshipresolver.cpp
     src/ckan/moduleinstaller.cpp
+    src/ckan/txfilemanager.cpp
     src/ckan/ckan.cpp
     thirdparty/miniz.c
 )
@@ -50,6 +51,7 @@ set(CKAN_HEADERS
     src/ckan/repoindex.h
     src/ckan/relationshipresolver.h
     src/ckan/moduleinstaller.h
+    src/ckan/txfilemanager.h
     src/ckan/ckan.h
     thirdparty/miniz.h
 )

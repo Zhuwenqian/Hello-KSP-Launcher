@@ -23,6 +23,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Parallel Downloads** — Modules download concurrently (configurable up to 8 at a time) with a unified progress view and cancel button.
 - **Mod Suggestions** — During installation, optional suggested mods (from the "suggests" field) are shown in a checkbox dialog; selected suggestions and their dependencies are resolved and installed automatically. Can be toggled in settings.
 - **Flexible Sources & Cache** — Switch between official and mirror download sources, configure the index refresh interval, and manage the download cache folder (precise cleanup and cache migration).
+- **Atomic Transactions** — Install, uninstall, and upgrade run as atomic transactions with automatic rollback on failure or cancellation, so no files are left behind and the registry is restored to its pre-operation state.
 - **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
 - **Backup Management** — Create, browse, and delete save backups with a progress dialog.
 - **Modpack Export** — Export GameData as a ZIP file, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files).
@@ -144,6 +145,7 @@ Copyright (C) 2026. Licensed under the **GNU General Public License v3.0**. See 
 - **并行下载** — 模组并发下载（并发数可配，最高 8），统一进度显示与取消按钮。
 - **模组建议** — 安装过程中弹窗显示可选建议模组（源自 "suggests" 字段），勾选后连同其依赖自动解析安装；可在设置中关闭。
 - **灵活的下载源与缓存** — 官方/镜像下载源可切换，索引刷新间隔可配置，支持下载缓存文件夹管理（精确清理与缓存迁移）。
+- **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
 - **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑 Kerbal 属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
 - **整合包导出** — 将 GameData 目录打包为 ZIP 文件，自动排除 Squad、SquadExpansion 和 ModuleManager 缓存文件。

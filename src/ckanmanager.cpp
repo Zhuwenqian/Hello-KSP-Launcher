@@ -18,6 +18,7 @@
 
 #include "ckan/repoindex.h"
 #include "ckan/moduleinstaller.h"
+#include "ckan/txfilemanager.h"
 #include "configmanager.h"
 
 CKanManager::CKanManager(QObject *parent)
@@ -563,9 +564,29 @@ void CKanManager::startInstallPhase(const QVector<ckan::CkanModule> &modules,
     auto watcher = new QFutureWatcher<ckan::InstallResult>(this);
     m_installWatcher = watcher;
     auto future = QtConcurrent::run([this, modules, foldersToDelete, preUninstall]() {
-        for (const QString &id : preUninstall)
-            m_ckan->uninstall(id);
-        return m_installer->installFromCache(modules, downloadDir(), foldersToDelete);
+        // 单事务：先卸载旧版再安装新版，作为一个原子操作。
+        // 任一步失败（含用户取消）整体回滚——恢复被删除的旧版文件、删除已写入的新文件、还原注册表。
+        ckan::GameInstance *inst = m_ckan->instance();
+        ckan::TxFileManager tx(inst->ckanDir() + QStringLiteral("/transactions"));
+        const QByteArray regSnapshot = inst->registry()->toJson();
+        for (const QString &id : preUninstall) {
+            const ckan::InstallResult ru = m_installer->uninstall(id, &tx);
+            if (!ru.ok) {
+                tx.rollback();
+                inst->restoreRegistrySnapshot(regSnapshot);
+                return ru;
+            }
+        }
+        ckan::InstallResult r = m_installer->installFromCache(modules, downloadDir(),
+                                                              foldersToDelete, &tx);
+        if (!r.ok) {
+            tx.rollback();
+            inst->restoreRegistrySnapshot(regSnapshot);
+            return r;
+        }
+        inst->saveRegistry();
+        tx.commit();
+        return r;
     });
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this,
             [this, watcher, doneMessage]() {

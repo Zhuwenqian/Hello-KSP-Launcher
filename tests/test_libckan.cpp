@@ -20,6 +20,7 @@
 #include "ckan/relationshipresolver.h"
 #include "ckan/downloader.h"
 #include "ckan/repoindex.h"
+#include "ckan/txfilemanager.h"
 #include "steamdiscovery.h"
 
 using namespace ckan;
@@ -1535,6 +1536,184 @@ private slots:
     }
 };
 
+// ---------------------------------------------------------------------------
+// 事务回滚：安装/卸载/升级原子执行，失败（含用户取消）整体回滚不残留文件
+// ---------------------------------------------------------------------------
+class TestTransactionRollback : public QObject
+{
+    Q_OBJECT
+private slots:
+    void txFileManagerRollbackRestoresEverything()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString txBase = dir.filePath(QStringLiteral("tx"));
+        TxFileManager tx(txBase);
+
+        const QString a = dir.filePath(QStringLiteral("a.txt"));
+        const QString b = dir.filePath(QStringLiteral("b.txt"));
+        QFile fa(a);
+        QVERIFY(fa.open(QIODevice::WriteOnly)); fa.write("orig-a"); fa.close();
+        QFile fb(b);
+        QVERIFY(fb.open(QIODevice::WriteOnly)); fb.write("orig-b"); fb.close();
+
+        const auto readBytes = [](const QString &p) {
+            QFile f(p);
+            if (!f.open(QIODevice::ReadOnly)) return QByteArray();
+            return f.readAll();
+        };
+
+        // 覆盖已存在文件 + 删除文件 + 新建文件
+        QVERIFY(tx.writeFile(a, QByteArray("new-a")));
+        QVERIFY(tx.deleteFile(b));
+        const QString c = dir.filePath(QStringLiteral("c.txt"));
+        QVERIFY(tx.writeFile(c, QByteArray("new-c")));
+
+        QCOMPARE(readBytes(a), QByteArray("new-a"));
+        QVERIFY(!QFile::exists(b));
+
+        tx.rollback();
+        // 被覆盖/删除的文件恢复原内容，新建文件被删除，事务目录清空
+        QCOMPARE(readBytes(a), QByteArray("orig-a"));
+        QVERIFY(QFile::exists(b));
+        QVERIFY(!QFile::exists(c));
+        QVERIFY(QDir(txBase).entryList(QDir::NoDotAndDotDot).isEmpty());
+    }
+
+    void installBatchFailureLeavesNoResidue()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        // 模块 A：合法 zip，安装中会先被成功写入
+        const QByteArray zipA = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        QFile zfa(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zfa.open(QIODevice::WriteOnly)); zfa.write(zipA); zfa.close();
+
+        // 模块 B：无缓存 zip，installFromCache 在 A 写入后中途失败
+        CkanModule modA = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        modA.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+        CkanModule modB = makeModule(QStringLiteral("ModB"), QStringLiteral("1.0"));
+        modB.downloadUrls = QStringList{QStringLiteral("file:///dummy/modB.zip")};
+
+        ModuleInstaller installer(&gi);
+        const InstallResult r = installer.installFromCache({modA, modB}, dl);
+        QVERIFY(!r.ok); // 整批原子失败
+        // A 已写入的文件被回滚，注册表还原为空
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModA")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModB")));
+    }
+
+    void cancelMidBatchRollsBack()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        const QByteArray zipA = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        QFile zfa(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zfa.open(QIODevice::WriteOnly)); zfa.write(zipA); zfa.close();
+        const QByteArray zipB = makeZip({qMakePair(QStringLiteral("ModB/b.dll"), QByteArray("dll"))});
+        QFile zfb(dl + QStringLiteral("/ModB_1.0.zip"));
+        QVERIFY(zfb.open(QIODevice::WriteOnly)); zfb.write(zipB); zfb.close();
+
+        CkanModule modA = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        modA.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+        CkanModule modB = makeModule(QStringLiteral("ModB"), QStringLiteral("1.0"));
+        modB.downloadUrls = QStringList{QStringLiteral("file:///dummy/modB.zip")};
+
+        ModuleInstaller installer(&gi);
+        // 模块 A 安装完成（100%）时触发取消，使模块 B 在写入前被中止
+        QObject::connect(&installer, &ModuleInstaller::installProgress,
+                         [&installer](const QString &id, int percent) {
+            if (id == QStringLiteral("ModA") && percent == 100)
+                installer.cancel();
+        });
+        const InstallResult r = installer.installFromCache({modA, modB}, dl);
+        QVERIFY(!r.ok); // 用户取消视为失败
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModB/b.dll"))));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModA")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModB")));
+    }
+
+    void uninstallFailureRollsBack()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        const QByteArray zip = makeZip({
+            qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll")),
+            qMakePair(QStringLiteral("ModA/b.dll"), QByteArray("dll")),
+        });
+        QFile zf(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zf.open(QIODevice::WriteOnly)); zf.write(zip); zf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+        ModuleInstaller installer(&gi);
+        const InstallResult ir = installer.installFromCache({mod}, dl);
+        QVERIFY2(ir.ok, qPrintable(ir.error));
+
+        // 把注册表中列为文件的 b.dll 替换成同名目录，使卸载时删除失败
+        const QString bPath = dir.filePath(QStringLiteral("GameData/ModA/b.dll"));
+        QVERIFY(QFile::remove(bPath));
+        QVERIFY(QDir().mkpath(bPath));
+
+        const InstallResult r = installer.uninstall(QStringLiteral("ModA"));
+        QVERIFY(!r.ok); // 卸载失败
+        // 已删除的 a.dll 被回滚恢复，注册表保持已安装
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
+    }
+
+    void upgradeMergedTransactionRollsBack()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        // 安装 ModA v1.0
+        const QByteArray zipOld = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("old"))});
+        QFile zfo(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zfo.open(QIODevice::WriteOnly)); zfo.write(zipOld); zfo.close();
+        CkanModule oldMod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        oldMod.downloadUrls = QStringList{QStringLiteral("file:///dummy/old.zip")};
+        ModuleInstaller installer(&gi);
+        QVERIFY2(installer.installFromCache({oldMod}, dl).ok, "install old failed");
+
+        // 模拟升级：外部单事务 = 卸载旧版 + 安装新版，新版安装失败 -> 整体回滚
+        CkanModule newMod = makeModule(QStringLiteral("ModA"), QStringLiteral("2.0"));
+        newMod.downloadUrls = QStringList{QStringLiteral("file:///dummy/new.zip")}; // 无缓存，安装必然失败
+
+        TxFileManager tx(gi.ckanDir() + QStringLiteral("/transactions"));
+        const QByteArray regSnapshot = gi.registry()->toJson();
+        const InstallResult ru = installer.uninstall(QStringLiteral("ModA"), &tx);
+        QVERIFY2(ru.ok, qPrintable(ru.error));
+        const InstallResult ri = installer.installFromCache({newMod}, dl, {}, &tx);
+        QVERIFY(!ri.ok); // 新版安装失败
+
+        tx.rollback();
+        gi.restoreRegistrySnapshot(regSnapshot);
+
+        // 旧版文件被恢复，注册表回到旧版
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
+        QCOMPARE(gi.registry()->installedVersion(QStringLiteral("ModA")), QStringLiteral("1.0"));
+    }
+};
+
 static int runSuite(int argc, char *argv[], QObject &suite)
 {
     return QTest::qExec(&suite, argc, argv);
@@ -1557,6 +1736,7 @@ int main(int argc, char *argv[])
     TestRepoIndex tRepoIndex;
     TestModuleDownload tModDownload;
     TestSteamDiscovery tSteamDisc;
+    TestTransactionRollback tTxRollback;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -1569,6 +1749,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tModDownload);
     failures += runSuite(argc, argv, tRepoIndex);
     failures += runSuite(argc, argv, tSteamDisc);
+    failures += runSuite(argc, argv, tTxRollback);
     return failures;
 }
 
