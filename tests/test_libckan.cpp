@@ -18,10 +18,10 @@
 #include "ckan/registry.h"
 #include "ckan/gameinstance.h"
 #include "ckan/relationshipresolver.h"
+#include "ckan/filelock.h"
 #include "ckan/downloader.h"
 #include "ckan/repoindex.h"
 #include "ckan/txfilemanager.h"
-#include "steamdiscovery.h"
 
 using namespace ckan;
 
@@ -56,6 +56,15 @@ static Relationship sug(const QString &name, const QString &minVer = QString())
 {
     Relationship r = rel(name, minVer);
     r.type = Relationship::Type::Suggests;
+    return r;
+}
+
+// any_of 关系：任一子依赖满足即可（子关系通常为 depends 类型）
+static Relationship anyOfDep(const QVector<Relationship> &subs)
+{
+    Relationship r;
+    r.type = Relationship::Type::Depends;
+    r.anyOf = subs;
     return r;
 }
 
@@ -252,6 +261,70 @@ private slots:
         QVERIFY(any.intersects(a));
         QVERIFY(a.intersects(any));
     }
+    void toVersionRange()
+    {
+        // 官方 GameVersion.ToVersionRange 半开展开
+        const GameVersionRange r1 = GameVersion(QStringLiteral("1.12.5")).toVersionRange();
+        QVERIFY(r1.lowerSet());
+        QVERIFY(r1.upperSet());
+        QVERIFY(r1.lowerInclusive());
+        QVERIFY(!r1.upperInclusive());
+        QCOMPARE(r1.lower().toString(), QStringLiteral("1.12.5.0"));
+        QCOMPARE(r1.upper().toString(), QStringLiteral("1.12.6.0"));
+        // 完整版本（含 build）为点区间
+        const GameVersionRange r2 = GameVersion(QStringLiteral("1.12.5.3190")).toVersionRange();
+        QVERIFY(r2.lowerInclusive());
+        QVERIFY(r2.upperInclusive());
+        QVERIFY(r2.lower() == r2.upper());
+    }
+    void rangeHalfOpenUpper()
+    {
+        // kRPC 场景：ksp_version_min 1.12.3 / ksp_version_max 1.12.5，
+        // 未显式声明 build 的上界为半开区间，应兼容 1.12.5.3190
+        const GameVersionRange range(GameVersion(QStringLiteral("1.12.3")), true,
+                                     GameVersion(QStringLiteral("1.12.5")), true);
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.12.3.0"))));
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.12.4.9999"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.6"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.6.0"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.2"))));
+    }
+    void rangePointWithBuild()
+    {
+        // 显式声明 build 的上界为点区间（如 ksp_version_max: 1.12.5.3190）
+        const GameVersionRange range(GameVersion(QStringLiteral("1.12.5.3190")), true,
+                                     GameVersion(QStringLiteral("1.12.5.3190")), true);
+        QVERIFY(range.contains(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.5.3191"))));
+        QVERIFY(!range.contains(GameVersion(QStringLiteral("1.12.6.0"))));
+    }
+    void versionLinesToRange()
+    {
+        // 默认勾选 1.9~1.12 -> 连续区间 [1.9.0.0, 1.13.0.0)
+        const GameVersionRange r = ckan::versionLinesToRange(
+            {QStringLiteral("1.9"), QStringLiteral("1.10"),
+             QStringLiteral("1.11"), QStringLiteral("1.12")});
+        QVERIFY(r.lowerSet());
+        QVERIFY(r.upperSet());
+        QVERIFY(r.lowerInclusive());
+        QVERIFY(!r.upperInclusive());
+        QCOMPARE(r.lower().toString(), QStringLiteral("1.9.0.0"));
+        QCOMPARE(r.upper().toString(), QStringLiteral("1.13.0.0"));
+        // 区间内：1.9 首行、1.12.5.3190 等；区间外：1.8 与 1.13
+        QVERIFY(r.contains(GameVersion(QStringLiteral("1.9.0.0"))));
+        QVERIFY(r.contains(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(!r.contains(GameVersion(QStringLiteral("1.8.9"))));
+        QVERIFY(!r.contains(GameVersion(QStringLiteral("1.13.0"))));
+        // 单个版本线 {"1.12"} -> [1.12.0.0, 1.13.0.0)
+        const GameVersionRange single = ckan::versionLinesToRange({QStringLiteral("1.12")});
+        QVERIFY(single.contains(GameVersion(QStringLiteral("1.12.0"))));
+        QVERIFY(single.contains(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(!single.contains(GameVersion(QStringLiteral("1.11.9"))));
+        // 空集合/全部无效 -> 无效区间（调用方回退为仅按当前实例版本判断）
+        QVERIFY(!ckan::versionLinesToRange({}).lowerSet());
+        QVERIFY(!ckan::versionLinesToRange({QStringLiteral("abc")}).lowerSet());
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -335,12 +408,16 @@ private slots:
         CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
         const GameVersion ksp(GameVersion(QStringLiteral("1.12.3")));
 
-        // 1) ksp_version 非 strict：兼容实际游戏版本及更高版本
+        // 1) ksp_version 非 strict：仅兼容该版本线（官方 StrictGameComparator），
+        //    1.12.3 -> [1.12.3.0, 1.12.4.0)，不再按「1.12.3 及以上」放宽为无界上界
         m.kspVersion = QStringLiteral("1.12.3");
         QVERIFY(m.isCompatible(ksp));
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.13.0"))));
-        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3.0"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3.9999"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.13.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("2.0.0"))));
         QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.11.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.4.0"))));
 
         // 2) ksp_version strict：等值匹配
         m.kspVersion = QStringLiteral("1.12.3");
@@ -387,6 +464,53 @@ private slots:
         // 8) 非法 ksp_version 字符串 -> 无效版本 -> 视为兼容（因为无合法区间约束）
         m.kspVersion = QStringLiteral("not-a-version");
         QVERIFY(m.isCompatible(ksp));
+
+        // 9) kRPC 场景：ksp_version_min/max 未显式声明 build -> 上界为半开区间，
+        //    兼容该 patch 线的所有 build（如 KSP 1.12.5.3190）
+        m.kspVersion.clear();
+        m.kspVersionMin = QStringLiteral("1.12.3");
+        m.kspVersionMax = QStringLiteral("1.12.5");
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.12.3.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.6.0"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.2.0"))));
+    }
+    void compatibleWithRange()
+    {
+        // isCompatible(GameVersionRange)：模组兼容区间与用户勾选区间相交即兼容
+        CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        // 默认勾选 1.9~1.12 -> [1.9.0.0, 1.13.0.0)
+        const GameVersionRange defaultRange = versionLinesToRange(
+            {QStringLiteral("1.9"), QStringLiteral("1.10"),
+             QStringLiteral("1.11"), QStringLiteral("1.12")});
+
+        // 1) 上界 1.12.5 的模组（kRPC 风格）：半开上界 1.12.6.0 落在默认区间内 -> 兼容
+        m.kspVersionMin = QStringLiteral("1.12.3");
+        m.kspVersionMax = QStringLiteral("1.12.5");
+        QVERIFY(m.isCompatible(defaultRange));
+
+        // 2) 只兼容 1.8 及以下的模组：与 [1.9,1.13) 不相交 -> 不兼容
+        m.kspVersionMin.clear();
+        m.kspVersionMax = QStringLiteral("1.8.0");
+        QVERIFY(!m.isCompatible(defaultRange));
+
+        // 3) 无任何版本信息 -> 无界区间，与任何区间兼容
+        m.kspVersionMax.clear();
+        QVERIFY(m.isCompatible(defaultRange));
+
+        // 4) 只兼容 1.14 及以上的模组：超出默认区间上界 -> 不兼容
+        m.kspVersionMin = QStringLiteral("1.14.0");
+        QVERIFY(!m.isCompatible(defaultRange));
+
+        // 5) DCK FutureTech 回归（仅声明 ksp_version=1.3.1，无 min/max）：
+        //    版本线 [1.3.1.0, 1.4.0.0) 与默认区间 [1.9,1.13) 及实例 1.12.5.3190 均不相交 -> 不兼容
+        m.kspVersionMin.clear();
+        m.kspVersionMax.clear();
+        m.kspVersion = QStringLiteral("1.3.1");
+        QVERIFY(!m.isCompatible(defaultRange));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.12.5.3190"))));
+        QVERIFY(m.isCompatible(GameVersion(QStringLiteral("1.3.1"))));
+        QVERIFY(!m.isCompatible(GameVersion(QStringLiteral("1.9.0"))));
     }
     void effectiveInstallDefault()
     {
@@ -395,6 +519,132 @@ private slots:
         QCOMPARE(stanzas.size(), 1);
         QCOMPARE(stanzas.at(0).find, QStringLiteral("ModA"));
         QCOMPARE(stanzas.at(0).installTo, QStringLiteral("GameData"));
+    }
+    void releaseStatusParsing()
+    {
+        // 缺省 → Stable；testing/beta → Testing；development/alpha → Development；序列化往返
+        QString err;
+        const CkanModule dev = CkanModule::fromJson(
+            "{\"identifier\":\"ModA\",\"version\":\"1.0\","
+            "\"release_status\":\"development\"}", &err);
+        QVERIFY(dev.isValid());
+        QCOMPARE(static_cast<int>(dev.releaseStatus),
+                 static_cast<int>(ReleaseStatus::Development));
+
+        // beta 兼容映射为 Testing
+        const CkanModule beta = CkanModule::fromJson(
+            "{\"identifier\":\"ModB\",\"version\":\"1.0\","
+            "\"release_status\":\"beta\"}", &err);
+        QVERIFY(beta.isValid());
+        QCOMPARE(static_cast<int>(beta.releaseStatus),
+                 static_cast<int>(ReleaseStatus::Testing));
+
+        // 缺省 → Stable
+        const CkanModule stable = CkanModule::fromJson(
+            "{\"identifier\":\"ModC\",\"version\":\"1.0\"}", &err);
+        QVERIFY(stable.isValid());
+        QCOMPARE(static_cast<int>(stable.releaseStatus),
+                 static_cast<int>(ReleaseStatus::Stable));
+
+        // 非 stable 序列化写出并往返
+        const QByteArray jsonDev = dev.toJson();
+        QVERIFY(jsonDev.contains("release_status"));
+        const CkanModule back = CkanModule::fromJson(jsonDev, &err);
+        QCOMPARE(static_cast<int>(back.releaseStatus),
+                 static_cast<int>(ReleaseStatus::Development));
+
+        // stable 不写出（默认值，与官方 DefaultValue 一致）
+        const QByteArray jsonStable = stable.toJson();
+        QVERIFY(!jsonStable.contains("release_status"));
+    }
+    void dlcKindParsing()
+    {
+        QString err;
+        const CkanModule dlc = CkanModule::fromJson(
+            "{\"identifier\":\"MakingHistory\",\"version\":\"1.8.1\",\"kind\":\"dlc\"}", &err);
+        QVERIFY(dlc.isValid());
+        QVERIFY(dlc.isDlc());
+        const QByteArray json = dlc.toJson();
+        QVERIFY(json.contains("kind"));
+        const CkanModule back = CkanModule::fromJson(json, &err);
+        QVERIFY(back.isDlc());
+    }
+    void minMaxVersionKeysParsing()
+    {
+        // 官方 ModuleRelationshipDescriptor 独立键：min_version / max_version（含 inclusive）
+        QString err;
+        const CkanModule m = CkanModule::fromJson(
+            "{\"identifier\":\"ModA\",\"version\":\"1.0\",\"depends\":["
+            "{\"name\":\"Dep\",\"min_version\":\"1.5\",\"max_version\":\"2.0\"}]}", &err);
+        QVERIFY2(m.isValid(), qPrintable(err));
+        QCOMPARE(m.depends.size(), 1);
+        const Relationship &d = m.depends.at(0);
+        QCOMPARE(d.name, QStringLiteral("Dep"));
+        QCOMPARE(d.minVersion, QStringLiteral("1.5"));
+        QCOMPARE(d.maxVersion, QStringLiteral("2.0"));
+        QVERIFY(d.minInclusive); // inclusive 缺省为 true
+        QVERIFY(d.maxInclusive);
+        // 约束语义
+        QVERIFY(d.versionSatisfies(QStringLiteral("1.5")));
+        QVERIFY(d.versionSatisfies(QStringLiteral("1.9")));
+        QVERIFY(d.versionSatisfies(QStringLiteral("2.0")));
+        QVERIFY(!d.versionSatisfies(QStringLiteral("1.4")));
+        QVERIFY(!d.versionSatisfies(QStringLiteral("2.1")));
+
+        // 仅 min_version（下界）
+        const CkanModule lo = CkanModule::fromJson(
+            "{\"identifier\":\"ModB\",\"version\":\"1.0\",\"recommends\":["
+            "{\"name\":\"Dep\",\"min_version\":\"3.0\"}]}", &err);
+        QVERIFY(lo.isValid());
+        QVERIFY(lo.recommends.at(0).versionSatisfies(QStringLiteral("3.0")));
+        QVERIFY(!lo.recommends.at(0).versionSatisfies(QStringLiteral("2.9")));
+
+        // 非默认 inclusive=false 也解析
+        const CkanModule excl = CkanModule::fromJson(
+            "{\"identifier\":\"ModC\",\"version\":\"1.0\",\"conflicts\":["
+            "{\"name\":\"Other\",\"min_version\":\"2.0\",\"min_version_inclusive\":false}]}", &err);
+        QVERIFY(excl.isValid());
+        QVERIFY(!excl.conflicts.at(0).minInclusive);
+
+        // 序列化往返：独立键原样保留
+        const QByteArray json = m.toJson();
+        QVERIFY(json.contains("min_version"));
+        QVERIFY(json.contains("max_version"));
+        const CkanModule back = CkanModule::fromJson(json, &err);
+        QVERIFY(back.isValid());
+        QCOMPARE(back.depends.size(), 1);
+        QCOMPARE(back.depends.at(0).minVersion, QStringLiteral("1.5"));
+        QCOMPARE(back.depends.at(0).maxVersion, QStringLiteral("2.0"));
+    }
+    void parseAnyOf()
+    {
+        // any_of：任一子依赖满足即可（官方 CKAN 格式 {"any_of":[{...},{...}]}）
+        QString err;
+        const CkanModule m = CkanModule::fromJson(
+            "{\"identifier\":\"Reviva\",\"version\":\"1.0\",\"depends\":["
+            "{\"name\":\"ModuleManager\"},"
+            "{\"any_of\":[{\"name\":\"RasterPropMonitor-Core\"},{\"name\":\"AvionicsSystems\"}]}]}",
+            &err);
+        QVERIFY2(m.isValid(), qPrintable(err));
+        QCOMPARE(m.depends.size(), 2);
+        const Relationship &normal = m.depends.at(0);
+        QVERIFY(normal.anyOf.isEmpty());
+        QCOMPARE(normal.name, QStringLiteral("ModuleManager"));
+        const Relationship &any = m.depends.at(1);
+        QCOMPARE(any.anyOf.size(), 2);
+        QCOMPARE(any.anyOf.at(0).name, QStringLiteral("RasterPropMonitor-Core"));
+        QCOMPARE(any.anyOf.at(1).name, QStringLiteral("AvionicsSystems"));
+        // 子关系继承 depends 类型
+        QVERIFY(any.anyOf.at(0).type == Relationship::Type::Depends);
+
+        // 序列化往返：any_of 原样保留
+        const QByteArray json = m.toJson();
+        QVERIFY(json.contains("any_of"));
+        const CkanModule back = CkanModule::fromJson(json, &err);
+        QVERIFY(back.isValid());
+        QCOMPARE(back.depends.size(), 2);
+        QCOMPARE(back.depends.at(1).anyOf.size(), 2);
+        QCOMPARE(back.depends.at(1).anyOf.at(1).name, QStringLiteral("AvionicsSystems"));
     }
 };
 
@@ -757,6 +1007,35 @@ private slots:
         QVERIFY(ids.contains(QStringLiteral("A")));
         QVERIFY(!ids.contains(QStringLiteral("FooLib"))); // 依赖已被 AD 满足，不下载
     }
+    void extraRangeCandidateFilter()
+    {
+        // 实例实际版本 1.12.5.3190，但用户勾选了 1.9~1.12（默认区间）。
+        // A 依赖 B；B 仅兼容到 1.12.4（上界 [1.12.4.0,1.12.5.0)）：
+        // 不兼容实例版本，但兼容勾选区间 -> 启用 extraRange 时可安装。
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"))});
+        CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        B.kspVersionMax = QStringLiteral("1.12.4");
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const GameVersion ksp(QStringLiteral("1.12.5.3190"));
+        const GameVersionRange extraRange = versionLinesToRange(
+            {QStringLiteral("1.9"), QStringLiteral("1.12")});
+
+        // 启用 extraRange：B 兼容勾选区间 -> 解析成功且安装 B
+        const ResolutionResult r = resolver.resolve({A}, reg, false, false, ksp, extraRange);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("B")));
+
+        // 未启用 extraRange（默认无效区间）：仅按实例版本判断 -> B 不兼容，依赖缺失
+        const ResolutionResult r2 = resolver.resolve({A}, reg, false, false, ksp);
+        QVERIFY(r2.missing);
+        QVERIFY(r2.notFound.contains(QStringLiteral("B")));
+    }
     void nonAdDependencyStillDownloaded()
     {
         // 依赖不是 AD 模组时，仍应进入待安装集合
@@ -883,6 +1162,354 @@ private slots:
         QVERIFY(inst.contains(QStringLiteral("A")));
         QVERIFY(inst.contains(QStringLiteral("S")));
         QVERIFY(inst.contains(QStringLiteral("D"))); // S 的依赖被解析
+    }
+    void installedVersionUpgrade()
+    {
+        // 已安装 B 1.0，A 依赖 B>=2.0：已安装版本不满足约束 → 应升级到满足约束的新版
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"), QStringLiteral("2.0"))});
+        QMap<QString, QVector<CkanModule>> idx;
+        idx[QStringLiteral("A")] = {A};
+        idx[QStringLiteral("B")] = {makeModule(QStringLiteral("B"), QStringLiteral("1.0")),
+                                    makeModule(QStringLiteral("B"), QStringLiteral("2.0")),
+                                    makeModule(QStringLiteral("B"), QStringLiteral("3.0"))};
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("B");
+        im.module = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        reg.installedModules[QStringLiteral("B")] = im;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        bool found300 = false;
+        for (const CkanModule &m : r.modulesToInstall)
+            if (m.identifier == QStringLiteral("B") && m.version == QStringLiteral("3.0"))
+                found300 = true;
+        QVERIFY(found300); // 升级到满足 >=2.0 的最高版本
+    }
+    void kspCompatibilityFiltersCandidates()
+    {
+        // A 依赖 B>=1.5。B 2.0 需要 KSP 1.13+（与 1.12.5 不兼容），B 1.6 兼容：
+        // 应选兼容的 1.6，而非不兼容的 2.0（不报缺失，不选不兼容候选）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"), QStringLiteral("1.5"))});
+        CkanModule b20 = makeModule(QStringLiteral("B"), QStringLiteral("2.0"));
+        b20.kspVersion = QStringLiteral("1.13.0"); // 需要 1.13+：与 1.12.5 不兼容
+        CkanModule b16 = makeModule(QStringLiteral("B"), QStringLiteral("1.6"));
+        b16.kspVersionMin = QStringLiteral("1.10.0"); // 区间 [1.10.0, 1.12.5]：与 1.12.5 兼容
+        b16.kspVersionMax = QStringLiteral("1.12.5");
+        QMap<QString, QVector<CkanModule>> idx;
+        idx[QStringLiteral("A")] = {A};
+        idx[QStringLiteral("B")] = {b20, b16};
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const GameVersion ksp(QStringLiteral("1.12.5"));
+        const ResolutionResult r = resolver.resolve({A}, reg, false, false, ksp);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        bool found160 = false;
+        for (const CkanModule &m : r.modulesToInstall)
+            if (m.identifier == QStringLiteral("B") && m.version == QStringLiteral("1.6"))
+                found160 = true;
+        QVERIFY(found160);
+    }
+    void noCompatibleCandidateIsMissing()
+    {
+        // 唯一候选与游戏版本不兼容 → 依赖缺失（而非选择不兼容版本）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"), QStringLiteral("1.0"))});
+        CkanModule b10 = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        b10.kspVersion = QStringLiteral("1.13.0"); // 需要 1.13+：与 1.12.5 不兼容
+        QMap<QString, QVector<CkanModule>> idx;
+        idx[QStringLiteral("A")] = {A};
+        idx[QStringLiteral("B")] = {b10};
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const GameVersion ksp(QStringLiteral("1.12.5"));
+        const ResolutionResult r = resolver.resolve({A}, reg, false, false, ksp);
+        QVERIFY(r.missing);
+        QVERIFY(r.notFound.contains(QStringLiteral("B")));
+    }
+    void reverseConflictFromInstalled()
+    {
+        // 已安装 B 声明 conflicts A；新安装 A 应被裁决为冲突（反向冲突检测）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"));
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"),
+                                        {}, {}, {dep(QStringLiteral("A"))});
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("B");
+        im.module = B;
+        reg.installedModules[QStringLiteral("B")] = im;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(r.conflicted);
+        QVERIFY(!r.conflicts.isEmpty());
+    }
+    void virtualProviderConflict()
+    {
+        // 新模块 P 提供虚拟包 virt-lib，而已选 A 声明 conflicts virt-lib → 冲突
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {}, {dep(QStringLiteral("virt-lib"))});
+        const CkanModule P = makeModule(QStringLiteral("P"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {prov(QStringLiteral("virt-lib"))});
+        const auto idx = makeIndex({A, P});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A, P}, reg, false);
+        QVERIFY(r.conflicted);
+    }
+    void recommendsCascade()
+    {
+        // A 推荐 R，R 推荐 R2：autoInstallRecommends=true 时两级推荐级联安装
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R"))});
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R2"))});
+        const CkanModule R2 = makeModule(QStringLiteral("R2"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, R, R2});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, true);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("R")));
+        QVERIFY(ids.contains(QStringLiteral("R2")));
+    }
+    void recommendConflictSkipped()
+    {
+        // 推荐模组 R 与硬依赖 B 冲突 → 静默跳过 R，不产生硬冲突
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("B"))}, {dep(QStringLiteral("R"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"),
+                                        {}, {}, {dep(QStringLiteral("B"))});
+        const auto idx = makeIndex({A, B, R});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, true);
+        QVERIFY(!r.conflicted);
+        QVERIFY(r.conflicts.isEmpty());
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("B")));
+        QVERIFY(!ids.contains(QStringLiteral("R"))); // 冲突的推荐被跳过
+    }
+    void multiProviderCollectsChoices()
+    {
+        // A 依赖虚拟包 virt；P1、P2 同时提供 virt → 不自动选最高版本，
+        // 收集到 providerChoices 交由 UI 弹窗（对应官方 TooManyModsProvideKraken）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("virt"))});
+        const CkanModule P1 = makeModule(QStringLiteral("P1"), QStringLiteral("2.0"),
+                                         {}, {}, {}, {prov(QStringLiteral("virt"))});
+        const CkanModule P2 = makeModule(QStringLiteral("P2"), QStringLiteral("1.0"),
+                                         {}, {}, {}, {prov(QStringLiteral("virt"))});
+        const auto idx = makeIndex({A, P1, P2});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QCOMPARE(r.providerChoices.size(), 1);
+        QCOMPARE(r.providerChoices.at(0).provides, QStringLiteral("virt"));
+        QCOMPARE(r.providerChoices.at(0).candidates.size(), 2);
+        // 未自动选择任何提供者
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("A")));
+        QVERIFY(!ids.contains(QStringLiteral("P1")));
+        QVERIFY(!ids.contains(QStringLiteral("P2")));
+
+        // 模拟用户选择 P1 后重新解析：virt 被满足，P1 进入安装集且不再有待选
+        QVector<CkanModule> combined = {A, P1};
+        const ResolutionResult r2 = resolver.resolve(combined, reg, false);
+        QVERIFY(r2.providerChoices.isEmpty());
+        QVERIFY(!r2.missing);
+        QVERIFY(!r2.conflicted);
+        QSet<QString> ids2;
+        for (const CkanModule &m : r2.modulesToInstall) ids2.insert(m.identifier);
+        QVERIFY(ids2.contains(QStringLiteral("P1")));
+    }
+    void multiProviderSingleCandidateAutoSelected()
+    {
+        // 虚拟包只有一个提供者 → 自动选择（不产生 providerChoices）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("virt"))});
+        const CkanModule P1 = makeModule(QStringLiteral("P1"), QStringLiteral("2.0"),
+                                         {}, {}, {}, {prov(QStringLiteral("virt"))});
+        const auto idx = makeIndex({A, P1});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(r.providerChoices.isEmpty());
+        QVERIFY(!r.missing);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("P1")));
+    }
+    void multiProviderKspFiltersCandidates()
+    {
+        // 虚拟包 virt 有两个提供者，但 P2 与当前 KSP 不兼容：
+        // 候选只剩 P1 → 自动选择 P1，不产生 providerChoices
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("virt"))});
+        CkanModule P1 = makeModule(QStringLiteral("P1"), QStringLiteral("1.0"),
+                                   {}, {}, {}, {prov(QStringLiteral("virt"))});
+        P1.kspVersionMin = QStringLiteral("1.10.0"); // 区间 [1.10.0, 1.12.5]：兼容 1.12.5
+        P1.kspVersionMax = QStringLiteral("1.12.5");
+        CkanModule P2 = makeModule(QStringLiteral("P2"), QStringLiteral("2.0"),
+                                   {}, {}, {}, {prov(QStringLiteral("virt"))});
+        P2.kspVersion = QStringLiteral("1.13.0"); // 与 1.12.5 不兼容
+        const auto idx = makeIndex({A, P1, P2});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const GameVersion ksp(QStringLiteral("1.12.5"));
+        const ResolutionResult r = resolver.resolve({A}, reg, false, false, ksp);
+        QVERIFY(r.providerChoices.isEmpty()); // 兼容提供者只剩 1 个，无需选择
+        QVERIFY(!r.missing);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("P1")));
+        QVERIFY(!ids.contains(QStringLiteral("P2")));
+    }
+    void multiProviderVersionConstraintFiltersCandidates()
+    {
+        // virt 有 P1(1.0)、P2(2.0) 两个提供者，但依赖要求 virt>=2.0：
+        // 满足约束的只剩 P2 → 自动选择，无需用户选择
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {dep(QStringLiteral("virt"), QStringLiteral("2.0"))});
+        const CkanModule P1 = makeModule(QStringLiteral("P1"), QStringLiteral("1.0"),
+                                         {}, {}, {}, {prov(QStringLiteral("virt"))});
+        const CkanModule P2 = makeModule(QStringLiteral("P2"), QStringLiteral("2.0"),
+                                         {}, {}, {}, {prov(QStringLiteral("virt"))});
+        const auto idx = makeIndex({A, P1, P2});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(r.providerChoices.isEmpty());
+        QVERIFY(!r.missing);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("P2")));
+    }
+    void anyOfSatisfiedByInstalled()
+    {
+        // A 依赖 {any_of: [B, C]}；B 已安装 → 整个 any_of 视为满足，不强制装 C
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {anyOfDep({dep(QStringLiteral("B")), dep(QStringLiteral("C"))})});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("B");
+        im.module = B;
+        reg.installedModules[QStringLiteral("B")] = im;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("A")));
+        QVERIFY(!ids.contains(QStringLiteral("C"))); // 任一子依赖满足即可
+    }
+    void anyOfMissingMessage()
+    {
+        // A 依赖 {any_of: [X, Y]}，X/Y 均不在索引 → 缺失，notFound 显示 "X 或 Y"（而非空串）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {anyOfDep({dep(QStringLiteral("X")), dep(QStringLiteral("Y"))})});
+        const auto idx = makeIndex({A});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(r.missing);
+        QVERIFY(r.notFound.contains(QStringLiteral("X 或 Y")));
+    }
+    void anyOfConflictFallback()
+    {
+        // A 依赖 {any_of: [B, C]}；最高版本 B 2.0 与 A 冲突 → 回退选次高且不冲突的 C 1.0
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {anyOfDep({dep(QStringLiteral("B")), dep(QStringLiteral("C"))})},
+                                        {}, {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("2.0"));
+        const CkanModule C = makeModule(QStringLiteral("C"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B, C});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> ids;
+        for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
+        QVERIFY(ids.contains(QStringLiteral("C")));
+        QVERIFY(!ids.contains(QStringLiteral("B")));
+    }
+};
+
+// ---------------------------------------------------------------------------
+// 注册表文件锁（registry.locked）
+// ---------------------------------------------------------------------------
+class TestFileLock : public QObject
+{
+    Q_OBJECT
+private slots:
+    void acquireAndRelease()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString lockPath = dir.filePath(QStringLiteral("registry.locked"));
+        FileLock lock;
+        QVERIFY(lock.acquire(lockPath));
+        QVERIFY(QFile::exists(lockPath));
+        lock.release();
+        QVERIFY(!QFile::exists(lockPath));
+    }
+    void corruptLockCleared()
+    {
+        // 内容损坏（崩溃时未写入完整 PID）的锁视为陈旧，可清除后获取
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString lockPath = dir.filePath(QStringLiteral("registry.locked"));
+        QFile f(lockPath);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("not-a-pid");
+        f.close();
+        FileLock lock;
+        QVERIFY(lock.acquire(lockPath));
+        lock.release();
+    }
+    void deadPidLockCleared()
+    {
+        // 持有者进程已退出（PID 不存在）的锁视为陈旧，可清除后获取
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString lockPath = dir.filePath(QStringLiteral("registry.locked"));
+        QFile f(lockPath);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QByteArray::number(qint64(999999999))); // 几乎肯定不存在的 PID
+        f.close();
+        FileLock lock;
+        QVERIFY(lock.acquire(lockPath));
+        lock.release();
+    }
+    void ownPidLockCleared()
+    {
+        // 本进程残留的锁（同进程内重复加载）视为陈旧，可清除后重新获取
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString lockPath = dir.filePath(QStringLiteral("registry.locked"));
+        QFile f(lockPath);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QByteArray::number(QCoreApplication::applicationPid()));
+        f.close();
+        FileLock lock;
+        QVERIFY(lock.acquire(lockPath));
+        lock.release();
     }
 };
 
@@ -1379,6 +2006,167 @@ private slots:
             QVERIFY(QFile::exists(cached));
         }
     }
+    void dlcDownloadIntercepted()
+    {
+        // 官方 DLC 不可直接经 CKAN 下载/安装（对应 ModuleIsDLCKraken）
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+        CkanModule dlc = makeModule(QStringLiteral("MakingHistory"), QStringLiteral("1.8.1"));
+        dlc.kind = ModuleKind::Dlc;
+        QString err;
+        QVERIFY(!installer.downloadModules({dlc}, dir.path(), {}, false, &err, 1));
+        QVERIFY(!err.isEmpty());
+        // 未写入任何缓存文件
+        const QString cached = dir.path() + QLatin1Char('/')
+                             + QStringLiteral("MakingHistory_1.8.1.zip");
+        QVERIFY(!QFile::exists(cached));
+    }
+
+    void officialCacheFileName()
+    {
+        // 官方 CKAN StandardName：{identifier}-{version}.zip，
+        // version 中非 [A-Za-z0-9_.-] 的字符替换为 '-'
+        QCOMPARE(ModuleInstaller::officialCacheFileName(QStringLiteral("RealSolarSystem"),
+                                                        QStringLiteral("7.3")),
+                 QStringLiteral("RealSolarSystem-7.3.zip"));
+        // 带 epoch 前缀的版本：冒号替换为 '-'
+        QCOMPARE(ModuleInstaller::officialCacheFileName(QStringLiteral("Kopernicus"),
+                                                        QStringLiteral("1:release")),
+                 QStringLiteral("Kopernicus-1-release.zip"));
+        // 含空格/加号等非法字符：逐一替换为 '-'
+        QCOMPARE(ModuleInstaller::officialCacheFileName(QStringLiteral("SomeMod"),
+                                                        QStringLiteral("2.0 beta+1")),
+                 QStringLiteral("SomeMod-2.0-beta-1.zip"));
+        // 合法字符（字母数字 ._-）原样保留
+        QCOMPARE(ModuleInstaller::officialCacheFileName(QStringLiteral("Module_Manager"),
+                                                        QStringLiteral("4.2.1")),
+                 QStringLiteral("Module_Manager-4.2.1.zip"));
+        // 带下载 URL：官方 NetFileCache 格式 {SHA1(url) 前 8 位大写}-{identifier}-{version}.zip
+        // （对应 D:\CKAN Downloads 中形如 2105D4E8-Shaddy-v2.5.zip 的缓存文件）
+        {
+            const QString url = QStringLiteral("https://github.com/ShaddyKSP/Shaddy/releases/download/v2.5/Shaddy.zip");
+            const QString name = ModuleInstaller::officialCacheFileName(
+                QStringLiteral("Shaddy"), QStringLiteral("2.5"), url);
+            const QString prefix = QString::fromLatin1(
+                QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha1).toHex())
+                .left(8).toUpper();
+            QCOMPARE(name, prefix + QStringLiteral("-Shaddy-2.5.zip"));
+            QCOMPARE(name.size(), 8 + 1 + static_cast<int>(QStringLiteral("Shaddy-2.5.zip").size()));
+        }
+    }
+
+    void estimateRequiredBytes()
+    {
+        // 空列表 -> 0
+        QCOMPARE(ModuleInstaller::estimateRequiredBytes({}), qint64(0));
+        // 单个模块 downloadSize=100，缓冲系数 1.15 -> ceil(115)=115
+        CkanModule m = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        m.downloadSize = 100;
+        QCOMPARE(ModuleInstaller::estimateRequiredBytes({m}), qint64(115));
+        // 元包不计入空间估算
+        CkanModule meta = makeModule(QStringLiteral("CommunityTechTree"), QStringLiteral("1.0"));
+        meta.kind = ModuleKind::Metapackage;
+        meta.downloadSize = 500;
+        QCOMPARE(ModuleInstaller::estimateRequiredBytes({meta, m}), qint64(115));
+        // downloadSize 未知(0)的模块按 1 字节计，避免误判为零：ceil(1*1.15)=2
+        CkanModule unknown = makeModule(QStringLiteral("ModB"), QStringLiteral("1.0"));
+        unknown.downloadSize = 0;
+        QCOMPARE(ModuleInstaller::estimateRequiredBytes({unknown}), qint64(2));
+        // 缓冲系数可配置：1.0 时不加缓冲
+        QCOMPARE(ModuleInstaller::estimateRequiredBytes({m}, 1.0), qint64(100));
+    }
+
+    void findCacheZipPrefersOfficial()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+
+        // 同时存在官方格式与本启动器格式，应优先返回官方格式
+        const QByteArray zip = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        QFile zfOfficial(dl + QStringLiteral("/ModA-1.0.zip"));
+        QVERIFY(zfOfficial.open(QIODevice::WriteOnly)); zfOfficial.write(zip); zfOfficial.close();
+        QFile zfLauncher(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zfLauncher.open(QIODevice::WriteOnly)); zfLauncher.write(zip); zfLauncher.close();
+        QCOMPARE(ModuleInstaller::findCacheZip(dl, mod),
+                 dl + QStringLiteral("/ModA-1.0.zip"));
+
+        // 仅官方格式存在时也能找到
+        QVERIFY(QFile::remove(dl + QStringLiteral("/ModA_1.0.zip")));
+        QCOMPARE(ModuleInstaller::findCacheZip(dl, mod),
+                 dl + QStringLiteral("/ModA-1.0.zip"));
+
+        // 仅本启动器格式存在时兜底命中
+        QVERIFY(QFile::remove(dl + QStringLiteral("/ModA-1.0.zip")));
+        QFile zfL2(dl + QStringLiteral("/ModA_1.0.zip"));
+        QVERIFY(zfL2.open(QIODevice::WriteOnly)); zfL2.write(zip); zfL2.close();
+        QCOMPARE(ModuleInstaller::findCacheZip(dl, mod),
+                 dl + QStringLiteral("/ModA_1.0.zip"));
+
+        // 无效 zip（非 ZIP 内容）不被当作有效缓存
+        QVERIFY(QFile::remove(dl + QStringLiteral("/ModA_1.0.zip")));
+        QFile zfBad(dl + QStringLiteral("/ModA-1.0.zip"));
+        QVERIFY(zfBad.open(QIODevice::WriteOnly)); zfBad.write("not a zip"); zfBad.close();
+        QVERIFY(ModuleInstaller::findCacheZip(dl, mod).isEmpty());
+    }
+
+    void officialCacheReusedForDownload()
+    {
+        // D:\CKAN Downloads 官方格式缓存应被直接复用，不再重新下载
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+
+        const QByteArray zip = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        const QString sha256 = QString::fromLatin1(
+            QCryptographicHash::hash(zip, QCryptographicHash::Sha256).toHex());
+        QFile zf(dl + QStringLiteral("/ModA-1.0.zip"));
+        QVERIFY(zf.open(QIODevice::WriteOnly)); zf.write(zip); zf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        // 指向不存在地址：若未命中缓存必失败，命中缓存则无需下载
+        mod.downloadUrls = QStringList{QStringLiteral("file:///nonexistent/modA.zip")};
+        mod.downloadSize = zip.size();
+        mod.downloadHash.sha256 = sha256;
+
+        QString err;
+        QVERIFY2(installer.downloadModules({mod}, dl, {}, false, &err, 1), qPrintable(err));
+        // 未生成本启动器格式缓存，官方缓存原样保留
+        QVERIFY(!QFile::exists(dl + QStringLiteral("/ModA_1.0.zip")));
+        QVERIFY(QFile::exists(dl + QStringLiteral("/ModA-1.0.zip")));
+    }
+
+    void officialCacheUsedForInstall()
+    {
+        // 安装时能正确安装官方 CKAN 格式的缓存文件
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        ModuleInstaller installer(&gi);
+
+        const QByteArray zip = makeZip({qMakePair(QStringLiteral("ModA/a.dll"), QByteArray("dll"))});
+        QFile zf(dl + QStringLiteral("/ModA-1.0.zip"));
+        QVERIFY(zf.open(QIODevice::WriteOnly)); zf.write(zip); zf.close();
+
+        CkanModule mod = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        mod.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+
+        const InstallResult r = installer.installFromCache({mod}, dl);
+        QVERIFY2(r.ok, qPrintable(r.error));
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/ModA/a.dll"))));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -1468,71 +2256,6 @@ private slots:
         QCOMPARE(index.value(QStringLiteral("ModA")).at(0).version, QStringLiteral("1.2.3"));
         QCOMPARE(counts.value(QStringLiteral("ModA")), 12345);
         QVERIFY(!counts.contains(QStringLiteral("ModB"))); // 负数不计入
-    }
-};
-
-class TestSteamDiscovery : public QObject
-{
-    Q_OBJECT
-private slots:
-    void parseLibraryFoldersExtractsPaths()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString vdfPath = dir.filePath(QStringLiteral("libraryfolders.vdf"));
-        QFile f(vdfPath);
-        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
-        f.write(
-            "\"libraryfolders\"\n"
-            "{\n"
-            "\t\"0\"\n"
-            "\t{\n"
-            "\t\t\"path\"\t\t\"C:\\\\Program Files (x86)\\\\Steam\"\n"
-            "\t\t\"label\"\t\t\"\"\n"
-            "\t\t\"apps\"\n"
-            "\t\t{\n"
-            "\t\t\t\"220200\"\t\t\"0\"\n"
-            "\t\t}\n"
-            "\t}\n"
-            "\t\"1\"\n"
-            "\t{\n"
-            "\t\t\"path\"\t\t\"D:\\\\SteamLibrary\"\n"
-            "\t\t\"label\"\t\t\"\"\n"
-            "\t}\n"
-            "\t// 注释行应被忽略\n"
-            "\t\"692030\"\n"
-            "\t{\n"
-            "\t\t\"path\"\t\t\"E:\\\\SteamGames\"\n"
-            "\t}\n"
-            "}\n");
-        f.close();
-
-        // 解析出的库路径应包含主库与所有附加库（含注释行之后的条目）
-        const QStringList paths = SteamDiscovery::parseLibraryFolders(vdfPath);
-        QCOMPARE(paths.size(), 3);
-        QVERIFY(paths.contains(QStringLiteral("C:\\Program Files (x86)\\Steam")));
-        QVERIFY(paths.contains(QStringLiteral("D:\\SteamLibrary")));
-        QVERIFY(paths.contains(QStringLiteral("E:\\SteamGames")));
-    }
-
-    void parseLibraryFoldersMissingFileReturnsEmpty()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        QVERIFY(SteamDiscovery::parseLibraryFolders(
-                    dir.filePath(QStringLiteral("not_exist.vdf"))).isEmpty());
-    }
-
-    void parseLibraryFoldersMalformedReturnsEmpty()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString vdfPath = dir.filePath(QStringLiteral("bad.vdf"));
-        QFile f(vdfPath);
-        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
-        f.write("\"libraryfolders\"\n{\n\t\"0\" \"unterminated\n"); // 未闭合字符串
-        f.close();
-        QVERIFY(SteamDiscovery::parseLibraryFolders(vdfPath).isEmpty());
     }
 };
 
@@ -1712,6 +2435,47 @@ private slots:
         QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
         QCOMPARE(gi.registry()->installedVersion(QStringLiteral("ModA")), QStringLiteral("1.0"));
     }
+    void fileConflictRejected()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+        const QString dl = dir.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+
+        // ModA 安装并登记文件 GameData/Shared/a.dll（默认规则 find=Shared, install_to=GameData）
+        const QByteArray zipA = makeZip({qMakePair(QStringLiteral("Shared/a.dll"), QByteArray("aaa"))});
+        QFile zfa(dl + QStringLiteral("/Shared_1.0.zip"));
+        QVERIFY(zfa.open(QIODevice::WriteOnly)); zfa.write(zipA); zfa.close();
+        CkanModule modA = makeModule(QStringLiteral("Shared"), QStringLiteral("1.0"));
+        modA.downloadUrls = QStringList{QStringLiteral("file:///dummy/modA.zip")};
+        ModuleInstaller installer(&gi);
+        QVERIFY2(installer.installFromCache({modA}, dl).ok, "install ModA failed");
+        QCOMPARE(gi.registry()->fileOwner(QStringLiteral("GameData/Shared/a.dll")),
+                 QStringLiteral("Shared"));
+
+        // ModB 显式安装到同一目标文件（find=Shared → GameData/Shared/a.dll）：
+        // 目标文件已被 ModA 登记归属 → 文件级覆盖冲突，拒绝安装并回滚
+        ModuleInstallDescriptor stanza;
+        stanza.find = QStringLiteral("Shared");
+        stanza.installTo = QStringLiteral("GameData");
+        const QByteArray zipB = makeZip({qMakePair(QStringLiteral("Shared/a.dll"), QByteArray("bbb"))});
+        QFile zfb(dl + QStringLiteral("/ModB_1.0.zip"));
+        QVERIFY(zfb.open(QIODevice::WriteOnly)); zfb.write(zipB); zfb.close();
+        CkanModule modB = makeModule(QStringLiteral("ModB"), QStringLiteral("1.0"));
+        modB.install = {stanza};
+        modB.downloadUrls = QStringList{QStringLiteral("file:///dummy/modB.zip")};
+        const InstallResult rb = installer.installFromCache({modB}, dl);
+        QVERIFY(!rb.ok); // 冲突导致失败
+        QVERIFY(rb.error.contains(QStringLiteral("文件冲突")));
+        // 原文件未被覆盖，ModB 未登记安装
+        QFile f(dir.path() + QStringLiteral("/GameData/Shared/a.dll"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        QCOMPARE(f.readAll(), QByteArray("aaa"));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModB")));
+        QCOMPARE(gi.registry()->fileOwner(QStringLiteral("GameData/Shared/a.dll")),
+                 QStringLiteral("Shared"));
+    }
 };
 
 static int runSuite(int argc, char *argv[], QObject &suite)
@@ -1732,10 +2496,10 @@ int main(int argc, char *argv[])
     TestRegistry tReg;
     TestGameInstance tGameInst;
     TestRelationshipResolver tResolver;
+    TestFileLock tFileLock;
     TestDownloader tDownloader;
     TestRepoIndex tRepoIndex;
     TestModuleDownload tModDownload;
-    TestSteamDiscovery tSteamDisc;
     TestTransactionRollback tTxRollback;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
@@ -1745,10 +2509,10 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tReg);
     failures += runSuite(argc, argv, tGameInst);
     failures += runSuite(argc, argv, tResolver);
+    failures += runSuite(argc, argv, tFileLock);
     failures += runSuite(argc, argv, tDownloader);
     failures += runSuite(argc, argv, tModDownload);
     failures += runSuite(argc, argv, tRepoIndex);
-    failures += runSuite(argc, argv, tSteamDisc);
     failures += runSuite(argc, argv, tTxRollback);
     return failures;
 }

@@ -201,8 +201,12 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     const ckan::CkanModule mod = src->moduleAt(sourceRow);
     if (!mod.isValid()) return false;
 
-    // 不兼容模组默认隐藏（除非开启显示）
-    if (!m_showIncompatible && !mod.isCompatible(m_gameVersion))
+    // 不兼容模组默认隐藏（除非开启显示）。
+    // 兼容判定：兼容当前实例实际版本 或 兼容用户勾选的额外区间（任一满足即可）。
+    bool compatible = mod.isCompatible(m_gameVersion);
+    if (!compatible && (m_compatRange.lowerSet() || m_compatRange.upperSet()))
+        compatible = mod.isCompatible(m_compatRange);
+    if (!m_showIncompatible && !compatible)
         return false;
 
     if (!m_search.isEmpty()) {

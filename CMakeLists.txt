@@ -11,13 +11,19 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/dist)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/dist)
+# 共享库输出到同一目录：Windows DLL 走 RUNTIME，Unix .so/.dylib 走 LIBRARY，
+# 统一落到 dist，确保启动器/测试与 libckan 动态库同目录可直接运行。
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/dist)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/dist)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/dist)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg Concurrent Network Test LinguistTools)
 
 include_directories(thirdparty)
 
 # ---------------------------------------------------------------------------
-# libckan: C++ 重写的 CKAN（静态库）
+# libckan: C++ 重写的 CKAN（共享库，编译为 dll/dylib/so）
+# 全类导出（CKAN_API），启动器只依赖 CKan 门面 + CKanConfig 调用。
 # ---------------------------------------------------------------------------
 set(CKAN_SOURCES
     src/ckan/version.cpp
@@ -28,6 +34,7 @@ set(CKAN_SOURCES
     src/ckan/registry.cpp
     src/ckan/repository.cpp
     src/ckan/gameinstance.cpp
+    src/ckan/filelock.cpp
     src/ckan/downloader.cpp
     src/ckan/repoindex.cpp
     src/ckan/relationshipresolver.cpp
@@ -47,22 +54,31 @@ set(CKAN_HEADERS
     src/ckan/registry.h
     src/ckan/repository.h
     src/ckan/gameinstance.h
+    src/ckan/filelock.h
     src/ckan/downloader.h
     src/ckan/repoindex.h
     src/ckan/relationshipresolver.h
     src/ckan/moduleinstaller.h
     src/ckan/txfilemanager.h
+    src/ckan/ckanconfig.h
     src/ckan/ckan.h
     thirdparty/miniz.h
 )
 
-add_library(libckan STATIC
+add_library(libckan SHARED
     ${CKAN_SOURCES}
     ${CKAN_HEADERS}
 )
+target_compile_definitions(libckan PRIVATE
+    CKAN_BUILD_SHARED
+    CKAN_BUILDING_LIB
+)
+# 收窄公开 include：只暴露库自身头文件目录；src/ 与 thirdparty/ 仅内部使用。
 target_include_directories(libckan PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/ckan
+)
+target_include_directories(libckan PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/thirdparty
 )
 target_link_libraries(libckan PUBLIC
@@ -89,6 +105,8 @@ set(SOURCES
     src/pages/savedetailpage.cpp
     src/widgets/instanceitemwidget.cpp
     src/widgets/toggleswitch.cpp
+    # 实例导出需在启动器内直接生成 ZIP（miniz 编译进 DLL 但未导出，故在 exe 内单独编译一份）
+    thirdparty/miniz.c
 )
 
 set(HEADERS
@@ -128,6 +146,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Concurrent
     libckan
 )
+# 消费 libckan.dll 需 dllimport（CKAN_BUILD_SHARED）；声明自身 include 目录
+target_compile_definitions(${PROJECT_NAME} PRIVATE CKAN_BUILD_SHARED)
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/ckan
+)
 
 # Copy translations (.qm files) to output directory
 file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
@@ -146,18 +170,19 @@ if(WIN32)
 endif()
 
 # ---------------------------------------------------------------------------
-# 单元测试：libckan 核心逻辑
+# 单元测试
 # ---------------------------------------------------------------------------
 enable_testing()
 
+# libckan 核心逻辑测试（纯库测试，不依赖启动器源码）
 add_executable(test_libckan
     tests/test_libckan.cpp
-    src/steamdiscovery.cpp
+    thirdparty/miniz.c
 )
+target_compile_definitions(test_libckan PRIVATE CKAN_BUILD_SHARED)
 target_include_directories(test_libckan PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/ckan
-    ${CMAKE_SOURCE_DIR}/thirdparty
 )
 target_link_libraries(test_libckan PRIVATE
     Qt6::Core
@@ -166,3 +191,17 @@ target_link_libraries(test_libckan PRIVATE
     libckan
 )
 add_test(NAME test_libckan COMMAND test_libckan)
+
+# 启动器逻辑测试（Steam 库发现等，依赖 src/ 下启动器源码，不链接 libckan）
+add_executable(test_launcher
+    tests/test_launcher.cpp
+    src/steamdiscovery.cpp
+)
+target_include_directories(test_launcher PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(test_launcher PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+add_test(NAME test_launcher COMMAND test_launcher)

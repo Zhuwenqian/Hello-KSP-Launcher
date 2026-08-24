@@ -56,9 +56,10 @@ public:
     // 异步下载（供 UI 使用），完成后发出 finished/failed 信号
     void downloadAsync(const QString &url, const QStringList &mirrors);
 
-    // 设置网络代理（如 http://127.0.0.1:7890），空则直连
-    static void setProxyUrl(const QString &proxyUrl);
-    static QString proxyUrl();
+    // 设置网络代理（如 http://127.0.0.1:7890），空则直连。
+    // 实例级配置，替代原全局静态，避免库内部可变的全局状态。
+    void setProxyUrl(const QString &proxyUrl);
+    QString proxyUrl() const { return m_proxyUrl; }
 
 signals:
     void finished(const QByteArray &data, const QString &url);
@@ -68,6 +69,7 @@ private:
     QNetworkAccessManager m_nam;
     QByteArray m_data;
     QStringList m_mirrors;
+    QString m_proxyUrl;
     int m_attempt = 0;
     QString m_currentUrl;
     bool m_async = false;

@@ -62,6 +62,7 @@ private:
     QComboBox* m_concurrencyCombo;
     QLabel* m_cacheDirLabel;
     ToggleSwitch* m_installSuggestsToggle;
+    ToggleSwitch* m_diskSpaceCheckToggle;
 
     // 仓库列表相关
     QListWidget* m_repoList;

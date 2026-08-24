@@ -444,6 +444,13 @@
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="690"/>
+        <source>描述：%1
+</source>
+        <translation>描述：%1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="691"/>
         <source>作者：%1
 </source>
         <translation>作者：%1
@@ -472,17 +479,17 @@
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="695"/>
-        <source>
-依赖：%1</source>
-        <translation>
-依赖：%1</translation>
+        <source>依赖：%1
+</source>
+        <translation>依赖：%1
+</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="696"/>
-        <source>
-冲突：%1</source>
-        <translation>
-冲突：%1</translation>
+        <source>冲突：%1
+</source>
+        <translation>冲突：%1
+</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="746"/>

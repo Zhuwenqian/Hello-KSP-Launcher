@@ -9,6 +9,7 @@
 #include <QVector>
 
 #include "ckan/repository.h"
+#include "ckan/version.h"
 
 struct KSPInstance {
     QString id;
@@ -16,6 +17,12 @@ struct KSPInstance {
     QString path;
     QString exePath;
     QString launchArgs;
+    // 用户勾选的兼容 KSP 版本线（如 {"1.9","1.10","1.11","1.12"}），按实例记忆。
+    // 空列表表示未勾选任何版本（兼容判定仅以当前实例实际版本为准）。
+    // compatVersionsSet==false（新实例/旧配置缺字段）表示未显式配置，
+    // 由 ConfigManager 按检测到的游戏版本动态推导默认勾选。
+    QStringList compatibleVersions;
+    bool compatVersionsSet = false; // 用户是否显式配置过（含显式清空）
 };
 
 class ConfigManager : public QObject
@@ -51,9 +58,24 @@ public:
     bool showIncompatibleMods() const;
     void setShowIncompatibleMods(bool show);
 
+    // 某实例勾选的兼容 KSP 版本线。
+    // 已显式配置（含空=未勾选任何版本）时返回持久化值；
+    // 未配置（新实例/旧配置缺字段）时按 detectedVersion 动态推导默认勾选。
+    QStringList compatibleVersions(const QString &instanceId,
+                                   const ckan::GameVersion &detectedVersion) const;
+    void setCompatibleVersions(const QString &instanceId, const QStringList &versionLines);
+    // 按检测到的游戏版本推导默认勾选：
+    // 版本位于 [1.9, 1.12] 时勾选「检测版本线 ~ 1.9」全部版本线（如 1.11.x → 1.11/1.10/1.9）；
+    // 低于 1.9（或高于 1.12）时仅勾选检测版本所在版本线；检测失败回退静态 1.9~1.12。
+    static QStringList defaultCompatibleVersions(const ckan::GameVersion &detectedVersion);
+
     // 安装时是否显示级联建议模组的勾选弹窗（默认开启）
     bool installSuggests() const;
     void setInstallSuggests(bool enable);
+
+    // 下载/安装前是否做磁盘空间预检（默认开启）；不足时弹窗，用户可选择忽略继续或取消
+    bool diskSpaceCheck() const;
+    void setDiskSpaceCheck(bool enable);
 
     // ---- 模组管理设置 ----
     // 下载源偏好：官方优先（默认）或镜像优先

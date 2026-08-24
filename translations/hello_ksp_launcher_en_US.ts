@@ -452,6 +452,13 @@ Please choose how to proceed:</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="690"/>
+        <source>描述：%1
+</source>
+        <translation>Description: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/instancedetailpage.cpp" line="691"/>
         <source>作者：%1
 </source>
         <translation>Author: %1
@@ -480,17 +487,17 @@ Please choose how to proceed:</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="695"/>
-        <source>
-依赖：%1</source>
-        <translation>
-Dependencies: %1</translation>
+        <source>依赖：%1
+</source>
+        <translation>Dependencies: %1
+</translation>
     </message>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="696"/>
-        <source>
-冲突：%1</source>
-        <translation>
-Conflicts: %1</translation>
+        <source>冲突：%1
+</source>
+        <translation>Conflicts: %1
+</translation>
     </message>
     <message>
         <source>请先选择一个模组。</source>

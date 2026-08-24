@@ -13,7 +13,7 @@
 #include "iconutils.h"
 #include "backgroundmanager.h"
 #include "steamdiscovery.h"
-#include "ckan/gameinstance.h"
+#include "ckan/ckan.h"
 #include <QSet>
 #include <QFileInfo>
 
@@ -423,7 +423,7 @@ void MainWindow::runSteamDiscovery()
 
         // 名称 = 目录名 + 检测到的版本号（如 "Kerbal Space Program (1.12.5)"）
         inst.name = QFileInfo(cleanDir).fileName();
-        const ckan::GameVersion version = ckan::GameInstance::detectVersionFromDir(cleanDir);
+        const ckan::GameVersion version = ckan::CKan::detectVersionFromDir(cleanDir);
         if (version.isValid())
             inst.name += QStringLiteral(" (%1)").arg(version.toString());
 

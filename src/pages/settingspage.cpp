@@ -29,7 +29,8 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_moduleSourceCombo(nullptr),
       m_concurrencyCombo(nullptr),
       m_cacheDirLabel(nullptr),
-      m_installSuggestsToggle(nullptr)
+      m_installSuggestsToggle(nullptr),
+      m_diskSpaceCheckToggle(nullptr)
 {
     setupUI();
     loadSettings();
@@ -216,6 +217,15 @@ void SettingsPage::setupUI()
     suggestLabel->setObjectName("settingLabel");
     modLayout->addRow(suggestLabel, m_installSuggestsToggle);
 
+    // 磁盘空间预检
+    m_diskSpaceCheckToggle = new ToggleSwitch(modGroup);
+    m_diskSpaceCheckToggle->setToolTip(tr("下载/安装前检查磁盘剩余空间（按 1.15 倍缓冲估算），不足时弹窗提示，可忽略继续"));
+    connect(m_diskSpaceCheckToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setDiskSpaceCheck(checked); });
+    QLabel* diskCheckLabel = new QLabel(tr("磁盘空间预检："), modGroup);
+    diskCheckLabel->setObjectName("settingLabel");
+    modLayout->addRow(diskCheckLabel, m_diskSpaceCheckToggle);
+
     // 下载缓存文件夹
     QHBoxLayout* cacheRow = new QHBoxLayout();
     m_cacheDirLabel = new QLabel(modGroup);
@@ -315,6 +325,7 @@ void SettingsPage::loadSettings()
     m_moduleSourceCombo->blockSignals(true);
     m_concurrencyCombo->blockSignals(true);
     m_installSuggestsToggle->blockSignals(true);
+    m_diskSpaceCheckToggle->blockSignals(true);
 
     QString lang = ConfigManager::instance().language();
     int langIdx = m_languageCombo->findData(lang);
@@ -347,6 +358,7 @@ void SettingsPage::loadSettings()
     m_cacheDirLabel->setText(CKanManager::instance().downloadDir());
 
     m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
+    m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
 
     loadRepoList();
 
@@ -358,6 +370,7 @@ void SettingsPage::loadSettings()
     m_moduleSourceCombo->blockSignals(false);
     m_concurrencyCombo->blockSignals(false);
     m_installSuggestsToggle->blockSignals(false);
+    m_diskSpaceCheckToggle->blockSignals(false);
 }
 
 void SettingsPage::refreshBackgroundPreview()

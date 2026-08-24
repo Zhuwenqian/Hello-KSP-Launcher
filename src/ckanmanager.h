@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QFutureWatcher>
 #include <QPair>
+#include <QStorageInfo>
 #include <atomic>
 
 #include "ckan/ckan.h"
@@ -35,8 +36,11 @@ public:
     // 当前实例实际检测到的 KSP 版本（检测失败返回无效版本）
     ckan::GameVersion detectedVersion() const
     {
-        return m_ckan ? m_ckan->instance()->detectVersion() : ckan::GameVersion();
+        return m_ckan ? m_ckan->detectedVersion() : ckan::GameVersion();
     }
+    // 设置用户勾选的额外兼容区间（无效区间表示未启用）。
+    // 安装/依赖解析时，候选兼容当前实例版本 或 兼容该区间（任一满足即可）。
+    void setCompatRange(const ckan::GameVersionRange &r) { m_compatRange = r; }
 
     // ---- 缓存目录 ----
     QString cacheRoot() const;      // exe目录/ckan_cache
@@ -101,29 +105,31 @@ private:
 
     void resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool autoRecommends,
                            const QString &doneMessage);
-    // 手动占用的 GameData 顶层文件夹（相对 GameDir，如 "GameData/SomeMod"）
-    QStringList currentManualGameDataFolders() const;
-    // 下载全部 zip 后，以 zip 实际内容计算与手动占用冲突的顶层文件夹（后台线程调用）
-    QStringList computeActualFolderConflicts(const QVector<ckan::CkanModule> &modules,
-                                             const QString &downloadDir) const;
     // 冲突弹窗（3 选项），返回待删除文件夹；用户取消返回占位 "__CANCEL__"
     QStringList askFolderConflicts(const QStringList &conflicts);
     // 级联建议勾选弹窗；cancelled 输出用户是否取消（区别于"全都不选"）
     QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests,
                                           bool *cancelled);
-    // 安装阶段：前置卸载 + 从缓存安装
+    // 多提供者选择弹窗：每个虚拟包从候选提供者中选一个；
+    // 返回所选提供者模块；取消时 cancelled=true 并返回空
+    QVector<ckan::CkanModule> askProviders(const QVector<ckan::ProviderChoice> &choices,
+                                           bool *cancelled);
+    // 安装阶段：前置卸载 + 从缓存安装（单事务，全部经 CKan 门面）
     void startInstallPhase(const QVector<ckan::CkanModule> &modules,
                            const QStringList &foldersToDelete, const QString &doneMessage,
                            const QStringList &preUninstall);
+    // 磁盘空间不足警告弹窗：显示所需/可用空间，用户可选择"忽略并继续"或"取消"。
+    // forDownload=true 表示检查的是下载缓存盘，false 表示游戏盘。返回 true 表示忽略继续。
+    bool askDiskSpaceWarning(const QStorageInfo &storage, qint64 required,
+                             const QString &path, bool forDownload);
     void clearWatchers();
-    void cleanupInstaller();
 
     ckan::CKan *m_ckan = nullptr;
     QString m_instanceName;
+    ckan::GameVersionRange m_compatRange; // 用户勾选的额外兼容区间（无效表示未启用）
     QStringList m_indexMirrorPrefixes;  // 索引下载镜像前缀（拼接在仓库自身 GitHub URL 前）
     QStringList m_moduleMirrorPrefixes; // 模组下载镜像前缀（拼接在官方下载 URL 前）
 
-    ckan::ModuleInstaller *m_installer = nullptr;
     QFutureWatcher<QPair<bool, QString>>  *m_indexWatcher = nullptr;
     QFutureWatcher<DownloadPhaseResult>   *m_downloadWatcher = nullptr;
     QFutureWatcher<ckan::InstallResult>   *m_installWatcher = nullptr;

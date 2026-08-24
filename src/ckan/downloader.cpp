@@ -10,24 +10,22 @@ namespace ckan {
 // 传输超时（毫秒）：Qt 的 transferTimeout 统一覆盖连接建立与传输空闲。
 static constexpr int kTransferTimeoutMs = 30000;
 
-static QString g_proxyUrl;
-
 Downloader::Downloader(QObject *parent)
     : QObject(parent)
 {
-    if (!g_proxyUrl.isEmpty()) {
-        m_nam.setProxy(QNetworkProxy(QNetworkProxy::HttpProxy,
-                                     QUrl(g_proxyUrl).host(),
-                                     static_cast<quint16>(QUrl(g_proxyUrl).port(0))));
-    }
 }
 
 void Downloader::setProxyUrl(const QString &proxyUrl)
 {
-    g_proxyUrl = proxyUrl;
+    m_proxyUrl = proxyUrl;
+    if (proxyUrl.isEmpty()) {
+        m_nam.setProxy(QNetworkProxy::NoProxy);
+    } else {
+        m_nam.setProxy(QNetworkProxy(QNetworkProxy::HttpProxy,
+                                     QUrl(proxyUrl).host(),
+                                     static_cast<quint16>(QUrl(proxyUrl).port(0))));
+    }
 }
-
-QString Downloader::proxyUrl() { return g_proxyUrl; }
 
 void Downloader::startAttempt()
 {

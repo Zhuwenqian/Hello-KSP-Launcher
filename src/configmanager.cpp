@@ -40,6 +40,7 @@ void ConfigManager::loadDefaults()
     m_config["moduleDownloadSource"] = static_cast<int>(OfficialFirst);
     m_config["downloadCacheDir"] = QString();
     m_config["downloadConcurrency"] = 3;
+    m_config["diskSpaceCheck"] = true;
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -81,6 +82,15 @@ bool ConfigManager::load()
         inst.path = obj["path"].toString();
         inst.exePath = obj["exePath"].toString();
         inst.launchArgs = obj["launchArgs"].toString();
+        // 兼容版本勾选：字段存在（可能为空数组）按持久化值，空即"未勾选任何版本"；
+        // 字段缺失（旧配置/新实例）保持未配置，由 compatibleVersions() 按检测到的
+        // 游戏版本动态推导默认勾选（1.9~1.12 区间内回退到 1.9，低于 1.9 仅勾选自身版本线）。
+        if (obj.contains("compatibleVersions")) {
+            const QJsonArray arr = obj["compatibleVersions"].toArray();
+            for (const QJsonValue &v : arr)
+                inst.compatibleVersions.append(v.toString());
+            inst.compatVersionsSet = true;
+        }
         m_instances.append(inst);
     }
 
@@ -103,6 +113,10 @@ bool ConfigManager::save()
         obj["path"] = inst.path;
         obj["exePath"] = inst.exePath;
         obj["launchArgs"] = inst.launchArgs;
+        // 仅持久化用户显式配置的兼容版本；未配置时省略该字段，
+        // 下次加载仍保持"未配置"，由游戏版本动态推导默认勾选。
+        if (inst.compatVersionsSet)
+            obj["compatibleVersions"] = QJsonArray::fromStringList(inst.compatibleVersions);
         instArray.append(obj);
     }
     m_config["instances"] = instArray;
@@ -189,6 +203,55 @@ void ConfigManager::setShowIncompatibleMods(bool show)
     }
 }
 
+QStringList ConfigManager::defaultCompatibleVersions(const ckan::GameVersion &detectedVersion)
+{
+    QStringList lines;
+    if (detectedVersion.isValid() && detectedVersion.major() == 1) {
+        const int minor = detectedVersion.minor();
+        if (minor >= 9 && minor <= 12) {
+            // 位于 [1.9, 1.12]：勾选「检测版本线 ~ 1.9」全部版本线（如 1.11.x → 1.11/1.10/1.9）
+            for (int m = minor; m >= 9; --m)
+                lines << QStringLiteral("1.%1").arg(m);
+        } else if (minor >= 0) {
+            // 低于 1.9（或高于 1.12）：仅勾选检测版本所在版本线
+            lines << QStringLiteral("1.%1").arg(minor);
+        }
+    }
+    if (lines.isEmpty()) {
+        // 版本检测失败或结构异常时回退静态默认 1.9~1.12
+        lines = { QStringLiteral("1.12"), QStringLiteral("1.11"),
+                  QStringLiteral("1.10"), QStringLiteral("1.9") };
+    }
+    return lines;
+}
+
+QStringList ConfigManager::compatibleVersions(const QString &instanceId,
+                                              const ckan::GameVersion &detectedVersion) const
+{
+    for (const KSPInstance &inst : m_instances) {
+        if (inst.id == instanceId) {
+            if (inst.compatVersionsSet)
+                return inst.compatibleVersions;
+            return defaultCompatibleVersions(detectedVersion);
+        }
+    }
+    return defaultCompatibleVersions(detectedVersion);
+}
+
+void ConfigManager::setCompatibleVersions(const QString &instanceId, const QStringList &versionLines)
+{
+    for (KSPInstance &inst : m_instances) {
+        if (inst.id == instanceId) {
+            if (inst.compatVersionsSet && inst.compatibleVersions == versionLines) return;
+            inst.compatVersionsSet = true;
+            inst.compatibleVersions = versionLines;
+            save();
+            emit instancesChanged();
+            return;
+        }
+    }
+}
+
 bool ConfigManager::installSuggests() const
 {
     return m_config["installSuggests"].toBool(true);
@@ -198,6 +261,20 @@ void ConfigManager::setInstallSuggests(bool enable)
 {
     if (installSuggests() != enable) {
         m_config["installSuggests"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+bool ConfigManager::diskSpaceCheck() const
+{
+    return m_config["diskSpaceCheck"].toBool(true);
+}
+
+void ConfigManager::setDiskSpaceCheck(bool enable)
+{
+    if (diskSpaceCheck() != enable) {
+        m_config["diskSpaceCheck"] = enable;
         save();
         emit configChanged();
     }

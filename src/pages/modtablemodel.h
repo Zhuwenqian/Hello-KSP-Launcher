@@ -108,6 +108,21 @@ public:
         beginFilterChange();
         endFilterChange();
     }
+    // 设置用户勾选的额外兼容区间（无效区间表示未启用）。
+    // 过滤判定 = 模组兼容当前实例版本 或 兼容该区间（任一满足即可）。
+    void setCompatRange(const ckan::GameVersionRange &r)
+    {
+        const bool same = (m_compatRange.lowerSet() == r.lowerSet()
+                           && m_compatRange.upperSet() == r.upperSet()
+                           && m_compatRange.lowerInclusive() == r.lowerInclusive()
+                           && m_compatRange.upperInclusive() == r.upperInclusive()
+                           && (!r.lowerSet() || m_compatRange.lower() == r.lower())
+                           && (!r.upperSet() || m_compatRange.upper() == r.upper()));
+        if (same) return;
+        m_compatRange = r;
+        beginFilterChange();
+        endFilterChange();
+    }
 
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
@@ -117,6 +132,7 @@ private:
     bool m_showIncompatible = false;
     QString m_search;
     ckan::GameVersion m_gameVersion; // 当前实例实际 KSP 版本（无效表示未检测到，按兼容处理）
+    ckan::GameVersionRange m_compatRange; // 用户勾选的额外兼容区间（无效表示未启用）
 };
 
 #endif // MODSTABLEMODEL_H

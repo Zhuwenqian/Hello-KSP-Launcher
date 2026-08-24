@@ -22,8 +22,6 @@ namespace ckan {
 
 namespace {
 
-static QString g_cacheDir;
-
 // 将仓库名转换为安全的缓存文件名
 QString safeRepoName(const QString &name)
 {
@@ -155,9 +153,11 @@ bool RepoIndex::build(const Repository &repo, const QStringList &mirrors,
                       QMap<QString, QVector<CkanModule>> *index,
                       QMap<QString, int> *downloadCounts, QString *error,
                       const std::function<void(const QString &, qint64, qint64)> &onProgress,
-                      std::atomic_bool *cancelFlag, bool preferMirror)
+                      std::atomic_bool *cancelFlag, bool preferMirror,
+                      const QString &proxyUrl)
 {
     Downloader dl;
+    dl.setProxyUrl(proxyUrl);
     QByteArray data;
     const auto progress = [&onProgress, &repo](qint64 received, qint64 total) {
         if (onProgress) onProgress(repo.name, received, total);
@@ -169,30 +169,21 @@ bool RepoIndex::build(const Repository &repo, const QStringList &mirrors,
     return parseTarGz(data, index, downloadCounts, error);
 }
 
-void RepoIndex::setCacheDir(const QString &dir)
-{
-    g_cacheDir = dir;
-}
-
-QString RepoIndex::cacheDir()
-{
-    return g_cacheDir;
-}
-
 bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
                             QMap<QString, QVector<CkanModule>> *index,
                             QMap<QString, int> *downloadCounts, QString *error,
                             bool forceRefresh, qint64 maxAgeSecs,
                             const std::function<void(const QString &, qint64, qint64)> &onProgress,
-                            std::atomic_bool *cancelFlag, bool preferMirror)
+                            std::atomic_bool *cancelFlag, bool preferMirror,
+                            const QString &cacheDir, const QString &proxyUrl)
 {
     // 未配置缓存目录：退回每次下载
-    if (g_cacheDir.isEmpty())
+    if (cacheDir.isEmpty())
         return build(repo, mirrors, index, downloadCounts, error, onProgress,
-                     cancelFlag, preferMirror);
+                     cancelFlag, preferMirror, proxyUrl);
 
-    QDir().mkpath(g_cacheDir);
-    const QString cacheFile = QDir(g_cacheDir).filePath(safeRepoName(repo.name) + QStringLiteral(".tar.gz"));
+    QDir().mkpath(cacheDir);
+    const QString cacheFile = QDir(cacheDir).filePath(safeRepoName(repo.name) + QStringLiteral(".tar.gz"));
 
     // 尝试使用新鲜缓存
     if (!forceRefresh) {
@@ -212,6 +203,7 @@ bool RepoIndex::buildCached(const Repository &repo, const QStringList &mirrors,
 
     // 下载并写入缓存
     Downloader dl;
+    dl.setProxyUrl(proxyUrl);
     QByteArray data;
     const auto progress = [&onProgress, &repo](qint64 received, qint64 total) {
         if (onProgress) onProgress(repo.name, received, total);
@@ -242,7 +234,8 @@ bool RepoIndex::buildManyCached(const QVector<Repository> &repos, const QStringL
                                 QMap<QString, int> *downloadCounts, QString *error,
                                 bool forceRefresh, qint64 maxAgeSecs,
                                 const std::function<void(const QString &, qint64, qint64)> &onProgress,
-                                std::atomic_bool *cancelFlag, bool preferMirror)
+                                std::atomic_bool *cancelFlag, bool preferMirror,
+                                const QString &cacheDir, const QString &proxyUrl)
 {
     if (index) index->clear();
     if (downloadCounts) downloadCounts->clear();
@@ -269,7 +262,7 @@ bool RepoIndex::buildManyCached(const QVector<Repository> &repos, const QStringL
         const bool ok = buildCached(repo, mirrors, &subIndex, &subCount, &repoErr,
                                     forceRefresh, maxAgeSecs,
                                     onProgress,
-                                    cancelFlag, preferMirror);
+                                    cancelFlag, preferMirror, cacheDir, proxyUrl);
         if (!ok) {
             failed << QStringLiteral("%1: %2").arg(repo.name, repoErr);
             continue;

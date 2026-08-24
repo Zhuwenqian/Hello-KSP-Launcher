@@ -48,6 +48,7 @@ private slots:
     void onModSearchChanged(const QString &text);
     void onModFilterChanged(int index);
     void onShowIncompatibleToggled(bool checked);
+    void onCompatVersionsClicked();
     void onRefreshModsClicked();
     void onModSelectionChanged();
     void onModDoubleClicked(const QModelIndex &index);
@@ -75,6 +76,8 @@ private:
     void loadDLCs();
     void loadMods();
     void loadLaunchArgs();
+    // 将当前实例勾选的兼容版本区间应用到过滤代理与 CKanManager（供安装/依赖解析使用）
+    void applyCompatRange();
     void updateModActionButtons();
     void updateSelectAllButtonText();
     void setModButtonsEnabled(bool enabled);
@@ -121,6 +124,7 @@ private:
     QPushButton* m_refreshModsBtn;
     QPushButton* m_selectAllBtn;
     QCheckBox*   m_showIncompatCheck;
+    QPushButton* m_compatBtn; // 兼容版本设置按钮
     QPushButton* m_installModBtn;
     QPushButton* m_uninstallModBtn;
     QPushButton* m_upgradeModBtn;

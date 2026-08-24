@@ -1,6 +1,7 @@
 #include "instancedetailpage.h"
 #include "../widgets/toggleswitch.h"
 #include "../ckanmanager.h"
+#include "ckan/version.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
@@ -16,6 +17,10 @@
 #include <QFileInfo>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QScrollArea>
+#include <QSet>
 #include "../iconutils.h"
 
 namespace {
@@ -236,9 +241,16 @@ void InstanceDetailPage::setupModsTab()
     connect(m_showIncompatCheck, &QCheckBox::toggled,
             this, &InstanceDetailPage::onShowIncompatibleToggled);
 
+    m_compatBtn = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"),
+                                  tr(" 兼容版本"), topBar);
+    m_compatBtn->setMinimumHeight(34);
+    connect(m_compatBtn, &QPushButton::clicked,
+            this, &InstanceDetailPage::onCompatVersionsClicked);
+
     topLayout->addWidget(m_modSearchEdit, 1);
     topLayout->addWidget(m_modFilterCombo);
     topLayout->addWidget(m_showIncompatCheck);
+    topLayout->addWidget(m_compatBtn);
     topLayout->addWidget(m_selectAllBtn);
     topLayout->addWidget(m_refreshModsBtn);
     layout->addWidget(topBar);
@@ -407,6 +419,7 @@ void InstanceDetailPage::onNavButtonClicked()
 void InstanceDetailPage::refreshData()
 {
     if (m_instance.path.isEmpty()) return;
+    updateBrowseMenuState();
     loadGameSettings();
     loadDLCs();
     loadMods();
@@ -541,6 +554,8 @@ void InstanceDetailPage::loadMods()
         // 传入实际检测到的 KSP 版本，按真实游戏版本过滤不兼容模组
         m_modsProxy->setGameVersion(mgr.detectedVersion());
     }
+    // 应用用户勾选的兼容版本区间（过滤代理 + 安装/依赖解析共用）
+    applyCompatRange();
 
     if (!mgr.indexReady()) {
         // 首次进入：自动加载仓库索引（优先使用本地缓存）
@@ -570,6 +585,87 @@ void InstanceDetailPage::onShowIncompatibleToggled(bool checked)
 {
     ConfigManager::instance().setShowIncompatibleMods(checked);
     if (m_modsProxy) m_modsProxy->setShowIncompatible(checked);
+}
+
+// 将当前实例勾选的兼容版本区间应用到过滤代理与 CKanManager（供安装/依赖解析使用）
+void InstanceDetailPage::applyCompatRange()
+{
+    if (m_instanceId.isEmpty()) return;
+    // 未配置时按检测到的游戏版本动态推导默认勾选（1.9~1.12 区间内回退到 1.9）
+    const ckan::GameVersion detected = CKanManager::instance().detectedVersion();
+    const QStringList lines = ConfigManager::instance().compatibleVersions(m_instanceId, detected);
+    const ckan::GameVersionRange range = ckan::versionLinesToRange(lines);
+    if (m_modsProxy)
+        m_modsProxy->setCompatRange(range);
+    CKanManager::instance().setCompatRange(range);
+    if (m_compatBtn) {
+        // 按钮文案显示当前已勾选的版本数，空勾选则仅按实例实际版本判断
+        if (lines.isEmpty()) {
+            m_compatBtn->setText(tr(" 兼容版本"));
+            m_compatBtn->setToolTip(tr("仅按当前实例实际版本判断兼容性"));
+        } else {
+            m_compatBtn->setText(tr(" 兼容版本(%1)").arg(lines.size()));
+            m_compatBtn->setToolTip(tr("已勾选：%1").arg(lines.join(QStringLiteral("、"))));
+        }
+    }
+}
+
+// 兼容版本设置弹窗：勾选 1.0~1.12 全部版本线（未配置时按游戏版本动态推导默认，
+// 1.9~1.12 区间内回退到 1.9，低于 1.9 仅勾选自身版本线），
+// 勾选后 KSP 版本落在所选连续区间内的模组均视为兼容；全部取消则仅按实例实际版本判断。
+void InstanceDetailPage::onCompatVersionsClicked()
+{
+    if (m_instanceId.isEmpty()) return;
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("兼容版本设置"));
+    dlg.setMinimumWidth(360);
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+
+    QLabel *info = new QLabel(tr("勾选需要兼容的 KSP 版本（1.0 ~ 1.12）。\n"
+                                 "勾选后，KSP 版本落在所选区间内的模组均视为兼容。\n"
+                                 "全部取消勾选则仅按当前实例实际版本判断。"), &dlg);
+    info->setWordWrap(true);
+    lay->addWidget(info);
+
+    // 当前实例已保存的勾选（未配置时按检测到的游戏版本动态推导默认勾选）
+    const QStringList saved = ConfigManager::instance().compatibleVersions(
+        m_instanceId, CKanManager::instance().detectedVersion());
+    const QSet<QString> savedSet(saved.begin(), saved.end());
+
+    QScrollArea *scroll = new QScrollArea(&dlg);
+    scroll->setWidgetResizable(true);
+    QWidget *host = new QWidget(scroll);
+    QVBoxLayout *hostLay = new QVBoxLayout(host);
+    QVector<QCheckBox*> boxes;
+    // 全部版本：1.0 ~ 1.12
+    for (int minor = 0; minor <= 12; ++minor) {
+        const QString line = QStringLiteral("1.%1").arg(minor);
+        QCheckBox *cb = new QCheckBox(tr("KSP %1").arg(line), host);
+        cb->setChecked(savedSet.contains(line));
+        boxes.append(cb);
+        hostLay->addWidget(cb);
+    }
+    hostLay->addStretch();
+    scroll->setWidget(host);
+    lay->addWidget(scroll, 1);
+
+    QDialogButtonBox *btnBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    btnBox->button(QDialogButtonBox::Ok)->setText(tr("确定"));
+    btnBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+    connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    lay->addWidget(btnBox);
+
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    QStringList selected;
+    for (int minor = 0; minor <= 12; ++minor)
+        if (boxes.at(minor)->isChecked())
+            selected << QStringLiteral("1.%1").arg(minor);
+
+    ConfigManager::instance().setCompatibleVersions(m_instanceId, selected);
+    applyCompatRange();
 }
 
 void InstanceDetailPage::onRefreshModsClicked()
@@ -685,15 +781,18 @@ void InstanceDetailPage::showModDetails(const ckan::CkanModule &mod)
 {
     if (!mod.isValid()) return;
     QString text;
-    text += "<b>" + mod.name.toHtmlEscaped() + "  " + mod.version.toHtmlEscaped() + "</b>\n\n";
-    if (!mod.abstract.isEmpty()) text += mod.abstract.toHtmlEscaped() + "\n\n";
+    text += "<b>" + mod.name.toHtmlEscaped() + "  " + mod.version.toHtmlEscaped() + "</b>\n";
+    if (!mod.abstract.isEmpty())
+        text += tr("描述：%1\n").arg(mod.abstract.toHtmlEscaped());
     if (!mod.author.isEmpty()) text += tr("作者：%1\n").arg(mod.author.join(QStringLiteral(", ")));
     if (!mod.license.isEmpty()) text += tr("许可：%1\n").arg(mod.license.join(QStringLiteral(", ")));
     if (!mod.kspVersion.isEmpty()) text += tr("KSP 版本：%1\n").arg(mod.kspVersion);
     if (mod.downloadSize > 0)
         text += tr("下载大小：%1 MB\n").arg(QString::number(mod.downloadSize / 1024.0 / 1024.0, 'f', 1));
-    if (!mod.depends.isEmpty()) text += tr("\n依赖：%1").arg(relNames(mod.depends).join(QStringLiteral(", ")));
-    if (!mod.conflicts.isEmpty()) text += tr("\n冲突：%1").arg(relNames(mod.conflicts).join(QStringLiteral(", ")));
+    if (!mod.depends.isEmpty()) text += tr("依赖：%1\n").arg(relNames(mod.depends).join(QStringLiteral(", ")));
+    if (!mod.conflicts.isEmpty()) text += tr("冲突：%1").arg(relNames(mod.conflicts).join(QStringLiteral(", ")));
+    // QTextEdit 的 HTML 会把裸换行符折叠为空格，需换成 <br/> 才能真正换行
+    text.replace(QStringLiteral("\n"), QStringLiteral("<br/>"));
     m_modDetailText->setHtml(text);
 }
 
@@ -825,6 +924,8 @@ void InstanceDetailPage::onModOperationFinished(bool ok, const QString &message)
         m_modsModel->clearAllChecks();
         updateSelectAllButtonText();
         updateModActionButtons();
+        // 重新显示当前选中模组详情，覆盖安装期间残留的“正在处理 ... %”进度文案
+        onModSelectionChanged();
         QMessageBox::information(this, tr("完成"), message);
     } else {
         updateModActionButtons();
@@ -961,6 +1062,9 @@ void InstanceDetailPage::setupBrowseMenu()
         m_browseActions.append(action);
         m_browsePaths.append(QString());
     }
+    // 同时连接游戏根目录项，否则点击无响应（无法打开）
+    connect(m_browseRootAction, &QAction::triggered,
+            this, &InstanceDetailPage::onBrowseActionTriggered);
     for (QAction* action : m_browseActions) {
         connect(action, &QAction::triggered, this, &InstanceDetailPage::onBrowseActionTriggered);
     }
@@ -969,9 +1073,19 @@ void InstanceDetailPage::setupBrowseMenu()
 void InstanceDetailPage::updateBrowseMenuState()
 {
     if (!m_browseMenu) return;
+
+    // 以当前实例的路径实时检查各浏览目标是否存在；不存在的子项隐藏。
+    // 每次打开浏览菜单（onBrowseClicked）都会调用这里，实例切换时也会随
+    // refreshData() 重新执行，因此同一实例路径变化后能及时反映最新状态。
     const QString& root = m_instance.path;
-    m_browseRootAction->setEnabled(!root.isEmpty() && QDir(root).exists());
+    const bool rootExists = !root.isEmpty() && QDir(root).exists();
+
+    // 游戏根目录缺失时整条「浏览」按钮隐藏（防御性；正常实例根目录必然存在）
+    m_browseBtn->setVisible(rootExists);
+    m_browseRootAction->setVisible(rootExists);
+    m_browseRootAction->setEnabled(rootExists);
     m_browseRootAction->setData(root);
+    if (!rootExists) return;
 
     const QStringList paths = {
         QDir(root).filePath("KSP.log"),
@@ -979,13 +1093,20 @@ void InstanceDetailPage::updateBrowseMenuState()
         QDir(root).filePath("glog/Principia"),
         QDir(root).filePath("GameData"),
         QDir(root).filePath("Ships"),
-        QDir(root).filePath("Ships/Scripts"),
+        QDir(root).filePath("Ships/Script"),   // kOS 默认脚本归档为单数 Script
         QDir(root).filePath("saves")
     };
     for (int i = 0; i < m_browseActions.size() && i < m_browsePaths.size(); ++i) {
         QString p = paths.at(i);
+        // kOS 默认脚本目录为单数 Script，个别实例用复数 Scripts，都尝试
+        if (i == 5 && !QFileInfo(p).exists()) {
+            QString alt = QDir(root).filePath("Ships/Scripts");
+            if (QFileInfo(alt).exists())
+                p = alt;
+        }
         m_browsePaths[i] = p;
         bool exists = QFileInfo(p).exists();
+        m_browseActions[i]->setVisible(exists);
         m_browseActions[i]->setEnabled(exists);
         m_browseActions[i]->setData(p);
     }
@@ -1134,4 +1255,5 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_installModBtn->setIcon(IconUtils::tintedIcon(":/icons/add.svg", color));
     m_uninstallModBtn->setIcon(IconUtils::tintedIcon(":/icons/trash-2.svg", color));
     m_upgradeModBtn->setIcon(IconUtils::tintedIcon(":/icons/check.svg", color));
+    m_compatBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
 }
