@@ -1163,9 +1163,26 @@ void InstanceDetailPage::onExportModpackClicked()
 {
     if (m_instance.path.isEmpty()) {
         QMessageBox::warning(this, tr("导出失败"), tr("实例路径为空，无法导出整合包。"));
+        m_exportModpackBtn->setChecked(false);
         return;
     }
 
+    // 弹出菜单让用户选择导出方式
+    QMenu menu(this);
+    QAction *zipAction = menu.addAction(tr("打包 GameData 为 ZIP"));
+    QAction *ckanAction = menu.addAction(tr("导出为 CKAN 文件"));
+    // 弹菜单时取消按钮选中态，避免状态残留
+    m_exportModpackBtn->setChecked(false);
+    const QPoint pos = m_exportModpackBtn->mapToGlobal(QPoint(0, m_exportModpackBtn->height() + 4));
+    QAction *selected = menu.exec(pos);
+    if (selected == zipAction)
+        exportAsZip();
+    else if (selected == ckanAction)
+        exportAsCkan();
+}
+
+void InstanceDetailPage::exportAsZip()
+{
     QString gameDataPath = QDir(m_instance.path).filePath("GameData");
     if (!QDir(gameDataPath).exists()) {
         QMessageBox::warning(this, tr("导出失败"), tr("GameData 目录不存在，无法导出整合包。"));
@@ -1238,6 +1255,49 @@ void InstanceDetailPage::onExportModpackClicked()
     } else {
         QMessageBox::warning(this, tr("导出失败"), tr("导出整合包时发生错误，请检查磁盘空间和权限。"));
     }
+}
+
+void InstanceDetailPage::exportAsCkan()
+{
+    // 默认文件名：实例名.ckan，保存在启动器根目录
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString defaultFileName = m_instance.name + ".ckan";
+    QString defaultFilePath = QDir(appDir).filePath(defaultFileName);
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("导出 CKAN 文件 - 选择保存位置"),
+        defaultFilePath,
+        tr("CKAN 文件 (*.ckan)")
+    );
+
+    if (filePath.isEmpty()) {
+        return; // 用户取消
+    }
+
+    // 确保以 .ckan 结尾
+    if (!filePath.endsWith(".ckan", Qt::CaseInsensitive)) {
+        filePath += ".ckan";
+    }
+
+    QString error;
+    const QByteArray json = CKanManager::instance().exportModpackCkan(&error);
+    if (json.isEmpty()) {
+        QMessageBox::warning(this, tr("导出失败"),
+                             error.isEmpty() ? tr("导出 CKAN 文件失败。") : error);
+        return;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(this, tr("导出失败"), tr("无法写入文件：%1").arg(file.errorString()));
+        return;
+    }
+    file.write(json);
+    file.close();
+
+    QMessageBox::information(this, tr("导出成功"),
+        tr("CKAN 文件已成功导出到：\n%1").arg(QDir::toNativeSeparators(filePath)));
 }
 
 void InstanceDetailPage::refreshIcons(const QString &color)

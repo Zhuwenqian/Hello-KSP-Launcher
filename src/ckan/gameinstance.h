@@ -25,6 +25,8 @@ public:
 
     // 路径
     QString gameDir() const { return m_gameDir; }
+    // 实例显示名（构造时传入）
+    QString name() const { return m_name; }
     QString ckanDir() const { return m_gameDir + QStringLiteral("/CKAN"); }
     QString downloadDir() const { return m_gameDir + QStringLiteral("/CKAN/downloads"); }
     QString historyDir() const { return m_gameDir + QStringLiteral("/CKAN/history"); }

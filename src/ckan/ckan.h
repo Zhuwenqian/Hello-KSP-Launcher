@@ -66,6 +66,13 @@ public:
     bool isInstalled(const QString &identifier) const;
     QVector<InstalledModule> installedModules() const;
 
+    // ---- 整合包导出 ----
+    // 生成官方 CKAN 元包（metapackage）JSON：depends 列出已安装模组（无版本号），
+    // 排除 DLC / 自动安装 / 手动安装（AD）模组；索引已加载时同样排除索引中不存在的模组。
+    // 排序为依赖在前（拓扑序）。无可导出模组时返回空并填充 error。
+    // 检测不到 KSP 版本时省略 ksp_version_min/max（不视为失败）。
+    QByteArray exportModpackCkan(QString *error = nullptr);
+
     // ---- 手动安装模组（DLL 扫描，AD） ----
     void scanUnmanagedDlls();   // 扫描 GameData 下 .dll 写入 registry.installedDlls 并保存
     bool isAutoDetected(const QString &identifier) const;

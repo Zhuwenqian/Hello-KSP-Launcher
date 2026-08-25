@@ -12,6 +12,7 @@
 #include "ckan/version.h"
 #include "ckan/relationship.h"
 #include "ckan/ckanmodule.h"
+#include "ckan/ckan.h"
 #include "ckan/moduleinstalldescriptor.h"
 #include "ckan/moduleinstaller.h"
 #include "ckan/installedmodule.h"
@@ -2478,6 +2479,127 @@ private slots:
     }
 };
 
+class TestCkanExport : public QObject
+{
+    Q_OBJECT
+private slots:
+    void exportGeneratesMetapackage()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 写 readme.txt 以便版本检测成功（1.12.3）
+        QFile rf(dir.filePath(QStringLiteral("readme.txt")));
+        QVERIFY(rf.open(QIODevice::WriteOnly));
+        rf.write("Version 1.12.3\n");
+        rf.close();
+
+        GameInstance gi(dir.path(), QStringLiteral("Test Instance"));
+        auto registerMod = [&](const CkanModule &m, bool autoInstalled = false) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.autoInstalled = autoInstalled;
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(m.identifier)};
+            gi.registry()->registerModule(im);
+        };
+        // 依赖链：C 依赖 B，B 依赖 A
+        registerMod(makeModule(QStringLiteral("A"), QStringLiteral("1.0")));
+        registerMod(makeModule(QStringLiteral("B"), QStringLiteral("1.0"), {dep(QStringLiteral("A"))}));
+        registerMod(makeModule(QStringLiteral("C"), QStringLiteral("1.0"), {dep(QStringLiteral("B"))}));
+        // DLC（应排除）
+        CkanModule dlc = makeModule(QStringLiteral("DlcFoo"), QStringLiteral("1.0"));
+        dlc.kind = ModuleKind::Dlc;
+        registerMod(dlc);
+        // 自动安装（应排除）
+        registerMod(makeModule(QStringLiteral("AutoMod"), QStringLiteral("1.0")), true);
+        // 手动安装 AD 模组（应排除）
+        gi.registry()->installedDlls[QStringLiteral("ManualMod")] =
+            QStringLiteral("GameData/ManualMod/ManualMod.dll");
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("Test Instance"));
+        QString error;
+        const QByteArray json = ckan.exportModpackCkan(&error);
+        QVERIFY2(!json.isEmpty(), qPrintable(error));
+
+        QJsonParseError perr;
+        const QJsonDocument doc = QJsonDocument::fromJson(json, &perr);
+        QVERIFY2(perr.error == QJsonParseError::NoError, qPrintable(perr.errorString()));
+        const QJsonObject obj = doc.object();
+
+        QCOMPARE(obj.value(QStringLiteral("kind")).toString(), QStringLiteral("metapackage"));
+        QCOMPARE(obj.value(QStringLiteral("name")).toString(),
+                 QStringLiteral("已安装-Test Instance"));
+        // 官方 Identifier.Sanitize：去前缀 + 非法字符替换为 '-'
+        QCOMPARE(obj.value(QStringLiteral("identifier")).toString(),
+                 QStringLiteral("Test-Instance"));
+        QVERIFY(!obj.value(QStringLiteral("version")).toString().isEmpty());
+        QCOMPARE(obj.value(QStringLiteral("ksp_version_min")).toString(), QStringLiteral("1.12.3"));
+        QCOMPARE(obj.value(QStringLiteral("ksp_version_max")).toString(), QStringLiteral("1.12.3"));
+
+        // depends：仅 A/B/C，依赖在前，无版本约束
+        const QJsonArray depends = obj.value(QStringLiteral("depends")).toArray();
+        QCOMPARE(depends.size(), 3);
+        QStringList names;
+        for (const QJsonValue &v : depends) {
+            const QJsonObject d = v.toObject();
+            QVERIFY(d.contains(QStringLiteral("name")));
+            QVERIFY(!d.contains(QStringLiteral("version")));
+            names << d.value(QStringLiteral("name")).toString();
+        }
+        QCOMPARE(names, QStringList({QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C")}));
+        QVERIFY(!names.contains(QStringLiteral("DlcFoo")));
+        QVERIFY(!names.contains(QStringLiteral("AutoMod")));
+        QVERIFY(!names.contains(QStringLiteral("ManualMod")));
+    }
+
+    void exportVirtualProvidesOrderedBeforeDepender()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile rf(dir.filePath(QStringLiteral("readme.txt")));
+        QVERIFY(rf.open(QIODevice::WriteOnly));
+        rf.write("Version 1.12.3\n");
+        rf.close();
+
+        GameInstance gi(dir.path(), QStringLiteral("Virt"));
+        auto registerMod = [&](const CkanModule &m) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(m.identifier)};
+            gi.registry()->registerModule(im);
+        };
+        // Lib 提供虚拟包 SharedLib；Consumer 依赖 SharedLib
+        registerMod(makeModule(QStringLiteral("Lib"), QStringLiteral("1.0"),
+                               {}, {}, {}, {prov(QStringLiteral("SharedLib"))}));
+        registerMod(makeModule(QStringLiteral("Consumer"), QStringLiteral("1.0"),
+                               {dep(QStringLiteral("SharedLib"))}));
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("Virt"));
+        const QByteArray json = ckan.exportModpackCkan();
+        QVERIFY(!json.isEmpty());
+        const QJsonObject obj = QJsonDocument::fromJson(json).object();
+        QStringList names;
+        for (const QJsonValue &v : obj.value(QStringLiteral("depends")).toArray())
+            names << v.toObject().value(QStringLiteral("name")).toString();
+        QCOMPARE(names, QStringList({QStringLiteral("Lib"), QStringLiteral("Consumer")}));
+    }
+
+    void exportEmptyReportsError()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("Empty"));
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+        CKan ckan(dir.path(), QStringLiteral("Empty"));
+        QString error;
+        QVERIFY(ckan.exportModpackCkan(&error).isEmpty());
+        QVERIFY(!error.isEmpty());
+    }
+};
+
 static int runSuite(int argc, char *argv[], QObject &suite)
 {
     return QTest::qExec(&suite, argc, argv);
@@ -2501,6 +2623,7 @@ int main(int argc, char *argv[])
     TestRepoIndex tRepoIndex;
     TestModuleDownload tModDownload;
     TestTransactionRollback tTxRollback;
+    TestCkanExport tCkanExport;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -2514,6 +2637,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tModDownload);
     failures += runSuite(argc, argv, tRepoIndex);
     failures += runSuite(argc, argv, tTxRollback);
+    failures += runSuite(argc, argv, tCkanExport);
     return failures;
 }
 

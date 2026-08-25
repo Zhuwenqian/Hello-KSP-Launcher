@@ -1,6 +1,8 @@
 #include "ckan.h"
 
 #include <QSet>
+#include <QDateTime>
+#include <QRegularExpression>
 #include <algorithm>
 
 #include "repoindex.h"
@@ -104,6 +106,142 @@ QVector<InstalledModule> CKan::installedModules() const
          it != reg->installedModules.constEnd(); ++it)
         out.append(it.value());
     return out;
+}
+
+namespace {
+
+// 官方 Identifier.Sanitize：先去除非字母数字前缀，再把非 [A-Za-z0-9-] 字符替换为 '-'
+QString sanitizeCkanIdentifier(const QString &name)
+{
+    static const QRegularExpression prefixRe(QStringLiteral("^[^A-Za-z0-9]+"));
+    static const QRegularExpression invalidRe(QStringLiteral("[^A-Za-z0-9-]"));
+    QString out = name;
+    out.remove(prefixRe);
+    out.replace(invalidRe, QStringLiteral("-"));
+    return out;
+}
+
+// 依赖优先的拓扑排序（对应官方"Sort dependencies before dependers"）。
+// 依据 depends（含 any_of 子关系）建图；虚拟包经 provides 解析到提供者；
+// 自依赖/未解析的依赖忽略；成环时未排序的模组按原顺序追加到末尾。
+QVector<CkanModule> sortModsByDependencies(const QVector<CkanModule> &mods)
+{
+    const int n = mods.size();
+    QMap<QString, int> idIndex;
+    for (int i = 0; i < n; ++i)
+        idIndex.insert(mods[i].identifier, i);
+
+    // 虚拟包名 -> 提供者下标（首个提供者胜出，与解析器 providedToOwner 一致）
+    QMap<QString, int> providedToIndex;
+    for (int i = 0; i < n; ++i)
+        for (const QString &p : mods[i].providesList())
+            if (!providedToIndex.contains(p))
+                providedToIndex.insert(p, i);
+
+    QVector<int> indegree(n, 0);
+    QVector<QVector<int>> dependents(n);
+    for (int i = 0; i < n; ++i) {
+        QSet<int> seen;
+        const auto addRel = [&](const Relationship &r) {
+            int depIdx = idIndex.value(r.name, -1);
+            if (depIdx < 0)
+                depIdx = providedToIndex.value(r.name, -1);
+            if (depIdx == i || depIdx < 0 || seen.contains(depIdx))
+                return;
+            seen.insert(depIdx);
+            ++indegree[i];
+            dependents[depIdx].append(i);
+        };
+        for (const Relationship &r : mods[i].depends) {
+            if (!r.anyOf.isEmpty())
+                for (const Relationship &sub : r.anyOf) addRel(sub);
+            else
+                addRel(r);
+        }
+    }
+
+    // Kahn 算法：始终取最小下标的就绪节点，保证输出确定
+    QVector<int> ready;
+    for (int i = 0; i < n; ++i)
+        if (indegree[i] == 0) ready.append(i);
+    QVector<CkanModule> sorted;
+    while (!ready.isEmpty()) {
+        const int i = ready.takeFirst();
+        sorted.append(mods[i]);
+        for (const int d : dependents[i]) {
+            if (--indegree[d] == 0) {
+                auto it = std::lower_bound(ready.begin(), ready.end(), d);
+                ready.insert(it, d);
+            }
+        }
+    }
+    // 成环的模组追加到末尾（保持原相对顺序）
+    if (sorted.size() < n) {
+        QSet<int> sortedSet;
+        for (const CkanModule &m : sorted) sortedSet.insert(idIndex.value(m.identifier));
+        for (int i = 0; i < n; ++i)
+            if (!sortedSet.contains(i)) sorted.append(mods[i]);
+    }
+    return sorted;
+}
+
+} // namespace
+
+QByteArray CKan::exportModpackCkan(QString *error)
+{
+    // 先重载注册表，确保拿到最新的已安装数据
+    reloadRegistry();
+
+    // 收集待导出模组：排除 DLC / 自动安装 / 手动安装（AD）模组；
+    // 索引已加载时同样排除索引中不存在的模组（无法从仓库重新安装，参照官方 IsAvailable）
+    const bool indexLoaded = m_indexReady && !m_index.isEmpty();
+    QVector<CkanModule> mods;
+    const QVector<InstalledModule> installed = installedModules();
+    for (const InstalledModule &im : installed) {
+        if (im.module.isDlc() || im.autoInstalled || isAutoDetected(im.identifier))
+            continue;
+        if (indexLoaded && !m_index.contains(im.identifier))
+            continue;
+        mods.append(im.module);
+    }
+    if (mods.isEmpty()) {
+        if (error) *error = QStringLiteral("没有可导出的已安装模组。");
+        return QByteArray();
+    }
+
+    // 依赖优先排序
+    const QVector<CkanModule> sorted = sortModsByDependencies(mods);
+
+    // 构建元包（参照官方 RegistryManager.GenerateModpack）
+    const QString instanceName = m_instance.name();
+    CkanModule meta;
+    meta.kind = ModuleKind::Metapackage;
+    meta.specVersion = QStringLiteral("1");
+    meta.name = QStringLiteral("已安装-%1").arg(instanceName);
+    meta.identifier = sanitizeCkanIdentifier(meta.name);
+    meta.abstract = QStringLiteral("已安装在 KSP 实例 %1 的模组列表").arg(instanceName);
+    meta.author = QStringList{QString::fromLocal8Bit(qgetenv("USERNAME"))};
+    meta.license = QStringList{QStringLiteral("unknown")};
+    meta.version = QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyy.MM.dd.hh.mm.ss"));
+    meta.releaseDate = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    // ksp_version_min/max 写检测到的游戏版本线（去掉 build，如 1.12.5.3190 -> 1.12.5）
+    const GameVersion detected = detectedVersion();
+    if (detected.isValid()) {
+        QStringList parts = detected.toString().split(QLatin1Char('.'));
+        while (parts.size() > 3) parts.removeLast();
+        const QString versionLine = parts.join(QLatin1Char('.'));
+        meta.kspVersionMin = versionLine;
+        meta.kspVersionMax = versionLine;
+    }
+
+    for (const CkanModule &m : sorted) {
+        Relationship r;
+        r.type = Relationship::Type::Depends;
+        r.name = m.identifier;
+        meta.depends.append(r);
+    }
+    return meta.toJson();
 }
 
 void CKan::scanUnmanagedDlls()

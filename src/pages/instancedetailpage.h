@@ -43,7 +43,6 @@ private slots:
     void onExportModpackClicked();
     void onBrowseClicked();
     void onBrowseActionTriggered();
-
     // mod 管理
     void onModSearchChanged(const QString &text);
     void onModFilterChanged(int index);
@@ -76,6 +75,9 @@ private:
     void loadDLCs();
     void loadMods();
     void loadLaunchArgs();
+    // 整合包导出：打包 GameData 为 ZIP / 导出为 CKAN 元包
+    void exportAsZip();
+    void exportAsCkan();
     // 将当前实例勾选的兼容版本区间应用到过滤代理与 CKanManager（供安装/依赖解析使用）
     void applyCompatRange();
     void updateModActionButtons();

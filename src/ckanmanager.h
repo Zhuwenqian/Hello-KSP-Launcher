@@ -74,6 +74,11 @@ public:
     // 该标识符是否被 DLL 扫描识别为手动安装模组
     bool isAutoDetected(const QString &identifier) const;
 
+    // ---- 整合包导出 ----
+    // 生成官方 CKAN 元包 JSON（depends 列出已安装模组，依赖优先）。
+    // 无可导出模组时返回空并填充 error。
+    QByteArray exportModpackCkan(QString *error = nullptr);
+
     // ---- 安装/卸载/升级（异步） ----
     void installAsync(const QString &identifier, bool autoRecommends);
     void uninstallAsync(const QString &identifier);

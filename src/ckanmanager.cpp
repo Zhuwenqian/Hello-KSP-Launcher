@@ -261,6 +261,11 @@ bool CKanManager::isAutoDetected(const QString &identifier) const
     return m_ckan && m_ckan->isAutoDetected(identifier);
 }
 
+QByteArray CKanManager::exportModpackCkan(QString *error)
+{
+    return m_ckan ? m_ckan->exportModpackCkan(error) : QByteArray();
+}
+
 void CKanManager::installAsync(const QString &identifier, bool autoRecommends)
 {
     if (!m_ckan) { emit operationFinished(false, tr("尚未绑定游戏实例")); return; }
