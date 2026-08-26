@@ -26,20 +26,21 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Atomic Transactions** — Install, uninstall, and upgrade run as atomic transactions with automatic rollback on failure or cancellation, so no files are left behind and the registry is restored to its pre-operation state.
 - **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
 - **Backup Management** — Create, browse, and delete save backups with a progress dialog.
-- **Modpack Export** — Export GameData as a ZIP file, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files).
+- **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files); or import a modpack from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
 - **Custom Background** — Choose any PNG/JPG as the launcher background. Cover-mode scaling. Resets to default with one click.
 - **Theme Support** — Dark and light themes with translucent UI and automatic icon tinting.
 - **Launch Arguments** — Configure custom command-line arguments (e.g. `-force-d3d11 -popupwindow`) per instance.
-- **Cross-Platform** — Built with Qt 6 and CMake, targeting Windows, macOS, and Linux.
+- **Windows Only** — Built with Qt 6 and CMake, targeting Windows (x64).
 
 ---
 
 ## Requirements
 
+- **Windows** (x64)
 - **Qt 6** (Core, Widgets, Svg, Concurrent)
 - **CMake** ≥ 3.16
 - **C++17** compiler
-- **mingw** (on Windows) or equivalent toolchain
+- **mingw** (Windows toolchain)
 
 ### Build Dependencies
 
@@ -152,16 +153,17 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
 - **主题支持** — 深色和浅色主题，半透明 UI 搭配自动图标色调适配。
 - **启动参数** — 为每个实例配置自定义命令行参数（如 `-force-d3d11 -popupwindow`）。
-- **跨平台** — 基于 Qt 6 和 CMake 构建，支持 Windows、macOS 和 Linux。
+- **仅支持 Windows** — 基于 Qt 6 和 CMake 构建，面向 Windows（x64）平台。
 
 ---
 
 ## 系统要求
 
+- **Windows**（x64）
 - **Qt 6**（Core, Widgets, Svg, Concurrent）
 - **CMake** ≥ 3.16
 - **C++17** 编译器
-- **mingw**（Windows）或同等工具链
+- **mingw**（Windows 工具链）
 
 ### 构建依赖
 
