@@ -74,7 +74,11 @@ public:
     QByteArray exportModpackCkan(QString *error = nullptr);
 
     // ---- 手动安装模组（DLL 扫描，AD） ----
-    void scanUnmanagedDlls();   // 扫描 GameData 下 .dll 写入 registry.installedDlls 并保存
+    // 扫描 GameData 下 .dll 写入 registry.installedDlls 并保存；
+    // 结果缓存，重复调用直接返回不再全盘扫描。
+    void scanUnmanagedDlls();
+    // 当前实例的 DLL 扫描是否已完成（用于页面提示"正在扫描/已就绪"）
+    bool dllsScanned() const { return m_dllsScanned; }
     bool isAutoDetected(const QString &identifier) const;
 
     // ---- 依赖解析 ----
@@ -152,6 +156,7 @@ private:
     QMap<QString, QVector<CkanModule>> m_index;
     QMap<QString, int> m_downloadCounts; // identifier -> 下载次数（高优先级仓库优先）
     bool m_indexReady = false;
+    bool m_dllsScanned = false;   // 当前实例的 DLL 扫描结果缓存标记
 };
 
 } // namespace ckan

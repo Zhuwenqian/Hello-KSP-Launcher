@@ -2,6 +2,7 @@
 #include "../widgets/toggleswitch.h"
 #include "../ckanmanager.h"
 #include "ckan/version.h"
+#include "ckan/modpackio.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
@@ -130,12 +131,19 @@ void InstanceDetailPage::setupUI()
     m_browseBtn->setMinimumHeight(40);
     connect(m_browseBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBrowseClicked);
 
+    m_importModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"), tr("  导入整合包"), m_detailSidebar);
+    m_importModpackBtn->setObjectName("detailNavButton");
+    m_importModpackBtn->setCheckable(true);
+    m_importModpackBtn->setMinimumHeight(40);
+    connect(m_importModpackBtn, &QPushButton::clicked, this, &InstanceDetailPage::onImportModpackClicked);
+
     sidebarLayout->addWidget(m_gameSettingsBtn);
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
     sidebarLayout->addWidget(m_savesBtn);
     sidebarLayout->addWidget(m_advancedBtn);
     sidebarLayout->addWidget(m_exportModpackBtn);
+    sidebarLayout->addWidget(m_importModpackBtn);
     sidebarLayout->addWidget(m_browseBtn);
     sidebarLayout->addStretch();
 
@@ -345,6 +353,8 @@ void InstanceDetailPage::setupModsTab()
     // 适配层信号
     connect(&CKanManager::instance(), &CKanManager::indexRefreshed,
             this, &InstanceDetailPage::onIndexRefreshed);
+    connect(&CKanManager::instance(), &CKanManager::unmanagedScanFinished,
+            this, &InstanceDetailPage::onUnmanagedScanFinished);
     connect(&CKanManager::instance(), &CKanManager::operationFinished,
             this, &InstanceDetailPage::onModOperationFinished);
     connect(&CKanManager::instance(), &CKanManager::installProgress,
@@ -397,20 +407,37 @@ void InstanceDetailPage::onNavButtonClicked()
     m_savesBtn->setChecked(btn == m_savesBtn);
     m_advancedBtn->setChecked(btn == m_advancedBtn);
     m_browseBtn->setChecked(false);
+    m_importModpackBtn->setChecked(false);
 
     if (btn == m_gameSettingsBtn) {
+        m_modsTabActive = false;
         m_contentStack->setCurrentIndex(0);
     } else if (btn == m_dlcBtn) {
+        m_modsTabActive = false;
         m_contentStack->setCurrentIndex(1);
     } else if (btn == m_modsBtn) {
+        m_modsTabActive = true;
         m_contentStack->setCurrentIndex(2);
+        // 数据未就绪时给出"加载中"提示（后台扫描/索引加载完成会自动填充）
+        if (!m_modsReady) {
+            CKanManager &mgr = CKanManager::instance();
+            if (!mgr.indexReady())
+                m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
+            else
+                m_modDetailText->setPlainText(tr("正在扫描已安装的 DLL，请稍候..."));
+        } else {
+            // 确保刷新按钮状态与选中态一致
+            updateModActionButtons();
+        }
     } else if (btn == m_savesBtn) {
+        m_modsTabActive = false;
         emit savesManageRequested();
         // 回到游戏设置tab，避免下次进来还是选中存档管理
         m_gameSettingsBtn->setChecked(true);
         m_savesBtn->setChecked(false);
         m_contentStack->setCurrentIndex(0);
     } else if (btn == m_advancedBtn) {
+        m_modsTabActive = false;
         loadLaunchArgs();
         m_contentStack->setCurrentIndex(3);
     }
@@ -422,8 +449,8 @@ void InstanceDetailPage::refreshData()
     updateBrowseMenuState();
     loadGameSettings();
     loadDLCs();
-    loadMods();
     loadLaunchArgs();
+    prepareMods();
 }
 
 void InstanceDetailPage::loadGameSettings()
@@ -540,15 +567,14 @@ void InstanceDetailPage::loadDLCs()
     }
 }
 
-void InstanceDetailPage::loadMods()
+void InstanceDetailPage::prepareMods()
 {
     if (m_instance.path.isEmpty()) return;
 
     CKanManager &mgr = CKanManager::instance();
+    // 绑定实例（同一实例时内部直接返回，不会重复构造/扫描）
     mgr.openInstance(m_instance.path, m_instance.name);
 
-    // 扫描 GameData DLL，识别手动安装模组（AD）
-    mgr.scanUnmanagedDlls();
     if (m_modsProxy) {
         m_modsProxy->setShowIncompatible(ConfigManager::instance().showIncompatibleMods());
         // 传入实际检测到的 KSP 版本，按真实游戏版本过滤不兼容模组
@@ -557,16 +583,47 @@ void InstanceDetailPage::loadMods()
     // 应用用户勾选的兼容版本区间（过滤代理 + 安装/依赖解析共用）
     applyCompatRange();
 
+    // 手动安装模组（AD）DLL 扫描：后台线程执行，结果缓存，避免阻塞 UI 与重复全盘扫描
+    if (!mgr.unmanagedScanDone()) {
+        m_modsModel->clear();
+        mgr.scanUnmanagedDllsAsync();
+    }
+
     if (!mgr.indexReady()) {
         // 首次进入：自动加载仓库索引（优先使用本地缓存）
         m_modsModel->clear();
         m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
         showDownloadProgress();
         mgr.refreshIndexAsync();
-        return;
     }
 
-    m_modsModel->setModules(mgr.search(QString()));
+    maybePopulateMods();
+}
+
+// 索引与 DLL 扫描均就绪时填充模组模型；否则保持清空并显示"加载中"提示。
+void InstanceDetailPage::maybePopulateMods()
+{
+    CKanManager &mgr = CKanManager::instance();
+    m_modsReady = mgr.indexReady() && mgr.unmanagedScanDone();
+    if (m_modsReady) {
+        m_modsModel->setModules(mgr.search(QString()));
+        updateModActionButtons();
+        return;
+    }
+    // 数据尚未就绪：若用户已切到模组页，给出明确的"加载中"提示
+    m_modsModel->clear();
+    if (m_modsTabActive) {
+        if (!mgr.indexReady())
+            m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
+        else
+            m_modDetailText->setPlainText(tr("正在扫描已安装的 DLL，请稍候..."));
+    }
+}
+
+void InstanceDetailPage::onUnmanagedScanFinished()
+{
+    // 后台 DLL 扫描完成：若索引也已就绪则填充模型（含此前切到模组页的场景）
+    maybePopulateMods();
     updateModActionButtons();
 }
 
@@ -690,10 +747,20 @@ void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
         QMessageBox::warning(this, tr("刷新失败"), tr("无法获取仓库索引：\n%1").arg(error));
         return;
     }
-    m_modsModel->setModules(CKanManager::instance().search(QString()));
-    const int n = m_modsModel->rowCount();
-    m_modDetailText->setPlainText(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
+    // 索引已就绪：若 DLL 扫描也完成则填充模型并显示数量；否则保留"加载中"提示，
+    // 待后台扫描完成（unmanagedScanFinished）后再填充。
+    maybePopulateMods();
+    if (m_modsReady) {
+        const int n = m_modsModel->rowCount();
+        m_modDetailText->setPlainText(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
+    }
     updateModActionButtons();
+    // 索引就绪后，若存在 .ckan 导入待装清单，自动开始批量安装
+    if (!m_pendingCkanIdentifiers.isEmpty()) {
+        const QStringList pending = m_pendingCkanIdentifiers;
+        m_pendingCkanIdentifiers.clear();
+        CKanManager::instance().installBatchAsync(pending);
+    }
     // 部分仓库获取失败：提示用户（避免“静默缺失”）；页面不可见（如在设置页）时不弹窗
     if (!error.isEmpty() && isVisible())
         QMessageBox::warning(this, tr("仓库刷新"),
@@ -1300,6 +1367,161 @@ void InstanceDetailPage::exportAsCkan()
         tr("CKAN 文件已成功导出到：\n%1").arg(QDir::toNativeSeparators(filePath)));
 }
 
+void InstanceDetailPage::onImportModpackClicked()
+{
+    m_importModpackBtn->setChecked(false);
+    if (m_instance.path.isEmpty()) {
+        QMessageBox::warning(this, tr("导入失败"), tr("实例路径为空，无法导入整合包。"));
+        return;
+    }
+    if (!QDir(m_instance.path + QStringLiteral("/GameData")).exists()) {
+        QMessageBox::warning(this, tr("导入失败"), tr("GameData 目录不存在，无法导入整合包。"));
+        return;
+    }
+
+    // 弹出菜单让用户选择导入方式
+    QMenu menu(this);
+    QAction *zipAction = menu.addAction(tr("从 ZIP 导入"));
+    QAction *ckanAction = menu.addAction(tr("从 .ckan 文件导入"));
+    const QPoint pos = m_importModpackBtn->mapToGlobal(QPoint(0, m_importModpackBtn->height() + 4));
+    QAction *selected = menu.exec(pos);
+    if (selected == zipAction)
+        importFromZip();
+    else if (selected == ckanAction)
+        importFromCkan();
+}
+
+void InstanceDetailPage::importFromZip()
+{
+    const QString zipFilePath = QFileDialog::getOpenFileName(
+        this, tr("导入整合包 - 选择 ZIP 文件"), QString(),
+        tr("ZIP 文件 (*.zip)"));
+    if (zipFilePath.isEmpty()) return; // 用户取消
+
+    // 先校验 ZIP 内确实包含 GameData（避免清空后才报错）
+    QString prefix, error;
+    if (!ckan::modpackZipGameDataPrefix(zipFilePath, &prefix, &error)) {
+        QMessageBox::warning(this, tr("导入失败"), error.isEmpty()
+            ? tr("所选文件不是有效的整合包（缺少 GameData 目录）。") : error);
+        return;
+    }
+
+    // 清空提示：删除 GameData 下除 Squad/SquadExpansion 外的所有内容
+    const QMessageBox::StandardButton confirm = QMessageBox::warning(
+        this, tr("导入整合包"),
+        tr("导入将删除当前实例 GameData 中除 Squad、SquadExpansion 外的所有模组，\n"
+           "并用 ZIP 中的模组替换。是否继续？"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (confirm != QMessageBox::Yes) return;
+
+    // 完成后回到游戏设置并取消按钮选中态
+    m_gameSettingsBtn->setChecked(true);
+    m_importModpackBtn->setChecked(false);
+    m_contentStack->setCurrentIndex(0);
+
+    QProgressDialog progressDialog(tr("正在导入整合包..."), "取消", 0, 100, this);
+    progressDialog.setWindowTitle(tr("导入整合包"));
+    progressDialog.setWindowModality(Qt::WindowModal);
+    progressDialog.setMinimumDuration(0);
+    progressDialog.setValue(0);
+    progressDialog.show();
+    QCoreApplication::processEvents();
+
+    std::atomic_bool cancelRequested{false};
+    bool success = false;
+    QString impError;
+    // 进度回调：允许取消（进度为 0..1000）
+    const auto onProgress = [&](int permille) {
+        QMetaObject::invokeMethod(&progressDialog, [&progressDialog, &cancelRequested, permille]() {
+            if (progressDialog.wasCanceled()) {
+                cancelRequested = true;
+                return;
+            }
+            progressDialog.setValue(permille / 10);
+        }, Qt::QueuedConnection);
+        QCoreApplication::processEvents();
+    };
+    success = ckan::modpackImportGameData(zipFilePath, m_instance.path,
+                                          onProgress, &cancelRequested, &impError);
+    progressDialog.close();
+
+    if (cancelRequested) {
+        QMessageBox::information(this, tr("提示"), tr("导入已取消，原模组可能已被部分替换。"));
+    } else if (success) {
+        // 导入后重建 CKan（注册表已清空、文件已替换），下次进入模组页时重新扫描
+        CKanManager::instance().closeInstance();
+        prepareMods();
+        // 预填充模型，使模组管理页立即反映解压出的内容
+        maybePopulateMods();
+        QMessageBox::information(this, tr("导入成功"),
+            tr("整合包已导入到当前实例：\n%1").arg(QDir::toNativeSeparators(zipFilePath)));
+    } else {
+        QMessageBox::warning(this, tr("导入失败"),
+            impError.isEmpty() ? tr("导入整合包时发生错误。") : impError);
+        // 导入失败仍需重建 CKan，避免旧的注册表状态残留
+        CKanManager::instance().closeInstance();
+        prepareMods();
+    }
+}
+
+void InstanceDetailPage::importFromCkan()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, tr("导入整合包 - 选择 CKAN 文件"), QString(),
+        tr("CKAN 文件 (*.ckan)"));
+    if (filePath.isEmpty()) return; // 用户取消
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(this, tr("导入失败"),
+            tr("无法读取文件：%1").arg(file.errorString()));
+        return;
+    }
+    const QByteArray json = file.readAll();
+    file.close();
+
+    QString error;
+    const QStringList identifiers = ckan::modpackCkanDepends(json, &error);
+    if (identifiers.isEmpty()) {
+        QMessageBox::warning(this, tr("导入失败"),
+            error.isEmpty() ? tr("CKAN 文件不包含任何可安装模组。") : error);
+        return;
+    }
+
+    // 提醒：将删除现有模组并从仓库下载清单中的模组
+    const QMessageBox::StandardButton confirm = QMessageBox::question(
+        this, tr("导入整合包"),
+        tr("导入将删除当前实例 GameData 中除 Squad、SquadExpansion 外的所有模组，\n"
+           "并从仓库解析下载以下 %1 个模组及其依赖：\n\n%2\n\n是否继续？")
+            .arg(identifiers.size()).arg(identifiers.join(QStringLiteral("\n"))),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+    if (confirm != QMessageBox::Yes) return;
+
+    // 先清空现有模组（保留 Squad/SquadExpansion），再跳转到模组管理界面下载
+    QString clearError;
+    if (!ckan::modpackClearGameData(m_instance.path, &clearError)) {
+        QMessageBox::warning(this, tr("导入失败"),
+            tr("导入整合包时发生错误。\n%1").arg(clearError));
+        return;
+    }
+
+    // 跳转到模组管理界面进行下载
+    m_importModpackBtn->setChecked(false);
+    m_modsBtn->setChecked(true);
+    m_contentStack->setCurrentIndex(2);
+    m_modsTabActive = true;
+
+    CKanManager &mgr = CKanManager::instance();
+    // 确保实例绑定与数据就绪；索引未就绪则进入待装清单，就绪后自动开始安装
+    prepareMods();
+    if (mgr.indexReady()) {
+        mgr.installBatchAsync(identifiers);
+    } else {
+        m_pendingCkanIdentifiers = identifiers;
+        m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组..."));
+    }
+}
+
 void InstanceDetailPage::refreshIcons(const QString &color)
 {
     m_backButton->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
@@ -1309,6 +1531,7 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
     m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
+    m_importModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_browseBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_refreshModsBtn->setIcon(IconUtils::tintedIcon(":/icons/refresh.svg", color));

@@ -23,6 +23,7 @@
 #include "ckan/downloader.h"
 #include "ckan/repoindex.h"
 #include "ckan/txfilemanager.h"
+#include "ckan/modpackio.h"
 
 using namespace ckan;
 
@@ -2600,6 +2601,142 @@ private slots:
     }
 };
 
+class TestModpackIO : public QObject
+{
+    Q_OBJECT
+private slots:
+    void detectPrefix()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray zip = makeZip({
+            {QStringLiteral("GameData/ModA/a.dll"), QByteArray("A")},
+            {QStringLiteral("GameData/ModB/b.dll"), QByteArray("B")},
+        });
+        QFile f(dir.filePath(QStringLiteral("p.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        QString prefix, error;
+        QVERIFY2(modpackZipGameDataPrefix(f.fileName(), &prefix, &error),
+                 qPrintable(error));
+        QCOMPARE(prefix, QStringLiteral("GameData/"));
+    }
+
+    void detectPrefixNestedPack()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray zip = makeZip({
+            {QStringLiteral("MyPack/GameData/ModA/a.dll"), QByteArray("A")},
+            {QStringLiteral("MyPack/readme.txt"), QByteArray("R")},
+        });
+        QFile f(dir.filePath(QStringLiteral("p.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        QString prefix, error;
+        QVERIFY2(modpackZipGameDataPrefix(f.fileName(), &prefix, &error),
+                 qPrintable(error));
+        QCOMPARE(prefix, QStringLiteral("MyPack/GameData/"));
+    }
+
+    void detectMissingReportsError()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray zip = makeZip({
+            {QStringLiteral("some.txt"), QByteArray("x")},
+        });
+        QFile f(dir.filePath(QStringLiteral("p.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        QString prefix, error;
+        QVERIFY(!modpackZipGameDataPrefix(f.fileName(), &prefix, &error));
+        QVERIFY(!error.isEmpty());
+    }
+
+    void ckanDependsParsing()
+    {
+        const QByteArray json = R"({"depends":[{"name":"A"},{"name":"B"},
+            {"name":"C","version":"1.2"}],"conflicts":[]})";
+        QString error;
+        const QStringList deps = modpackCkanDepends(json, &error);
+        QCOMPARE(deps, QStringList({QStringLiteral("A"), QStringLiteral("B"),
+                                    QStringLiteral("C")}));
+        QVERIFY(error.isEmpty());
+
+        // 空 depends 报错
+        QString error2;
+        QVERIFY(modpackCkanDepends(R"({"spec_version":1})", &error2).isEmpty());
+        QVERIFY(!error2.isEmpty());
+    }
+
+    void clearPreservesOfficialFolders()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString gameData = dir.path() + QStringLiteral("/GameData");
+        QVERIFY(QDir().mkpath(gameData + QStringLiteral("/Squad/Part")));
+        QVERIFY(QDir().mkpath(gameData + QStringLiteral("/SquadExpansion/X")));
+        QVERIFY(QDir().mkpath(gameData + QStringLiteral("/SomeMod")));
+        QFile a(gameData + QStringLiteral("/Squad/keep.txt"));
+        QVERIFY(a.open(QIODevice::WriteOnly)); a.write("k"); a.close();
+        QFile b(gameData + QStringLiteral("/SomeMod/bin.dll"));
+        QVERIFY(b.open(QIODevice::WriteOnly)); b.write("x"); b.close();
+        // 制造一个注册表文件验证被删除
+        QVERIFY(QDir().mkpath(dir.path() + QStringLiteral("/CKAN")));
+        QFile reg(dir.path() + QStringLiteral("/CKAN/registry.json"));
+        QVERIFY(reg.open(QIODevice::WriteOnly)); reg.write("{}"); reg.close();
+
+        QString error;
+        QVERIFY2(modpackClearGameData(dir.path(), &error), qPrintable(error));
+        QVERIFY(QFileInfo::exists(gameData + QStringLiteral("/Squad/keep.txt")));
+        QVERIFY(QFileInfo::exists(gameData + QStringLiteral("/SquadExpansion/X")));
+        QVERIFY(!QDir(gameData + QStringLiteral("/SomeMod")).exists());
+        QVERIFY(!QFileInfo::exists(dir.path() + QStringLiteral("/CKAN/registry.json")));
+    }
+
+    void importFromZipReplacesMods()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString gameData = dir.path() + QStringLiteral("/GameData");
+        QVERIFY(QDir().mkpath(gameData + QStringLiteral("/OldMod")));
+        QVERIFY(QDir().mkpath(gameData + QStringLiteral("/Squad")));
+        QFile old(gameData + QStringLiteral("/OldMod/old.dll"));
+        QVERIFY(old.open(QIODevice::WriteOnly)); old.write("old"); old.close();
+
+        // zip：GameData/ModA + GameData/ModB，包根还带 readme（不应解压到 GameData 内）
+        const QByteArray zip = makeZip({
+            {QStringLiteral("GameData/ModA/a.dll"), QByteArray("A")},
+            {QStringLiteral("GameData/ModB/sub/b.dll"), QByteArray("BBB")},
+        });
+        QFile f(dir.filePath(QStringLiteral("pack.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        std::atomic_bool cancel{false};
+        int lastProgress = -1;
+        QString error;
+        const bool ok = modpackImportGameData(
+            f.fileName(), dir.path(),
+            [&](int p) { lastProgress = p; }, &cancel, &error);
+        QVERIFY2(ok, qPrintable(error));
+        QCOMPARE(lastProgress, 1000);
+        QVERIFY(QFileInfo::exists(gameData + QStringLiteral("/ModA/a.dll")));
+        QVERIFY(QFileInfo::exists(gameData + QStringLiteral("/ModB/sub/b.dll")));
+        QVERIFY(!QDir(gameData + QStringLiteral("/OldMod")).exists());
+        // Squad 保留
+        QVERIFY(QDir(gameData + QStringLiteral("/Squad")).exists());
+    }
+};
+
 static int runSuite(int argc, char *argv[], QObject &suite)
 {
     return QTest::qExec(&suite, argc, argv);
@@ -2624,6 +2761,7 @@ int main(int argc, char *argv[])
     TestModuleDownload tModDownload;
     TestTransactionRollback tTxRollback;
     TestCkanExport tCkanExport;
+    TestModpackIO tModpackIO;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -2638,6 +2776,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tRepoIndex);
     failures += runSuite(argc, argv, tTxRollback);
     failures += runSuite(argc, argv, tCkanExport);
+    failures += runSuite(argc, argv, tModpackIO);
     return failures;
 }
 

@@ -66,6 +66,10 @@ void CKanManager::clearWatchers()
     if (m_indexWatcher) { m_indexWatcher->deleteLater(); m_indexWatcher = nullptr; }
     if (m_downloadWatcher) { m_downloadWatcher->deleteLater(); m_downloadWatcher = nullptr; }
     if (m_installWatcher) { m_installWatcher->deleteLater(); m_installWatcher = nullptr; }
+    // 注意：不清理 m_scanWatcher。DLL 扫描是独立任务，若这里连带清掉，
+    // refreshIndexAsync 等调用 clearWatchers 时会误删扫描 watcher，
+    // 导致扫描完成后 unmanagedScanFinished 信号不再发出、模组页一直停在"正在扫描 DLL"。
+    // 扫描 watcher 只在切换/关闭实例（openInstance/closeInstance）时清理。
 }
 
 void CKanManager::openInstance(const QString &gameDir, const QString &instanceName)
@@ -73,6 +77,8 @@ void CKanManager::openInstance(const QString &gameDir, const QString &instanceNa
     if (m_ckan && m_ckan->gameDir() == gameDir)
         return; // 已是同一实例
     clearWatchers();
+    // 切换实例：放弃在途的 DLL 扫描（其完成信号不再关联旧实例）
+    if (m_scanWatcher) { m_scanWatcher->deleteLater(); m_scanWatcher = nullptr; }
     delete m_ckan;
 
     // 一次性把库运行配置传入 CKan 门面（缓存目录/镜像前缀/并发），
@@ -89,6 +95,7 @@ void CKanManager::openInstance(const QString &gameDir, const QString &instanceNa
 void CKanManager::closeInstance()
 {
     clearWatchers();
+    if (m_scanWatcher) { m_scanWatcher->deleteLater(); m_scanWatcher = nullptr; }
     delete m_ckan;
     m_ckan = nullptr;
     m_instanceName.clear();
@@ -250,10 +257,27 @@ bool CKanManager::isUpgradable(const QString &identifier) const
     return ckan::ModuleVersion(latest.version) > ckan::ModuleVersion(installed);
 }
 
-void CKanManager::scanUnmanagedDlls()
+void CKanManager::scanUnmanagedDllsAsync()
 {
-    if (!m_ckan) return;
-    m_ckan->scanUnmanagedDlls();
+    if (!m_ckan || m_ckan->dllsScanned() || m_scanWatcher)
+        return; // 未绑定、已扫描（缓存命中）或在途 → 无需重复全盘扫描
+
+    auto watcher = new QFutureWatcher<void>(this);
+    m_scanWatcher = watcher;
+    auto future = QtConcurrent::run([this]() {
+        m_ckan->scanUnmanagedDlls();
+    });
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
+        watcher->deleteLater();
+        if (m_scanWatcher == watcher) m_scanWatcher = nullptr;
+        emit unmanagedScanFinished();
+    });
+    watcher->setFuture(future);
+}
+
+bool CKanManager::unmanagedScanDone() const
+{
+    return m_ckan && m_ckan->dllsScanned();
 }
 
 bool CKanManager::isAutoDetected(const QString &identifier) const

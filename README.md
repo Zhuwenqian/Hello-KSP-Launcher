@@ -118,7 +118,7 @@ HelloKSPLauncher/
 
 ## License
 
-Copyright (C) 2026. Licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for details.
+Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for details.
 
 ---
 
@@ -148,7 +148,7 @@ Copyright (C) 2026. Licensed under the **GNU General Public License v3.0**. See 
 - **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
 - **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑 Kerbal 属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
-- **整合包导出** — 将 GameData 目录打包为 ZIP 文件，自动排除 Squad、SquadExpansion 和 ModuleManager 缓存文件。
+- **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
 - **主题支持** — 深色和浅色主题，半透明 UI 搭配自动图标色调适配。
 - **启动参数** — 为每个实例配置自定义命令行参数（如 `-force-d3d11 -popupwindow`）。
@@ -240,4 +240,4 @@ HelloKSPLauncher/
 
 ## 许可证
 
-Copyright (C) 2026. 基于 **GNU General Public License v3.0** 发布。详见 [LICENSE](LICENSE)。
+Copyright (C) 2026 Zhu Wenqian. 基于 **GNU General Public License v3.0** 发布。详见 [LICENSE](LICENSE)。

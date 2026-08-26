@@ -41,6 +41,7 @@ set(CKAN_SOURCES
     src/ckan/moduleinstaller.cpp
     src/ckan/txfilemanager.cpp
     src/ckan/ckan.cpp
+    src/ckan/modpackio.cpp
     thirdparty/miniz.c
 )
 
@@ -62,6 +63,7 @@ set(CKAN_HEADERS
     src/ckan/txfilemanager.h
     src/ckan/ckanconfig.h
     src/ckan/ckan.h
+    src/ckan/modpackio.h
     thirdparty/miniz.h
 )
 

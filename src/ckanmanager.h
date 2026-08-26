@@ -69,8 +69,11 @@ public:
     bool isUpgradable(const QString &identifier) const;
 
     // ---- 手动安装模组（DLL 扫描） ----
-    // 扫描 GameData 下 .dll（排除官方目录），写入 registry.installedDlls 并保存
-    void scanUnmanagedDlls();
+    // 后台线程扫描 GameData 下 .dll（排除官方目录），写入 registry.installedDlls 并保存。
+    // 结果缓存：同一实例只扫描一次（后续进入无需重复全盘扫描）；同实例已扫描或在途则直接返回。
+    void scanUnmanagedDllsAsync();
+    // 当前实例的 DLL 扫描是否已完成（可用于显示"正在扫描已安装的 DLL"提示）
+    bool unmanagedScanDone() const;
     // 该标识符是否被 DLL 扫描识别为手动安装模组
     bool isAutoDetected(const QString &identifier) const;
 
@@ -100,6 +103,8 @@ signals:
     // 下载字节进度：当前模组、已完成字节数、批量总字节数、实时速度(B/s)
     void downloadProgress(const QString &identifier, qint64 doneBytes,
                           qint64 totalBytes, qint64 speedBps);
+    // 后台 DLL 扫描完成（仅当同一实例尚未扫描时才会发出）
+    void unmanagedScanFinished();
     void operationFinished(bool ok, const QString &message);
 
 private:
@@ -138,6 +143,7 @@ private:
     QFutureWatcher<QPair<bool, QString>>  *m_indexWatcher = nullptr;
     QFutureWatcher<DownloadPhaseResult>   *m_downloadWatcher = nullptr;
     QFutureWatcher<ckan::InstallResult>   *m_installWatcher = nullptr;
+    QFutureWatcher<void>                  *m_scanWatcher = nullptr; // DLL 扫描在途
     std::atomic_bool m_indexCancelRequested{false};
 };
 

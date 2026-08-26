@@ -249,6 +249,7 @@ void CKan::scanUnmanagedDlls()
     Registry *reg = m_instance.registry();
     reg->installedDlls = m_instance.scanUnmanagedDlls();
     m_instance.saveRegistry();
+    m_dllsScanned = true;
 }
 
 bool CKan::isAutoDetected(const QString &identifier) const

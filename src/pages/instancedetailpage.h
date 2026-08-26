@@ -41,6 +41,7 @@ private slots:
     void onSaveSettingsClicked();
     void onSaveLaunchArgsClicked();
     void onExportModpackClicked();
+    void onImportModpackClicked();
     void onBrowseClicked();
     void onBrowseActionTriggered();
     // mod 管理
@@ -56,6 +57,7 @@ private slots:
     void onUpgradeModClicked();
     void onSelectAllClicked();
     void onIndexRefreshed(bool ok, const QString &error);
+    void onUnmanagedScanFinished();
     void onModOperationFinished(bool ok, const QString &message);
     void onDownloadProgress(const QString &identifier, qint64 doneBytes,
                             qint64 totalBytes, qint64 speedBps);
@@ -73,11 +75,18 @@ private:
     void loadGameSettings();
     bool saveGameSettings();
     void loadDLCs();
-    void loadMods();
+    // 非阻塞准备模组数据：绑定实例、后台 DLL 扫描、必要时异步加载索引；
+    // 索引与扫描都就绪后自动填充模型（maybePopulateMods）。
+    void prepareMods();
+    // 索引与 DLL 扫描均就绪时填充模组模型并刷新按钮；未就绪则清空并给出加载提示。
+    void maybePopulateMods();
     void loadLaunchArgs();
     // 整合包导出：打包 GameData 为 ZIP / 导出为 CKAN 元包
     void exportAsZip();
     void exportAsCkan();
+    // 整合包导入：从 zip 解压到 GameData / 解析 .ckan 后在模组管理界面安装
+    void importFromZip();
+    void importFromCkan();
     // 将当前实例勾选的兼容版本区间应用到过滤代理与 CKanManager（供安装/依赖解析使用）
     void applyCompatRange();
     void updateModActionButtons();
@@ -103,6 +112,7 @@ private:
     QPushButton* m_savesBtn;
     QPushButton* m_advancedBtn;
     QPushButton* m_exportModpackBtn;
+    QPushButton* m_importModpackBtn;
 
     // 浏览菜单
     QPushButton* m_browseBtn;
@@ -132,6 +142,10 @@ private:
     QPushButton* m_upgradeModBtn;
     QTextEdit* m_modDetailText;
     QString m_currentModIdentifier;
+    bool m_modsReady = false;   // 索引与 DLL 扫描均就绪，模组模型已填充
+    bool m_modsTabActive = false; // 当前是否正显示"模组管理"tab（用于加载提示）
+    // 待安装的 .ckan 导入标识符（索引就绪后自动触发批量安装）
+    QStringList m_pendingCkanIdentifiers;
     // 下载进度条与取消
     QWidget*  m_modProgressWidget;
     QProgressBar* m_modProgressBar;
