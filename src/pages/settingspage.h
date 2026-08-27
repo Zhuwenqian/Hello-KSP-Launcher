@@ -33,6 +33,7 @@ private slots:
     void onChooseCacheDirClicked();
     void onClearCacheClicked();
     void onConcurrencyChanged(int index);
+    void onRateLimitEdited();
     void onAddPresetRepo(const ckan::Repository &preset);
     void onAddCustomRepo();
     void onRemoveRepo();
@@ -60,6 +61,7 @@ private:
     QComboBox* m_indexSourceCombo;
     QComboBox* m_moduleSourceCombo;
     QComboBox* m_concurrencyCombo;
+    QLineEdit* m_rateLimitEdit; // 下载限速（MB/秒，每链接）
     QLabel* m_cacheDirLabel;
     ToggleSwitch* m_installSuggestsToggle;
     ToggleSwitch* m_diskSpaceCheckToggle;

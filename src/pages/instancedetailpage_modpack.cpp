@@ -326,6 +326,6 @@ void InstanceDetailPage::importFromCkan()
         mgr.installBatchAsync(identifiers);
     } else {
         m_pendingCkanIdentifiers = identifiers;
-        m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组..."));
+        setDetailNote(tr("正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组..."));
     }
 }

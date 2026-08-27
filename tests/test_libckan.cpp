@@ -2865,6 +2865,140 @@ private slots:
     }
 };
 
+class TestCkanHistoryImport : public QObject
+{
+    Q_OBJECT
+private slots:
+    void historySnapshotWritesMetapackage()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("Hist"));
+        auto registerMod = [&](const QString &id, const QString &ver) {
+            InstalledModule im;
+            im.identifier = id;
+            im.module = makeModule(id, ver);
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(id)};
+            gi.registry()->registerModule(im);
+        };
+        registerMod(QStringLiteral("A"), QStringLiteral("1.0.0"));
+        registerMod(QStringLiteral("B"), QStringLiteral("2.1"));
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("Hist"));
+        QString error;
+        QVERIFY2(ckan.writeHistorySnapshot(&error), qPrintable(error));
+
+        QDir hdir(dir.path() + QStringLiteral("/CKAN/history"));
+        QVERIFY2(hdir.exists(), "history dir missing");
+        const QStringList files = hdir.entryList({QStringLiteral("*.ckan")}, QDir::Files);
+        QCOMPARE(files.size(), 1);
+        QVERIFY(files.first().startsWith(QStringLiteral("已安装-Hist-")));
+
+        // 校验快照内容：depends 列出 A/B 及各自版本
+        QFile f(hdir.filePath(files.first()));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
+        QCOMPARE(obj.value(QStringLiteral("kind")).toString(), QStringLiteral("metapackage"));
+        QMap<QString, QString> got;
+        for (const QJsonValue &v : obj.value(QStringLiteral("depends")).toArray()) {
+            const QJsonObject d = v.toObject();
+            got[d.value(QStringLiteral("name")).toString()] =
+                d.value(QStringLiteral("version")).toString();
+        }
+        QCOMPARE(got.value(QStringLiteral("A")), QStringLiteral("1.0.0"));
+        QCOMPARE(got.value(QStringLiteral("B")), QStringLiteral("2.1"));
+    }
+
+    void historySnapshotSkipsEmptyInstance()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("Empty"));
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+        CKan ckan(dir.path(), QStringLiteral("Empty"));
+        QString error;
+        QVERIFY2(ckan.writeHistorySnapshot(&error), qPrintable(error));
+        const QStringList files = QDir(dir.path() + QStringLiteral("/CKAN/history"))
+                                      .entryList({QStringLiteral("*.ckan")}, QDir::Files);
+        QCOMPARE(files.size(), 0);
+    }
+
+    void importCkanDirect()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray json = "{"
+            "\"spec_version\":\"v1.6\","
+            "\"identifier\":\"ImportedMod\","
+            "\"name\":\"Imported Mod\","
+            "\"version\":\"1.2.3\","
+            "\"kind\":\"metapackage\","
+            "\"depends\":[{\"name\":\"A\"},{\"name\":\"B\"}]\n}"
+        ;
+        QFile f(dir.filePath(QStringLiteral("ImportedMod.ckan")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(json);
+        f.close();
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        bool isMeta = false;
+        QString error;
+        const CkanModule mod = ckan.importModuleFile(f.fileName(), &isMeta, &error);
+        QVERIFY2(mod.isValid(), qPrintable(error));
+        QCOMPARE(mod.identifier, QStringLiteral("ImportedMod"));
+        QCOMPARE(mod.version, QStringLiteral("1.2.3"));
+        QVERIFY(isMeta); // 仅 depends 无 install → 判为元包
+        QCOMPARE(mod.depends.size(), 2);
+    }
+
+    void importZipWithEmbeddedCkan()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray meta = "{"
+            "\"spec_version\":\"v1.6\","
+            "\"identifier\":\"ZipMod\","
+            "\"name\":\"Zip Mod\","
+            "\"version\":\"3.0\","
+            "\"install\":[{\"file\":\"ZipMod\",\"install_to\":\"GameData\"}]\n}"
+        ;
+        const QByteArray zip = makeZip({
+            {QStringLiteral("ZipMod/CHANGELOG.txt"), QByteArray("change")},
+            {QStringLiteral("ZipMod/ZipMod.ckan"), meta},
+        });
+        QFile f(dir.filePath(QStringLiteral("ZipMod.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        QString error;
+        const CkanModule mod = ckan.importModuleFile(f.fileName(), nullptr, &error);
+        QVERIFY2(mod.isValid(), qPrintable(error));
+        QCOMPARE(mod.identifier, QStringLiteral("ZipMod"));
+        QCOMPARE(mod.version, QStringLiteral("3.0"));
+    }
+
+    void importZipRejectsNoMetadata()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 无 .ckan 且索引匹配不到哈希 → 拒绝（参照官方 ModuleImporter）
+        const QByteArray zip = makeZip({{QStringLiteral("SomeMod/x.dll"), QByteArray("x")}});
+        QFile f(dir.filePath(QStringLiteral("NoMeta.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        QString error;
+        const CkanModule mod = ckan.importModuleFile(f.fileName(), nullptr, &error);
+        QVERIFY(!mod.isValid());
+        QVERIFY(!error.isEmpty());
+    }
+};
+
 static int runSuite(int argc, char *argv[], QObject &suite)
 {
     return QTest::qExec(&suite, argc, argv);
@@ -2890,6 +3024,7 @@ int main(int argc, char *argv[])
     TestTransactionRollback tTxRollback;
     TestCkanExport tCkanExport;
     TestModpackIO tModpackIO;
+    TestCkanHistoryImport tCkanHistoryImport;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -2905,6 +3040,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tTxRollback);
     failures += runSuite(argc, argv, tCkanExport);
     failures += runSuite(argc, argv, tModpackIO);
+    failures += runSuite(argc, argv, tCkanHistoryImport);
     return failures;
 }
 

@@ -95,6 +95,10 @@ public:
     // 模组下载并发数（1~8），默认 3
     int downloadConcurrency() const;
     void setDownloadConcurrency(int count);
+    // 单链接下载限速（字节/秒，0=不限速，默认 0）。负数按 0（不限速）处理。
+    // 持久化到 HKSPL.json 的 "downloadRateLimitBytesPerSecond"。
+    qint64 downloadRateLimitBytesPerSecond() const;
+    void setDownloadRateLimitBytesPerSecond(qint64 bps);
 
     // 仓库列表（多仓库）：数组顺序即优先级（首位优先级最高）。
     // 默认仅含 KSP-CKAN 官方仓库；可自由增删。

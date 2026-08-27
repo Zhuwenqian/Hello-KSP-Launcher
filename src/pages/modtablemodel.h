@@ -23,6 +23,7 @@ public:
         ColStatus,
         ColSize,
         ColDownloads,
+        ColTags,
         ColumnCount
     };
 
@@ -108,6 +109,15 @@ public:
         beginFilterChange();
         endFilterChange();
     }
+    // 按仓库自带 tag 过滤（空串=不过滤）。大小写不敏感，模组含任一匹配 tag 即通过。
+    void setTagFilter(const QString &tag)
+    {
+        const QString t = tag.trimmed();
+        if (m_tagFilter.compare(t, Qt::CaseInsensitive) == 0) return;
+        m_tagFilter = t.toLower();
+        beginFilterChange();
+        endFilterChange();
+    }
     // 设置用户勾选的额外兼容区间（无效区间表示未启用）。
     // 过滤判定 = 模组兼容当前实例版本 或 兼容该区间（任一满足即可）。
     void setCompatRange(const ckan::GameVersionRange &r)
@@ -128,9 +138,15 @@ protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
 private:
+    // 增强搜索匹配：支持 @author/@desc|@description/@license/@depend/@provides/@tag 专有字段
+    // token（`@字段:值`，不区分大小写，可多个空格分隔，AND 关系）与普通关键词
+    // （匹配名称/标识符/摘要）。返回该模组是否通过搜索条件。
+    bool matchesSearch(const ckan::CkanModule &mod) const;
+
     int m_statusFilter = -1;
     bool m_showIncompatible = false;
     QString m_search;
+    QString m_tagFilter; // 按 tag 过滤（空串=不过滤），已转小写
     ckan::GameVersion m_gameVersion; // 当前实例实际 KSP 版本（无效表示未检测到，按兼容处理）
     ckan::GameVersionRange m_compatRange; // 用户勾选的额外兼容区间（无效表示未启用）
 };

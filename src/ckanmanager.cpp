@@ -115,6 +115,7 @@ void CKanManager::openInstance(const QString &gameDir, const QString &instanceNa
     cfg.indexMirrorPrefixes = m_indexMirrorPrefixes;
     cfg.moduleMirrorPrefixes = m_moduleMirrorPrefixes;
     cfg.downloadConcurrency = ConfigManager::instance().downloadConcurrency();
+    cfg.downloadRateLimitBps = ConfigManager::instance().downloadRateLimitBytesPerSecond();
     m_ckan = new ckan::CKan(gameDir, instanceName, cfg);
     m_instanceName = instanceName;
 }
@@ -272,6 +273,11 @@ int CKanManager::downloadCount(const QString &identifier) const
     return m_ckan ? m_ckan->downloadCount(identifier) : -1;
 }
 
+QStringList CKanManager::allIdentifiers() const
+{
+    return m_ckan ? m_ckan->allIdentifiers() : QStringList();
+}
+
 QVector<ckan::InstalledModule> CKanManager::installedModules() const
 {
     return m_ckan ? m_ckan->installedModules() : QVector<ckan::InstalledModule>();
@@ -331,6 +337,13 @@ QByteArray CKanManager::exportModpackCkan(QString *error)
     return m_ckan ? m_ckan->exportModpackCkan(error) : QByteArray();
 }
 
+void CKanManager::writeHistorySnapshot()
+{
+    if (!m_ckan) return;
+    QString err;
+    m_ckan->writeHistorySnapshot(&err); // 尽力而为，失败静默
+}
+
 void CKanManager::installAsync(const QString &identifier, bool autoRecommends)
 {
     if (!m_ckan) { emit operationFinished(false, tr("尚未绑定游戏实例")); return; }
@@ -343,6 +356,15 @@ void CKanManager::installAsync(const QString &identifier, bool autoRecommends)
         return;
     }
     resolveAndInstall({mod}, autoRecommends, tr("安装完成"));
+}
+
+void CKanManager::installVersionAsync(const ckan::CkanModule &mod)
+{
+    if (!m_ckan) { emit operationFinished(false, tr("尚未绑定游戏实例")); return; }
+    if (!mod.isValid()) { emit operationFinished(false, tr("无效模组")); return; }
+    // 与 installAsync 相同流程：依赖解析、预检、下载、冲突处理、安装。
+    // 已安装旧版时 resolveAndInstall 会自动先卸载旧版再装指定版本（支持降级）。
+    resolveAndInstall({mod}, true, tr("已切换版本：%1 %2").arg(mod.name, mod.version));
 }
 
 void CKanManager::uninstallAsync(const QString &identifier)
@@ -363,6 +385,7 @@ void CKanManager::uninstallAsync(const QString &identifier)
         const QString list = r.installedIdentifiers.join(QLatin1Char(','));
         emit operationFinished(r.ok, r.ok ? tr("已卸载：%1").arg(list.isEmpty() ? QString() : list)
                                           : r.error);
+        if (r.ok) writeHistorySnapshot();
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
     });
@@ -441,8 +464,128 @@ void CKanManager::uninstallBatchAsync(const QStringList &identifiers)
         m_ckan->reloadRegistry();
         emit installedChanged();
         emit operationFinished(r.ok, r.ok ? tr("批量卸载完成（%1 个）").arg(toRemove.size()) : r.error);
+        if (r.ok) writeHistorySnapshot();
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
+    });
+    watcher->setFuture(future);
+}
+
+void CKanManager::importAsync(const QString &path)
+{
+    if (!m_ckan) { emit operationFinished(false, tr("尚未绑定游戏实例")); return; }
+
+    bool isMeta = false;
+    QString err;
+    const ckan::CkanModule mod = m_ckan->importModuleFile(path, &isMeta, &err);
+    if (!mod.isValid()) { emit operationFinished(false, tr("导入失败：%1").arg(err)); return; }
+
+    // 情形 A：元包（仅列 depends，无 install 规则）→ 从仓库解析其中的依赖安装
+    if (isMeta || (mod.install.isEmpty() && !mod.depends.isEmpty())) {
+        QVector<ckan::CkanModule> toInstall;
+        QStringList missing;
+        for (const ckan::Relationship &rel : mod.depends) {
+            const QString id = rel.name;
+            if (isInstalled(id)) continue;
+            const ckan::CkanModule latest = latestOf(id);
+            if (latest.isValid()) toInstall.append(latest);
+            else missing << id;
+        }
+        if (toInstall.isEmpty()) {
+            emit operationFinished(true, missing.isEmpty()
+                                         ? tr("元包内模组均已安装，无需操作")
+                                         : tr("元包内模组均已安装（仓库无：%1）")
+                                               .arg(missing.join(QLatin1Char(','))));
+            return;
+        }
+        if (!missing.isEmpty()) {
+            // 仓库缺失的依赖跳过并提示（参照官方：仍安装可解析的部分）
+            const QMessageBox::StandardButton go = QMessageBox::question(
+                nullptr, tr("导入模组"),
+                tr("以下依赖在仓库中不存在，将跳过：\n%1\n\n是否继续安装可解析的模组？")
+                    .arg(missing.join(QLatin1Char('\n'))),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+            if (go != QMessageBox::Yes) { emit operationFinished(false, tr("已取消")); return; }
+        }
+        resolveAndInstall(toInstall, true, tr("导入安装完成"));
+        return;
+    }
+
+    // 情形 B：仓库存在同标识符 → 提示后安装仓库版本（遵循仓库并给提示）
+    const ckan::CkanModule repoMod = latestOf(mod.identifier);
+    if (repoMod.isValid()) {
+        const bool sameVersion = (repoMod.version == mod.version);
+        const QMessageBox::StandardButton choice = QMessageBox::question(
+            nullptr, tr("导入模组"),
+            tr("模组“%1”在仓库中已存在%2。\n是否改为安装仓库版本（%3）？"
+               "\n（选否则取消本次导入）")
+                .arg(mod.name,
+                     sameVersion ? QString() : tr("（本地版本 %1）").arg(mod.version),
+                     repoMod.version),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+        if (choice != QMessageBox::Yes) { emit operationFinished(false, tr("已取消")); return; }
+        resolveAndInstall({repoMod}, true, tr("安装完成"));
+        return;
+    }
+
+    // 情形 C：仓库无此模组 → 复制导入文件到缓存后直接安装
+    clearWatchers();
+    QDir().mkpath(downloadDir());
+    const QString cachePath = m_ckan->importStoreCache(mod, path, downloadDir(), &err);
+    if (cachePath.isEmpty()) { emit operationFinished(false, tr("导入失败：%1").arg(err)); return; }
+
+    auto watcher = new QFutureWatcher<ckan::InstallResult>(this);
+    m_installWatcher = watcher;
+    auto future = QtConcurrent::run([this, mod]() {
+        return m_ckan->installFromCache(QVector<ckan::CkanModule>{mod}, downloadDir(),
+                                        {}, {}, [this](const QString &id, int percent) {
+            emit installProgress(id, percent);
+        });
+    });
+    connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this,
+            [this, watcher, mod]() {
+        if (m_installWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
+        const ckan::InstallResult r = watcher->result();
+        m_ckan->reloadRegistry();
+        emit installedChanged();
+        emit operationFinished(r.ok, r.ok ? tr("导入安装完成：%1").arg(mod.name) : r.error);
+        if (r.ok) writeHistorySnapshot();
+        watcher->deleteLater();
+        if (m_installWatcher == watcher) m_installWatcher = nullptr;
+        m_ckan->releaseInstaller();
+    });
+    watcher->setFuture(future);
+}
+
+void CKanManager::downloadSingleToCacheAsync(const ckan::CkanModule &mod)
+{
+    if (!m_ckan) { emit singleDownloadFinished(false, mod.identifier, tr("尚未绑定游戏实例")); return; }
+    if (!mod.isValid()) { emit singleDownloadFinished(false, mod.identifier, tr("无效模组")); return; }
+    // 已存在有效缓存则直接报告成功，无需重新下载
+    if (!ckan::ModuleInstaller::findCacheZip(downloadDir(), mod).isEmpty()) {
+        emit singleDownloadFinished(true, mod.identifier, QString());
+        return;
+    }
+    clearWatchers();
+    QDir().mkpath(downloadDir());
+    const bool preferModeModuleMirrors =
+        ConfigManager::instance().moduleDownloadSource() == ConfigManager::MirrorFirst;
+
+    auto watcher = new QFutureWatcher<DownloadPhaseResult>(this);
+    m_downloadWatcher = watcher;
+    auto future = QtConcurrent::run([this, mod, preferModeModuleMirrors]() {
+        return DownloadPhaseResult{ m_ckan->downloadModules(
+                QVector<ckan::CkanModule>{mod}, downloadDir(),
+                preferModeModuleMirrors, 1, nullptr, nullptr) };
+    });
+    connect(watcher, &QFutureWatcher<DownloadPhaseResult>::finished, this,
+            [this, watcher, mod]() {
+        if (m_downloadWatcher != watcher) { watcher->deleteLater(); return; }
+        const DownloadPhaseResult r = watcher->result();
+        watcher->deleteLater();
+        if (m_downloadWatcher == watcher) m_downloadWatcher = nullptr;
+        m_ckan->releaseInstaller();
+        emit singleDownloadFinished(r.ok, mod.identifier, r.error);
     });
     watcher->setFuture(future);
 }
@@ -762,6 +905,7 @@ void CKanManager::startInstallPhase(const QVector<ckan::CkanModule> &modules,
         m_ckan->reloadRegistry(); // 刷新已安装数据
         emit installedChanged();
         emit operationFinished(r.ok, r.ok ? doneMessage : r.error);
+        if (r.ok) writeHistorySnapshot();
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
         m_ckan->releaseInstaller();

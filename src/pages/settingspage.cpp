@@ -13,6 +13,8 @@
 #include <QMenu>
 #include <QDialog>
 #include <QLineEdit>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QDialogButtonBox>
 #include <QSet>
 #include "../backgroundmanager.h"
@@ -28,6 +30,7 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_indexSourceCombo(nullptr),
       m_moduleSourceCombo(nullptr),
       m_concurrencyCombo(nullptr),
+      m_rateLimitEdit(nullptr),
       m_cacheDirLabel(nullptr),
       m_installSuggestsToggle(nullptr),
       m_diskSpaceCheckToggle(nullptr)
@@ -208,6 +211,21 @@ void SettingsPage::setupUI()
     concLabel->setObjectName("settingLabel");
     modLayout->addRow(concLabel, m_concurrencyCombo);
 
+    // 下载限速（MB/秒，每链接；0=不限速）
+    m_rateLimitEdit = new QLineEdit(modGroup);
+    m_rateLimitEdit->setObjectName("settingLabel");
+    m_rateLimitEdit->setPlaceholderText(tr("0 = 不限速"));
+    m_rateLimitEdit->setToolTip(tr("单个下载连接的限速上限（MB/秒）。0 表示不限速；输入正整数或正小数（如 2 或 0.5）即按该值限速；负数无效，会被忽略并保留上一个有效值"));
+    // 只允许 0 或正整数/正小数；非法（含负数/字母）输入在编辑完成时回退到当前有效值
+    m_rateLimitEdit->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("^(0|[0-9]*\\.?[0-9]+)$")), m_rateLimitEdit));
+    m_rateLimitEdit->setMinimumHeight(34);
+    connect(m_rateLimitEdit, &QLineEdit::editingFinished,
+            this, &SettingsPage::onRateLimitEdited);
+    QLabel* rateLabel = new QLabel(tr("下载限速（MB/秒）："), modGroup);
+    rateLabel->setObjectName("settingLabel");
+    modLayout->addRow(rateLabel, m_rateLimitEdit);
+
     // 安装时显示建议模组
     m_installSuggestsToggle = new ToggleSwitch(modGroup);
     m_installSuggestsToggle->setToolTip(tr("安装模组时，如果它还有建议安装的可选模组，弹窗勾选"));
@@ -355,6 +373,11 @@ void SettingsPage::loadSettings()
     int concIdx = m_concurrencyCombo->findData(concurrency);
     if (concIdx >= 0) m_concurrencyCombo->setCurrentIndex(concIdx);
 
+    // 限速：以 MB/秒显示（0=不限速），保留两位小数去尾部零
+    const double mb = ConfigManager::instance().downloadRateLimitBytesPerSecond()
+        / (1024.0 * 1024.0);
+    m_rateLimitEdit->setText(mb > 0 ? QString::number(mb, 'g', 6) : QStringLiteral("0"));
+
     m_cacheDirLabel->setText(CKanManager::instance().downloadDir());
 
     m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
@@ -475,6 +498,22 @@ void SettingsPage::onModuleSourceChanged(int index)
 void SettingsPage::onConcurrencyChanged(int index)
 {
     ConfigManager::instance().setDownloadConcurrency(m_concurrencyCombo->itemData(index).toInt());
+}
+
+void SettingsPage::onRateLimitEdited()
+{
+    if (!m_rateLimitEdit) return;
+    // 非法输入（含负数/空/非数字，validator 已拦截大部分）视为无效，回退到当前有效值
+    bool ok = false;
+    const double mb = m_rateLimitEdit->text().toDouble(&ok);
+    if (!ok || mb < 0) {
+        const double cur = ConfigManager::instance().downloadRateLimitBytesPerSecond()
+            / (1024.0 * 1024.0);
+        m_rateLimitEdit->setText(cur > 0 ? QString::number(cur, 'g', 6) : QStringLiteral("0"));
+        return;
+    }
+    ConfigManager::instance().setDownloadRateLimitBytesPerSecond(
+        static_cast<qint64>(mb * 1024.0 * 1024.0));
 }
 
 void SettingsPage::onChooseCacheDirClicked()

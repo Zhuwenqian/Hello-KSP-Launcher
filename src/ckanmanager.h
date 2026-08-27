@@ -62,6 +62,8 @@ public:
     ckan::CkanModule latestOf(const QString &identifier) const;
     // 某标识符的下载次数（来自仓库 download_counts.json）；无数据返回 -1
     int downloadCount(const QString &identifier) const;
+    // 索引中全部标识符（用于反向关系扫描：找出哪些模组依赖/冲突当前模组）
+    QStringList allIdentifiers() const;
 
     // ---- 已安装 ----
     QVector<ckan::InstalledModule> installedModules() const;
@@ -86,17 +88,32 @@ public:
 
     // ---- 安装/卸载/升级（异步） ----
     void installAsync(const QString &identifier, bool autoRecommends);
+    // 安装指定版本（用于版本历史中降级/回退到旧版本）。mod 须来自仓库索引。
+    void installVersionAsync(const ckan::CkanModule &mod);
     void uninstallAsync(const QString &identifier);
     void upgradeAsync(const QString &identifier);
     // 批量操作：内部按状态过滤（批量安装跳过已安装、批量升级仅可升级、批量卸载仅已安装）
     void installBatchAsync(const QStringList &identifiers);
     void upgradeBatchAsync(const QStringList &identifiers);
     void uninstallBatchAsync(const QStringList &identifiers);
+    // 导入单模组文件（.zip / .ckan）并安装（异步）。
+    // 元包（仅 depends）→ 从仓库解析依赖安装；仓库存在同标识符 → 提示后安装仓库版本；
+    // 仓库无此模组 → 复制导入文件到缓存后直接安装。
+    void importAsync(const QString &path);
+
+    // 单独下载一个模组的 zip 到缓存目录（供「文件」tab 未缓存时按需下载）。
+    // 与安装无关，不触发依赖解析；完成后发出 singleDownloadFinished。
+    void downloadSingleToCacheAsync(const ckan::CkanModule &mod);
 
     // 请求中止当前下载/安装任务（线程安全）。
     void cancelCurrentOperation();
     // 当前是否有进行中的下载/安装任务（用于显示/隐藏取消按钮）
     bool isInstalling() const { return m_installWatcher != nullptr || m_downloadWatcher != nullptr; }
+
+    // 安装/卸载/升级提交成功后生成安装历史快照（尽力而为，失败静默）。
+    void writeHistorySnapshot();
+    // 当前实例的安装历史目录（无实例返回空）。供页面枚举历史快照列表。
+    QString historyDir() const { return m_ckan ? m_ckan->historyDir() : QString(); }
 
 signals:
     void indexRefreshed(bool ok, const QString &error);
@@ -108,6 +125,8 @@ signals:
     // 后台 DLL 扫描完成（仅当同一实例尚未扫描时才会发出）
     void unmanagedScanFinished();
     void operationFinished(bool ok, const QString &message);
+    // 单个模组 zip 单独下载完成（供「文件」tab 按需下载后刷新文件清单）
+    void singleDownloadFinished(bool ok, const QString &identifier, const QString &error);
 
 private:
     explicit CKanManager(QObject *parent = nullptr);

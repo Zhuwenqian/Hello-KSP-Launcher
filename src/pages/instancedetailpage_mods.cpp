@@ -15,17 +15,16 @@
 #include <QSet>
 #include <QItemSelectionModel>
 #include <QTextEdit>
+#include <QListWidget>
+#include <QSplitter>
+#include <QFile>
+#include <QAbstractScrollArea>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QtConcurrent/QtConcurrent>
+#include <algorithm>
 
 namespace {
-// 将关系列表转为模块名列表（用于依赖/冲突展示）
-QStringList relNames(const QVector<ckan::Relationship> &rels)
-{
-    QStringList out;
-    for (const ckan::Relationship &r : rels)
-        out << r.name;
-    return out;
-}
-
 QString formatBytes(qint64 bytes)
 {
     if (bytes < 0) return QStringLiteral("?");
@@ -65,6 +64,13 @@ void InstanceDetailPage::setupModsTab()
     connect(m_modFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &InstanceDetailPage::onModFilterChanged);
 
+    // 按仓库自带 tag 筛选
+    m_tagFilterCombo = new QComboBox(topBar);
+    m_tagFilterCombo->addItem(tr("全部标签"), QString());
+    m_tagFilterCombo->setMinimumHeight(34);
+    connect(m_tagFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &InstanceDetailPage::onTagFilterChanged);
+
     m_refreshModsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/refresh.svg", "#ffffff"),
                                        tr(" 刷新仓库"), topBar);
     m_refreshModsBtn->setObjectName("primaryButton");
@@ -90,6 +96,7 @@ void InstanceDetailPage::setupModsTab()
 
     topLayout->addWidget(m_modSearchEdit, 1);
     topLayout->addWidget(m_modFilterCombo);
+    topLayout->addWidget(m_tagFilterCombo);
     topLayout->addWidget(m_showIncompatCheck);
     topLayout->addWidget(m_compatBtn);
     topLayout->addWidget(m_selectAllBtn);
@@ -114,6 +121,7 @@ void InstanceDetailPage::setupModsTab()
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColIdentifier, QHeaderView::ResizeToContents);
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColStatus, QHeaderView::ResizeToContents);
     m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColDownloads, QHeaderView::ResizeToContents);
+    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColTags, QHeaderView::ResizeToContents);
     m_modTable->setSortingEnabled(true);
     m_modTable->sortByColumn(ModsTableModel::ColName, Qt::AscendingOrder);
     connect(m_modTable->selectionModel(), &QItemSelectionModel::selectionChanged,
@@ -147,17 +155,103 @@ void InstanceDetailPage::setupModsTab()
     m_modProgressWidget->setVisible(false);
     layout->addWidget(m_modProgressWidget);
 
-    // 底部：详情 + 操作按钮
-    m_modDetailText = new QTextEdit(tab);
-    m_modDetailText->setReadOnly(true);
-    m_modDetailText->setMaximumHeight(150);
-    m_modDetailText->setPlaceholderText(tr("选中一个模组查看详情，双击查看依赖信息"));
-    layout->addWidget(m_modDetailText);
+    // 底部：详情（四 tab）+ 操作按钮
+    m_modDetailTabs = new QTabWidget(tab);
+    m_modDetailTabs->setMinimumHeight(210);
+    m_modDetailTabs->setObjectName("modDetailTabs");
+
+    // ① 元数据 tab
+    m_metaText = new QTextEdit(m_modDetailTabs);
+    m_metaText->setReadOnly(true);
+    m_metaText->setPlaceholderText(tr("选中一个模组查看详情"));
+    m_modDetailTabs->addTab(m_metaText, tr("元数据"));
+
+    // ② 文件（Contents）tab
+    QWidget* contentsWrap = new QWidget(m_modDetailTabs);
+    QVBoxLayout* contentsLay = new QVBoxLayout(contentsWrap);
+    contentsLay->setContentsMargins(0, 0, 0, 0);
+    contentsLay->setSpacing(4);
+    QHBoxLayout* contentsBar = new QHBoxLayout;
+    contentsBar->setContentsMargins(0, 0, 0, 0);
+    m_contentsStatusLabel = new QLabel(tr("仅显示已缓存的压缩包内容。"), contentsWrap);
+    m_contentsDownloadBtn = new QPushButton(
+        IconUtils::tintedIcon(":/icons/download.svg", "#ffffff"),
+        tr(" 下载压缩包"), contentsWrap);
+    m_contentsDownloadBtn->setObjectName("primaryButton");
+    m_contentsDownloadBtn->setMinimumHeight(28);
+    connect(m_contentsDownloadBtn, &QPushButton::clicked,
+            this, &InstanceDetailPage::onContentsDownloadClicked);
+    contentsBar->addWidget(m_contentsStatusLabel, 1);
+    contentsBar->addWidget(m_contentsDownloadBtn);
+    contentsLay->addLayout(contentsBar);
+    m_contentsTree = new QTreeWidget(contentsWrap);
+    m_contentsTree->setHeaderLabels({tr("文件"), tr("大小")});
+    m_contentsTree->setRootIsDecorated(false);
+    m_contentsTree->header()->setStretchLastSection(false);
+    m_contentsTree->setColumnWidth(0, 240);
+    contentsLay->addWidget(m_contentsTree, 1);
+    m_modDetailTabs->addTab(contentsWrap, tr("文件"));
+
+    // ③ 关系（Relationships）tab：前向/反向树（懒加载）
+    QWidget* relWrap = new QWidget(m_modDetailTabs);
+    QVBoxLayout* relLay = new QVBoxLayout(relWrap);
+    relLay->setContentsMargins(0, 0, 0, 0);
+    relLay->setSpacing(4);
+    m_reverseRelCheck = new QCheckBox(tr("显示反向关系（哪些模组依赖/引用当前模组）"), relWrap);
+    connect(m_reverseRelCheck, &QCheckBox::toggled,
+            this, &InstanceDetailPage::onReverseRelToggled);
+    relLay->addWidget(m_reverseRelCheck);
+    m_relTree = new QTreeWidget(relWrap);
+    m_relTree->setHeaderLabels({tr("关系"), tr("模组")});
+    m_relTree->header()->setStretchLastSection(true);
+    m_relTree->setRootIsDecorated(true);
+    m_relTree->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContentsOnFirstShow);
+    connect(m_relTree, &QTreeWidget::itemExpanded,
+            this, &InstanceDetailPage::onRelationItemExpanded);
+    relLay->addWidget(m_relTree, 1);
+    m_modDetailTabs->addTab(relWrap, tr("关系"));
+
+    // ④ 版本（Versions）tab：历史版本降序 + 一键安装
+    QWidget* verWrap = new QWidget(m_modDetailTabs);
+    QVBoxLayout* verLay = new QVBoxLayout(verWrap);
+    verLay->setContentsMargins(0, 0, 0, 0);
+    verLay->setSpacing(4);
+    m_versionsTree = new QTreeWidget(verWrap);
+    m_versionsTree->setHeaderLabels({tr("版本"), tr("发布日期"), tr("大小"), tr("状态")});
+    m_versionsTree->header()->setStretchLastSection(true);
+    m_versionsTree->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_versionsTree->setSelectionBehavior(QAbstractItemView::SelectRows);
+    connect(m_versionsTree, &QTreeWidget::itemSelectionChanged,
+            this, &InstanceDetailPage::onVersionSelectionChanged);
+    verLay->addWidget(m_versionsTree, 1);
+    m_versionsInstallBtn = new QPushButton(
+        IconUtils::tintedIcon(":/icons/download.svg", "#ffffff"),
+        tr(" 安装此版本"), verWrap);
+    m_versionsInstallBtn->setObjectName("primaryButton");
+    m_versionsInstallBtn->setMinimumHeight(30);
+    m_versionsInstallBtn->setEnabled(false);
+    connect(m_versionsInstallBtn, &QPushButton::clicked,
+            this, &InstanceDetailPage::onVersionInstallClicked);
+    verLay->addWidget(m_versionsInstallBtn);
+    m_modDetailTabs->addTab(verWrap, tr("版本"));
+
+    layout->addWidget(m_modDetailTabs);
 
     QWidget* btnBar = new QWidget(tab);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
     btnLayout->setSpacing(8);
+
+    // 文件操作（左侧）：导入单模组 / 查看安装历史
+    m_importModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"),
+                                     tr(" 导入模组"), btnBar);
+    m_importModBtn->setMinimumHeight(36);
+    connect(m_importModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onImportModClicked);
+
+    m_historyBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"),
+                                   tr(" 安装历史"), btnBar);
+    m_historyBtn->setMinimumHeight(36);
+    connect(m_historyBtn, &QPushButton::clicked, this, &InstanceDetailPage::onShowHistoryClicked);
 
     m_installModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/add.svg", "#ffffff"),
                                       tr(" 安装"), btnBar);
@@ -177,6 +271,8 @@ void InstanceDetailPage::setupModsTab()
     m_uninstallModBtn->setMinimumHeight(36);
     connect(m_uninstallModBtn, &QPushButton::clicked, this, &InstanceDetailPage::onUninstallModClicked);
 
+    btnLayout->addWidget(m_importModBtn);
+    btnLayout->addWidget(m_historyBtn);
     btnLayout->addStretch();
     btnLayout->addWidget(m_installModBtn);
     btnLayout->addWidget(m_upgradeModBtn);
@@ -193,7 +289,7 @@ void InstanceDetailPage::setupModsTab()
     connect(&CKanManager::instance(), &CKanManager::installProgress,
             this, [this](const QString &id, int percent) {
         if (id == m_currentModIdentifier)
-            m_modDetailText->setPlainText(tr("正在处理 %1 ... %2%").arg(id).arg(percent));
+            setDetailNote(tr("正在处理 %1 ... %2%").arg(id).arg(percent));
         // 进入安装阶段：进度条切为不确定模式，文案改为“正在安装”
         if (!m_modProgressWidget->isVisible())
             m_modProgressWidget->setVisible(true);
@@ -203,6 +299,8 @@ void InstanceDetailPage::setupModsTab()
     });
     connect(&CKanManager::instance(), &CKanManager::downloadProgress,
             this, &InstanceDetailPage::onDownloadProgress);
+    connect(&CKanManager::instance(), &CKanManager::singleDownloadFinished,
+            this, &InstanceDetailPage::onSingleDownloadFinished);
 
     updateModActionButtons();
     m_contentStack->addWidget(tab);
@@ -233,7 +331,7 @@ void InstanceDetailPage::prepareMods()
     if (!mgr.indexReady()) {
         // 首次进入：自动加载仓库索引（优先使用本地缓存）
         m_modsModel->clear();
-        m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
+        setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
         showDownloadProgress();
         mgr.refreshIndexAsync();
     }
@@ -248,6 +346,7 @@ void InstanceDetailPage::maybePopulateMods()
     m_modsReady = mgr.indexReady() && mgr.unmanagedScanDone();
     if (m_modsReady) {
         m_modsModel->setModules(mgr.search(QString()));
+        rebuildTagFilter();
         updateModActionButtons();
         return;
     }
@@ -255,9 +354,9 @@ void InstanceDetailPage::maybePopulateMods()
     m_modsModel->clear();
     if (m_modsTabActive) {
         if (!mgr.indexReady())
-            m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
+            setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
         else
-            m_modDetailText->setPlainText(tr("正在扫描已安装的 DLL，请稍候..."));
+            setDetailNote(tr("正在扫描已安装的 DLL，请稍候..."));
     }
 }
 
@@ -277,6 +376,42 @@ void InstanceDetailPage::onModFilterChanged(int index)
 {
     if (!m_modsProxy || !m_modFilterCombo) return;
     m_modsProxy->setStatusFilter(m_modFilterCombo->itemData(index).toInt());
+}
+
+void InstanceDetailPage::onTagFilterChanged(int index)
+{
+    if (!m_modsProxy || !m_tagFilterCombo) return;
+    m_modsProxy->setTagFilter(m_tagFilterCombo->itemData(index).toString());
+}
+
+// 从模型当前模块重刷「标签」下拉（保留当前选中项），并清空多余项
+void InstanceDetailPage::rebuildTagFilter()
+{
+    if (!m_tagFilterCombo || !m_modsModel) return;
+    const QString current = m_tagFilterCombo->currentData().toString();
+
+    QSet<QString> tags;
+    const int rows = m_modsModel->rowCount();
+    for (int r = 0; r < rows; ++r) {
+        const ckan::CkanModule mod = m_modsModel->moduleAt(r);
+        for (const QString &t : mod.tags)
+            if (!t.trimmed().isEmpty()) tags.insert(t);
+    }
+    QStringList sorted = tags.values();
+    sorted.sort(Qt::CaseInsensitive);
+
+    m_tagFilterCombo->blockSignals(true);
+    m_tagFilterCombo->clear();
+    m_tagFilterCombo->addItem(tr("全部标签"), QString());
+    for (const QString &t : sorted)
+        m_tagFilterCombo->addItem(t, t);
+    // 恢复当前选中项；若已失效（如刷新后该标签消失）则归位到「全部标签」
+    int idx = m_tagFilterCombo->findData(current);
+    m_tagFilterCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    m_tagFilterCombo->blockSignals(false);
+
+    // 数据变了，按当前选中项重新过滤（findData 用精确字符串，tag 大小写敏感）
+    m_modsProxy->setTagFilter(m_tagFilterCombo->currentData().toString());
 }
 
 void InstanceDetailPage::onShowIncompatibleToggled(bool checked)
@@ -370,7 +505,7 @@ void InstanceDetailPage::onRefreshModsClicked()
 {
     if (m_instance.path.isEmpty()) return;
     CKanManager::instance().openInstance(m_instance.path, m_instance.name);
-    m_modDetailText->setPlainText(tr("正在刷新仓库索引..."));
+    setDetailNote(tr("正在刷新仓库索引..."));
     showDownloadProgress();
     CKanManager::instance().refreshIndexAsync(true); // 手动刷新：强制重新下载
 }
@@ -379,12 +514,12 @@ void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
 {
     hideDownloadProgress();
     if (error == QStringLiteral("已取消")) {
-        m_modDetailText->setPlainText(tr("已取消仓库索引加载。"));
+        setDetailNote(tr("已取消仓库索引加载。"));
         return;
     }
     if (!ok) {
         m_modsModel->clear();
-        m_modDetailText->setPlainText(tr("仓库索引刷新失败：%1").arg(error));
+        setDetailNote(tr("仓库索引刷新失败：%1").arg(error));
         QMessageBox::warning(this, tr("刷新失败"), tr("无法获取仓库索引：\n%1").arg(error));
         return;
     }
@@ -393,7 +528,7 @@ void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
     maybePopulateMods();
     if (m_modsReady) {
         const int n = m_modsModel->rowCount();
-        m_modDetailText->setPlainText(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
+        setDetailNote(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
     }
     updateModActionButtons();
     // 索引就绪后，若存在 .ckan 导入待装清单，自动开始批量安装
@@ -414,7 +549,11 @@ void InstanceDetailPage::onModSelectionChanged()
     const QModelIndex idx = m_modTable->currentIndex();
     if (!idx.isValid()) {
         m_currentModIdentifier.clear();
-        m_modDetailText->clear();
+        m_metaText->clear();
+        m_contentsTree->clear();
+        m_relTree->clear();
+        m_versionsTree->clear();
+        m_versionsInstallBtn->setEnabled(false);
         updateModActionButtons();
         return;
     }
@@ -431,15 +570,10 @@ void InstanceDetailPage::onModDoubleClicked(const QModelIndex &index)
     const QModelIndex src = m_modsProxy->mapToSource(index);
     const ckan::CkanModule mod = m_modsModel->moduleAt(src.row());
     if (!mod.isValid()) return;
-    // 双击：显示依赖与冲突详情
-    QString text = mod.name + "  " + mod.version + "\n\n";
-    text += tr("依赖：") + (mod.depends.isEmpty() ? tr("（无）")
-           : relNames(mod.depends).join(QStringLiteral(", "))) + "\n";
-    text += tr("推荐：") + (mod.recommends.isEmpty() ? tr("（无）")
-           : relNames(mod.recommends).join(QStringLiteral(", "))) + "\n";
-    text += tr("冲突：") + (mod.conflicts.isEmpty() ? tr("（无）")
-           : relNames(mod.conflicts).join(QStringLiteral(", ")));
-    m_modDetailText->setPlainText(text);
+    // 双击：切换到"关系"tab，聚焦依赖与冲突树
+    m_currentModIdentifier = mod.identifier;
+    showRelationshipsTab(mod, m_reverseRelCheck->isChecked());
+    m_modDetailTabs->setCurrentIndex(2);
 }
 
 void InstanceDetailPage::updateModActionButtons()
@@ -488,20 +622,299 @@ void InstanceDetailPage::updateModActionButtons()
 void InstanceDetailPage::showModDetails(const ckan::CkanModule &mod)
 {
     if (!mod.isValid()) return;
-    QString text;
-    text += "<b>" + mod.name.toHtmlEscaped() + "  " + mod.version.toHtmlEscaped() + "</b>\n";
+    showMetaTab(mod);
+    showContentsTab(mod);
+    showRelationshipsTab(mod, m_reverseRelCheck->isChecked());
+    showVersionsTab(mod);
+}
+
+// 状态提示写入元数据 tab（用于加载/刷新等过程性信息）
+void InstanceDetailPage::setDetailNote(const QString &text)
+{
+    if (!m_metaText) return;
+    if (text.isEmpty()) { m_metaText->clear(); return; }
+    m_metaText->setHtml("<i>" + text.toHtmlEscaped() + "</i>");
+}
+
+void InstanceDetailPage::showMetaTab(const ckan::CkanModule &mod)
+{
+    QString s;
+    s += "<b>" + mod.name.toHtmlEscaped() + "  " + mod.version.toHtmlEscaped() + "</b>";
+    if (mod.identifier != mod.name)
+        s += "<br/>" + tr("标识符：%1").arg(mod.identifier.toHtmlEscaped());
     if (!mod.abstract.isEmpty())
-        text += tr("描述：%1\n").arg(mod.abstract.toHtmlEscaped());
-    if (!mod.author.isEmpty()) text += tr("作者：%1\n").arg(mod.author.join(QStringLiteral(", ")));
-    if (!mod.license.isEmpty()) text += tr("许可：%1\n").arg(mod.license.join(QStringLiteral(", ")));
-    if (!mod.kspVersion.isEmpty()) text += tr("KSP 版本：%1\n").arg(mod.kspVersion);
+        s += "<br/>" + tr("描述：%1").arg(mod.abstract.toHtmlEscaped());
+    if (!mod.author.isEmpty())
+        s += "<br/>" + tr("作者：%1").arg(mod.author.join(QStringLiteral(", ")).toHtmlEscaped());
+    if (!mod.license.isEmpty())
+        s += "<br/>" + tr("许可：%1").arg(mod.license.join(QStringLiteral(", ")).toHtmlEscaped());
+    if (!mod.kspVersion.isEmpty())
+        s += "<br/>" + tr("KSP 版本：%1").arg(ckan::ModuleVersion(mod.kspVersion).toString());
+    if (!mod.releaseDate.isEmpty())
+        s += "<br/>" + tr("发布日期：%1").arg(mod.releaseDate.toHtmlEscaped());
     if (mod.downloadSize > 0)
-        text += tr("下载大小：%1 MB\n").arg(QString::number(mod.downloadSize / 1024.0 / 1024.0, 'f', 1));
-    if (!mod.depends.isEmpty()) text += tr("依赖：%1\n").arg(relNames(mod.depends).join(QStringLiteral(", ")));
-    if (!mod.conflicts.isEmpty()) text += tr("冲突：%1").arg(relNames(mod.conflicts).join(QStringLiteral(", ")));
-    // QTextEdit 的 HTML 会把裸换行符折叠为空格，需换成 <br/> 才能真正换行
-    text.replace(QStringLiteral("\n"), QStringLiteral("<br/>"));
-    m_modDetailText->setHtml(text);
+        s += "<br/>" + tr("下载大小：%1").arg(formatBytes(mod.downloadSize));
+    if (mod.installSize > 0)
+        s += "<br/>" + tr("安装大小：%1").arg(formatBytes(mod.installSize));
+    // （QTextEdit 的 HTML 会折叠裸换行，这里只用一个 <br/> 前缀即可）
+    m_metaText->setHtml(s);
+}
+
+void InstanceDetailPage::showContentsTab(const ckan::CkanModule &mod)
+{
+    m_contentsTree->clear();
+    if (!m_modDetailTabs) return;
+    // 无 install 规则的元包/虚拟包 → 没有实际文件
+    if (mod.isMetapackage() || (mod.install.isEmpty() && !mod.depends.isEmpty())) {
+        m_contentsStatusLabel->setText(tr("元数据包，不包含文件。"));
+        m_contentsDownloadBtn->setVisible(false);
+        return;
+    }
+    m_contentsDownloadBtn->setVisible(true);
+    const QString zipPath =
+        ckan::ModuleInstaller::findCacheZip(CKanManager::instance().downloadDir(), mod);
+    if (zipPath.isEmpty()) {
+        m_contentsStatusLabel->setText(tr("压缩包尚未缓存。下载后才能查看文件清单。"));
+        return;
+    }
+    m_contentsStatusLabel->setText(tr("压缩包已缓存，列出内部文件："));
+    QStringList entries;
+    QString err;
+    if (ckan::ModuleInstaller::listZipEntries(zipPath, &entries, &err)) {
+        // 结构化为目录树（以 '/' 分割）
+        for (const QString &e : entries) {
+            if (e.isEmpty()) continue;
+            QStringList segs = e.split('/');
+            QTreeWidgetItem *parent = m_contentsTree->invisibleRootItem();
+            const QString name = segs.takeLast();
+            for (const QString &dir : segs) {
+                QTreeWidgetItem *child = nullptr;
+                for (int i = 0; i < parent->childCount(); ++i) {
+                    if (parent->child(i)->text(0) == dir
+                        && parent->child(i)->data(0, Qt::UserRole).toString() == QStringLiteral("dir")) {
+                        child = parent->child(i); break;
+                    }
+                }
+                if (!child) {
+                    child = new QTreeWidgetItem(parent, {dir});
+                    child->setData(0, Qt::UserRole, QStringLiteral("dir"));
+                }
+                parent = child;
+            }
+            new QTreeWidgetItem(parent, {name, QString()});
+        }
+        m_contentsTree->sortItems(0, Qt::AscendingOrder);
+    } else {
+        m_contentsStatusLabel->setText(tr("无法读取压缩包：%1").arg(err));
+    }
+}
+
+void InstanceDetailPage::showRelationshipsTab(const ckan::CkanModule &mod, bool reverse)
+{
+    m_relTree->clear();
+    if (!m_relTree) return;
+    if (reverse) {
+        // 反向关系在后台全索引扫描，避免阻塞 UI
+        if (m_reverseWatcher) return; // 已有扫描在途
+        m_relTree->addTopLevelItem(new QTreeWidgetItem({tr("扫描中..."), QString()}));
+        const QString target = mod.identifier;
+        auto watcher = new QFutureWatcher<QStringList>(this);
+        m_reverseWatcher = watcher;
+        connect(watcher, &QFutureWatcher<QStringList>::finished, this, [this, watcher, mod]() {
+            if (m_reverseWatcher != watcher) { watcher->deleteLater(); return; }
+            const QStringList refs = watcher->result();
+            watcher->deleteLater();
+            m_reverseWatcher = nullptr;
+            if (mod.identifier != m_currentModIdentifier) return; // 已切换模组
+            if (!m_reverseRelCheck->isChecked()) return;          // 用户已切回前向
+            m_relTree->clear();
+            if (refs.isEmpty()) {
+                m_relTree->addTopLevelItem(new QTreeWidgetItem({tr("没有模组依赖或引用此模组。"), QString()}));
+                return;
+            }
+            CKanManager &mgr = CKanManager::instance();
+            for (const QString &id : refs) {
+                const ckan::CkanModule dep = mgr.latestOf(id);
+                const QString label = dep.isValid() ? dep.name : id;
+                QTreeWidgetItem *item = new QTreeWidgetItem({tr("引用/依赖"), label});
+                item->setData(0, Qt::UserRole, id);
+                addRelationChildren(item, id, 1); // 预载一层，供继续展开
+                m_relTree->addTopLevelItem(item);
+            }
+        });
+        watcher->setFuture(QtConcurrent::run([this, target]() {
+            QStringList refs;
+            const auto all = CKanManager::instance().search(QString());
+            for (const auto &m : all) {
+                bool hit = false;
+                for (const auto &r : m.depends)    if (r.name == target) { hit = true; break; }
+                if (!hit) for (const auto &r : m.recommends) if (r.name == target) { hit = true; break; }
+                if (!hit) for (const auto &r : m.suggests)   if (r.name == target) { hit = true; break; }
+                if (!hit) for (const auto &r : m.conflicts)  if (r.name == target) { hit = true; break; }
+                if (hit) refs << m.identifier;
+            }
+            refs.removeDuplicates();
+            return refs;
+        }));
+        return;
+    }
+
+    // 前向：depends / recommends / suggests / conflicts
+    bool any = false;
+    const auto addGroup = [&](const QVector<ckan::Relationship> &rels) {
+        for (const ckan::Relationship &rel : rels) {
+            any = true;
+            const QString type = rel.type == ckan::Relationship::Type::Conflicts ? tr("冲突")
+                              : tr("依赖");
+            QTreeWidgetItem *item = new QTreeWidgetItem({type, rel.name});
+            // 预载子项占位，展开时懒加载其自身关系
+            item->setData(0, Qt::UserRole, rel.name);
+            item->addChild(new QTreeWidgetItem({tr("..."), QString()}));
+            m_relTree->addTopLevelItem(item);
+        }
+    };
+    addGroup(mod.depends);
+    addGroup(mod.recommends);
+    addGroup(mod.suggests);
+    addGroup(mod.conflicts);
+    if (!any)
+        m_relTree->addTopLevelItem(new QTreeWidgetItem({tr("此模组没有依赖、推荐、建议或冲突关系。"), QString()}));
+    // 调用方欲聚焦"关系"tab 时由外部切换 index
+}
+
+// 为一个关系条目懒加载其下一层关系
+void InstanceDetailPage::addRelationChildren(QTreeWidgetItem *parent, const QString &identifier, int depth)
+{
+    if (!parent) return;
+    if (depth > 5) return; // 深度上限，防极端引用环
+    // 清掉占位子项（若已加载则跳过）
+    if (parent->childCount() == 1 && parent->child(0)->text(0) == QStringLiteral("...")) {
+        delete parent->takeChild(0);
+    } else if (parent->childCount() > 0) {
+        return; // 已加载
+    }
+    const ckan::CkanModule mod = CKanManager::instance().latestOf(identifier);
+    if (!mod.isValid()) { parent->addChild(new QTreeWidgetItem({tr("（仓库无此模组/虚拟包：%1）").arg(identifier), QString()})); return; }
+    if (mod.depends.isEmpty() && mod.conflicts.isEmpty()) {
+        parent->addChild(new QTreeWidgetItem({tr("（无依赖或冲突）"), QString()}));
+        return;
+    }
+    for (const auto &r : mod.depends) {
+        QTreeWidgetItem *c = new QTreeWidgetItem({tr("依赖"), r.name});
+        c->setData(0, Qt::UserRole, r.name);
+        c->addChild(new QTreeWidgetItem({QStringLiteral("..."), QString()}));
+        parent->addChild(c);
+    }
+    for (const auto &r : mod.conflicts) {
+        QTreeWidgetItem *c = new QTreeWidgetItem({tr("冲突"), r.name});
+        c->setData(0, Qt::UserRole, r.name);
+        c->addChild(new QTreeWidgetItem({QStringLiteral("..."), QString()}));
+        parent->addChild(c);
+    }
+}
+
+void InstanceDetailPage::showVersionsTab(const ckan::CkanModule &mod)
+{
+    m_versionsTree->clear();
+    m_versionsInstallBtn->setEnabled(false);
+    if (!m_versionsTree) return;
+    const QVector<ckan::CkanModule> versions =
+        CKanManager::instance().versionsOf(mod.identifier);
+    if (versions.isEmpty()) {
+        m_versionsTree->addTopLevelItem(new QTreeWidgetItem({tr("仓库无其它版本记录。"), QString(), QString(), QString()}));
+        return;
+    }
+    // 降序排列（当前最新在前）
+    QVector<ckan::CkanModule> vs = versions;
+    std::sort(vs.begin(), vs.end(), [](const ckan::CkanModule &a, const ckan::CkanModule &b) {
+        return ckan::ModuleVersion(a.version) > ckan::ModuleVersion(b.version);
+    });
+    const QString installed = CKanManager::instance().installedVersion(mod.identifier);
+    for (const ckan::CkanModule &v : vs) {
+        QString status;
+        if (v.version == installed) status = tr("已安装");
+        else if (installed.isEmpty()) status = tr("未安装");
+        QTreeWidgetItem *item = new QTreeWidgetItem({
+            v.version, v.releaseDate, formatBytes(v.downloadSize), status});
+        item->setData(0, Qt::UserRole, v.version);
+        item->setData(1, Qt::UserRole, v.toJson()); // 存该版本完整元数据供安装
+        m_versionsTree->addTopLevelItem(item);
+    }
+}
+
+void InstanceDetailPage::onContentsDownloadClicked()
+{
+    if (m_currentModIdentifier.isEmpty()) return;
+    const ckan::CkanModule mod =
+        CKanManager::instance().latestOf(m_currentModIdentifier);
+    if (!mod.isValid()) return;
+    m_contentsDownloadBtn->setEnabled(false);
+    m_contentsStatusLabel->setText(tr("正在下载压缩包..."));
+    CKanManager::instance().downloadSingleToCacheAsync(mod);
+}
+
+void InstanceDetailPage::onSingleDownloadFinished(bool ok, const QString &identifier,
+                                                  const QString &error)
+{
+    if (identifier != m_currentModIdentifier) return;
+    m_contentsDownloadBtn->setEnabled(true);
+    if (!ok) {
+        m_contentsStatusLabel->setText(tr("下载失败：%1").arg(error));
+        return;
+    }
+    const ckan::CkanModule mod = CKanManager::instance().latestOf(identifier);
+    if (mod.isValid()) showContentsTab(mod);
+}
+
+void InstanceDetailPage::onReverseRelToggled(bool on)
+{
+    if (on) {
+        const ckan::CkanModule mod =
+            CKanManager::instance().latestOf(m_currentModIdentifier);
+        if (mod.isValid()) showRelationshipsTab(mod, true);
+    } else {
+        const ckan::CkanModule mod =
+            CKanManager::instance().latestOf(m_currentModIdentifier);
+        if (mod.isValid()) showRelationshipsTab(mod, false);
+    }
+}
+
+void InstanceDetailPage::onRelationItemExpanded(QTreeWidgetItem *item)
+{
+    if (!item) return;
+    const QString id = item->data(0, Qt::UserRole).toString();
+    if (id.isEmpty()) return;
+    addRelationChildren(item, id, 1);
+}
+
+void InstanceDetailPage::onVersionSelectionChanged()
+{
+    m_versionsInstallBtn->setEnabled(m_versionsTree->currentItem() != nullptr);
+}
+
+void InstanceDetailPage::onVersionInstallClicked()
+{
+    QTreeWidgetItem *item = m_versionsTree->currentItem();
+    if (!item) return;
+    const QString version = item->data(0, Qt::UserRole).toString();
+    const ckan::CkanModule mod = ckan::CkanModule::fromJsonObject(
+        QJsonDocument::fromJson(item->data(1, Qt::UserRole).toByteArray()).object());
+    if (!mod.isValid()) return;
+
+    const QString installed = CKanManager::instance().installedVersion(mod.identifier);
+    const bool isDowngrade = !installed.isEmpty()
+        && ckan::ModuleVersion(installed) > ckan::ModuleVersion(version);
+    if (isDowngrade) {
+        const QMessageBox::StandardButton go = QMessageBox::question(
+            this, tr("切换版本"),
+            tr("当前已安装 %1，即将降级到 %2。\n是否继续？")
+                .arg(installed, version),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (go != QMessageBox::Yes) return;
+    }
+    m_versionsInstallBtn->setEnabled(false);
+    showDownloadProgress();
+    CKanManager::instance().installVersionAsync(mod);
 }
 
 void InstanceDetailPage::onInstallModClicked()
@@ -682,4 +1095,70 @@ void InstanceDetailPage::onCancelDownloadClicked()
     CKanManager::instance().cancelCurrentOperation();
     m_modProgressLabel->setText(tr("正在取消..."));
     m_cancelDownloadBtn->setEnabled(false);
+}
+
+void InstanceDetailPage::onImportModClicked()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("导入模组"), QString(),
+        tr("模组文件 (*.zip *.ckan)"));
+    if (path.isEmpty()) return; // 用户取消
+
+    setModButtonsEnabled(false);
+    showDownloadProgress();
+    CKanManager::instance().importAsync(path);
+}
+
+void InstanceDetailPage::onShowHistoryClicked()
+{
+    const QString dir = CKanManager::instance().historyDir();
+    if (dir.isEmpty()) {
+        QMessageBox::information(this, tr("安装历史"), tr("尚未绑定游戏实例。"));
+        return;
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("安装历史"));
+    dlg.resize(680, 460);
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+
+    QSplitter *splitter = new QSplitter(&dlg);
+    QListWidget *list = new QListWidget(splitter);
+    list->setMinimumWidth(240);
+    QTextEdit *text = new QTextEdit(splitter);
+    text->setReadOnly(true);
+    text->setPlaceholderText(tr("选择左侧快照查看其安装内容"));
+    splitter->addWidget(list);
+    splitter->addWidget(text);
+    splitter->setStretchFactor(0, 0);
+    splitter->setStretchFactor(1, 1);
+    lay->addWidget(splitter, 1);
+
+    QDialogButtonBox *btnBox = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+    btnBox->button(QDialogButtonBox::Close)->setText(tr("关闭"));
+    connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    lay->addWidget(btnBox);
+
+    // 快照文件名即为时间戳（零填充、可字典序排序），倒序取最新在前
+    QDir d(dir);
+    const QStringList files = d.entryList({QStringLiteral("*.ckan")},
+                                          QDir::Files, QDir::Name | QDir::Reversed);
+    if (files.isEmpty()) {
+        text->setPlainText(tr("暂无安装历史。完成一次安装/卸载/升级后会自动生成快照。"));
+    }
+    for (const QString &f : files)
+        list->addItem(f);
+
+    connect(list, &QListWidget::currentRowChanged, &dlg, [&](int row) {
+        if (row < 0 || row >= files.size()) { text->clear(); return; }
+        QFile f(d.filePath(files.at(row)));
+        if (f.open(QIODevice::ReadOnly))
+            text->setPlainText(QString::fromUtf8(f.readAll()));
+        else
+            text->setPlainText(tr("无法读取：%1").arg(files.at(row)));
+    });
+    if (!files.isEmpty())
+        list->setCurrentRow(0);
+
+    dlg.exec();
 }

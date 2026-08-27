@@ -16,6 +16,10 @@
 #include <QComboBox>
 #include <QProgressBar>
 #include <QCheckBox>
+#include <QTabWidget>
+#include <QTreeWidgetItem>
+#include <QFutureWatcher>
+#include <QStringList>
 #include "../configmanager.h"
 #include "../instancemanager.h"
 #include "modtablemodel.h"
@@ -47,6 +51,8 @@ private slots:
     // mod 管理
     void onModSearchChanged(const QString &text);
     void onModFilterChanged(int index);
+    void onTagFilterChanged(int index);
+    void rebuildTagFilter();
     void onShowIncompatibleToggled(bool checked);
     void onCompatVersionsClicked();
     void onRefreshModsClicked();
@@ -62,6 +68,16 @@ private slots:
     void onDownloadProgress(const QString &identifier, qint64 doneBytes,
                             qint64 totalBytes, qint64 speedBps);
     void onCancelDownloadClicked();
+    void onImportModClicked();
+    void onShowHistoryClicked();
+
+    // 模组详情四 tab
+    void onSingleDownloadFinished(bool ok, const QString &identifier, const QString &error);
+    void onContentsDownloadClicked();
+    void onReverseRelToggled(bool on);
+    void onRelationItemExpanded(QTreeWidgetItem *item);
+    void onVersionSelectionChanged();
+    void onVersionInstallClicked();
 
 private:
     void setupUI();
@@ -93,6 +109,12 @@ private:
     void updateSelectAllButtonText();
     void setModButtonsEnabled(bool enabled);
     void showModDetails(const ckan::CkanModule &mod);
+    void setDetailNote(const QString &text);                 // 状态提示写入元数据 tab
+    void showMetaTab(const ckan::CkanModule &mod);
+    void showContentsTab(const ckan::CkanModule &mod);
+    void showRelationshipsTab(const ckan::CkanModule &mod, bool reverse);
+    void addRelationChildren(QTreeWidgetItem *parent, const QString &identifier, int depth);
+    void showVersionsTab(const ckan::CkanModule &mod);
     void showDownloadProgress();
     void hideDownloadProgress();
 
@@ -133,6 +155,7 @@ private:
     QTableView* m_modTable;
     QLineEdit* m_modSearchEdit;
     QComboBox* m_modFilterCombo;
+    QComboBox* m_tagFilterCombo; // 按仓库自带 tag 筛选
     QPushButton* m_refreshModsBtn;
     QPushButton* m_selectAllBtn;
     QCheckBox*   m_showIncompatCheck;
@@ -140,7 +163,19 @@ private:
     QPushButton* m_installModBtn;
     QPushButton* m_uninstallModBtn;
     QPushButton* m_upgradeModBtn;
-    QTextEdit* m_modDetailText;
+    QPushButton* m_importModBtn;  // 导入单模组文件（.zip/.ckan）
+    QPushButton* m_historyBtn;    // 查看安装历史
+    // 模组详情四 tab
+    QTabWidget*  m_modDetailTabs;      // 元数据 / 文件 / 关系 / 版本
+    QTextEdit*   m_metaText;           // 元数据 tab
+    QTreeWidget* m_contentsTree;       // 文件清单 tab
+    QLabel*      m_contentsStatusLabel;
+    QPushButton* m_contentsDownloadBtn;
+    QTreeWidget* m_relTree;            // 关系 tab（懒加载树，可切反向）
+    QCheckBox*   m_reverseRelCheck;
+    QTreeWidget* m_versionsTree;       // 版本历史 tab
+    QPushButton* m_versionsInstallBtn;
+    QFutureWatcher<QStringList>* m_reverseWatcher = nullptr; // 反向关系扫描在途
     QString m_currentModIdentifier;
     bool m_modsReady = false;   // 索引与 DLL 扫描均就绪，模组模型已填充
     bool m_modsTabActive = false; // 当前是否正显示"模组管理"tab（用于加载提示）

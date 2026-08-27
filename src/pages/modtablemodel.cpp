@@ -1,5 +1,7 @@
 #include "modtablemodel.h"
 
+#include <QRegularExpression>
+
 #include "../ckanmanager.h"
 
 ModsTableModel::ModsTableModel(QObject *parent)
@@ -152,6 +154,9 @@ QVariant ModsTableModel::data(const QModelIndex &index, int role) const
             const int n = CKanManager::instance().downloadCount(mod.identifier);
             return n >= 0 ? QString::number(n) : QStringLiteral("-");
         }
+        case ColTags: {
+            return mod.tags.join(QStringLiteral(", "));
+        }
         }
     }
 
@@ -174,6 +179,7 @@ QVariant ModsTableModel::headerData(int section, Qt::Orientation orientation, in
     case ColStatus:     return tr("状态");
     case ColSize:       return tr("大小");
     case ColDownloads:  return tr("下载");
+    case ColTags:       return tr("标签");
     }
     return QVariant();
 }
@@ -216,10 +222,14 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     if (!m_showIncompatible && !compatible)
         return false;
 
-    if (!m_search.isEmpty()) {
-        const QString s = m_search.toLower();
-        if (!mod.name.toLower().contains(s) && !mod.identifier.toLower().contains(s))
-            return false;
+    if (!m_search.isEmpty() && !matchesSearch(mod))
+        return false;
+    // 按 tag 过滤（空串不过滤）；大小写不敏感，模组含任一匹配 tag 即通过
+    if (!m_tagFilter.isEmpty()) {
+        bool matched = false;
+        for (const QString &t : mod.tags)
+            if (t.compare(m_tagFilter, Qt::CaseInsensitive) == 0) { matched = true; break; }
+        if (!matched) return false;
     }
     if (m_statusFilter >= 0) {
         const ModsTableModel::Status s = src->statusAt(sourceRow);
@@ -229,6 +239,56 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
         } else if (s != static_cast<ModsTableModel::Status>(m_statusFilter)) {
             return false;
         }
+    }
+    return true;
+}
+
+bool ModsFilterProxyModel::matchesSearch(const ckan::CkanModule &mod) const
+{
+    // 任意一个字段值（大小写不敏感）包含目标串即命中。
+    const auto anyContains = [](const QStringList &values, const QString &needle) {
+        for (const QString &v : values)
+            if (v.toLower().contains(needle)) return true;
+        return false;
+    };
+
+    const QStringList tokens = m_search.split(
+        QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    for (const QString &raw : tokens) {
+        const QString tok = raw.toLower();
+        bool ok;
+        if (tok.startsWith(QLatin1Char('@'))) {
+            const int colon = tok.indexOf(QLatin1Char(':'));
+            // 无 `:` 的字段 token（或空值）忽略，不算命中/否决。
+            if (colon <= 1) continue;
+            const QString field = tok.mid(1, colon - 1);
+            const QString val = tok.mid(colon + 1);
+            if (val.isEmpty()) continue;
+
+            if (field == QLatin1String("author")) {
+                ok = anyContains(mod.author, val);
+            } else if (field == QLatin1String("desc") || field == QLatin1String("description")) {
+                ok = mod.description.toLower().contains(val);
+            } else if (field == QLatin1String("license")) {
+                ok = anyContains(mod.license, val);
+            } else if (field == QLatin1String("depend") || field == QLatin1String("depends")) {
+                ok = false;
+                for (const ckan::Relationship &rel : mod.depends)
+                    if (rel.name.toLower().contains(val)) { ok = true; break; }
+            } else if (field == QLatin1String("provides")) {
+                ok = anyContains(mod.providesList(), val);
+            } else if (field == QLatin1String("tag") || field == QLatin1String("tags")) {
+                ok = anyContains(mod.tags, val);
+            } else {
+                ok = true; // 未知字段忽略，不否决
+            }
+        } else {
+            // 普通关键词：匹配名称 / 标识符 / 摘要。
+            ok = mod.name.toLower().contains(tok)
+                 || mod.identifier.toLower().contains(tok)
+                 || mod.abstract.toLower().contains(tok);
+        }
+        if (!ok) return false;
     }
     return true;
 }

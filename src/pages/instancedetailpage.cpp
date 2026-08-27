@@ -163,9 +163,9 @@ void InstanceDetailPage::onNavButtonClicked()
         if (!m_modsReady) {
             CKanManager &mgr = CKanManager::instance();
             if (!mgr.indexReady())
-                m_modDetailText->setPlainText(tr("正在加载 CKAN 仓库索引，请稍候..."));
+                setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
             else
-                m_modDetailText->setPlainText(tr("正在扫描已安装的 DLL，请稍候..."));
+                setDetailNote(tr("正在扫描已安装的 DLL，请稍候..."));
         } else {
             // 确保刷新按钮状态与选中态一致
             updateModActionButtons();

@@ -354,6 +354,22 @@ void ConfigManager::setDownloadConcurrency(int count)
     }
 }
 
+qint64 ConfigManager::downloadRateLimitBytesPerSecond() const
+{
+    const qint64 v = m_config["downloadRateLimitBytesPerSecond"].toDouble(0);
+    return v > 0 ? v : 0;
+}
+
+void ConfigManager::setDownloadRateLimitBytesPerSecond(qint64 bps)
+{
+    const qint64 valid = bps > 0 ? bps : 0; // 负数视为不限速（按 0）
+    if (downloadRateLimitBytesPerSecond() != valid) {
+        m_config["downloadRateLimitBytesPerSecond"] = static_cast<double>(valid);
+        save();
+        emit configChanged();
+    }
+}
+
 QVector<ckan::Repository> ConfigManager::repositories() const
 {
     QVector<ckan::Repository> repos;

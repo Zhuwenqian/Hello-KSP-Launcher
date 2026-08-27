@@ -340,6 +340,39 @@ QTreeWidget::item:selected {
     color: #1e1e1e;
 }
 
+/* 模组详情四 tab（元数据/文件/关系/版本）：半透明主题面板 + 选中高亮 */
+QTabWidget#modDetailTabs::pane {
+    background-color: rgba(248, 248, 248, 205);
+    border: 1px solid rgba(206, 206, 206, 170);
+    border-radius: 0 6px 6px 6px;
+    top: -1px;
+}
+
+QTabBar::tab {
+    background-color: rgba(240, 240, 240, 185);
+    color: #555555;
+    padding: 7px 16px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-right: 2px;
+}
+
+QTabBar::tab:hover {
+    background-color: rgba(230, 230, 230, 205);
+    color: #111111;
+}
+
+QTabBar::tab:selected {
+    background-color: #0e639c;
+    color: #ffffff;
+}
+
+QTabWidget#modDetailTabs QTextEdit {
+    background-color: rgba(253, 253, 253, 220);
+    border: none;
+    color: #1e1e1e;
+}
+
 QHeaderView::section {
     background-color: rgba(243, 243, 243, 220);
     color: #1e1e1e;
