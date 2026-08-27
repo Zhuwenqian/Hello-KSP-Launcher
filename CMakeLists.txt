@@ -94,6 +94,11 @@ set(SOURCES
     src/mainwindow.cpp
     src/configmanager.cpp
     src/instancemanager.cpp
+    src/instancemanager_keymap.cpp
+    src/instancemanager_settings.cpp
+    src/instancemanager_saves.cpp
+    src/instancemanager_backup.cpp
+    src/instancemanager_modpack.cpp
     src/steamdiscovery.cpp
     src/iconutils.cpp
     src/backgroundmanager.cpp
@@ -101,6 +106,9 @@ set(SOURCES
     src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
+    src/pages/instancedetailpage_settings.cpp
+    src/pages/instancedetailpage_mods.cpp
+    src/pages/instancedetailpage_modpack.cpp
     src/pages/modtablemodel.cpp
     src/pages/settingspage.cpp
     src/pages/saveslistpage.cpp
@@ -115,6 +123,7 @@ set(HEADERS
     src/mainwindow.h
     src/configmanager.h
     src/instancemanager.h
+    src/instancemanager_keymap.h
     src/steamdiscovery.h
     src/iconutils.h
     src/backgroundmanager.h

@@ -32,8 +32,15 @@ ModsTableModel::Status ModsTableModel::statusAt(int row) const
     const ckan::CkanModule mod = moduleAt(row);
     if (!mod.isValid()) return NotInstalled;
     CKanManager &mgr = CKanManager::instance();
-    if (mgr.isUpgradable(mod.identifier)) return Upgradable;
-    if (mgr.isInstalled(mod.identifier)) return Installed;
+    // 模型中的模块即各标识符的仓库最新版（由 CKan::search 填充）。
+    // 直接与已安装版本比较即可判断是否可升级，避免每行每次渲染都重复执行
+    // latestOf -> versionsOf -> 全量版本排序 的昂贵计算（大列表卡顿的根因）。
+    const QString installed = mgr.installedVersion(mod.identifier);
+    if (!installed.isEmpty()) {
+        if (ckan::ModuleVersion(mod.version) > ckan::ModuleVersion(installed))
+            return Upgradable;
+        return Installed;
+    }
     if (mgr.isAutoDetected(mod.identifier)) return AutoDetected;
     return NotInstalled;
 }

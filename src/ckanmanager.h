@@ -41,6 +41,8 @@ public:
     // 设置用户勾选的额外兼容区间（无效区间表示未启用）。
     // 安装/依赖解析时，候选兼容当前实例版本 或 兼容该区间（任一满足即可）。
     void setCompatRange(const ckan::GameVersionRange &r) { m_compatRange = r; }
+    // 重新加载注册表：注册表文件被外部改动/删除后，刷新 libckan 内存中的已安装数据。
+    void reloadRegistry();
 
     // ---- 缓存目录 ----
     QString cacheRoot() const;      // exe目录/ckan_cache
@@ -133,6 +135,9 @@ private:
     bool askDiskSpaceWarning(const QStorageInfo &storage, qint64 required,
                              const QString &path, bool forDownload);
     void clearWatchers();
+    // 放弃当前实例：先取消并等待在途后台任务（扫描/索引/下载/安装）全部结束，
+    // 再释放 m_ckan，避免工作线程在 m_ckan 被删除后继续访问（use-after-free）。
+    void discardCurrentInstance();
 
     ckan::CKan *m_ckan = nullptr;
     QString m_instanceName;
@@ -145,6 +150,9 @@ private:
     QFutureWatcher<ckan::InstallResult>   *m_installWatcher = nullptr;
     QFutureWatcher<void>                  *m_scanWatcher = nullptr; // DLL 扫描在途
     std::atomic_bool m_indexCancelRequested{false};
+    // 索引刷新是否在途（防重入：刷新进行中时忽略重复的刷新请求，
+    // 避免多个后台线程同时写 CKan::m_index 造成数据竞争）。
+    std::atomic_bool m_indexRefreshing{false};
 };
 
 #endif // CKANMANAGER_H

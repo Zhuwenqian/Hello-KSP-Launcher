@@ -50,9 +50,7 @@ CKanManager::CKanManager(QObject *parent)
 
 CKanManager::~CKanManager()
 {
-    clearWatchers();
-    delete m_ckan;
-    m_ckan = nullptr;
+    discardCurrentInstance();
 }
 
 CKanManager& CKanManager::instance()
@@ -72,14 +70,43 @@ void CKanManager::clearWatchers()
     // 扫描 watcher 只在切换/关闭实例（openInstance/closeInstance）时清理。
 }
 
+// 放弃当前实例：先取消并等待在途后台任务（扫描/索引/下载/安装）全部结束，
+// 再释放 m_ckan，避免工作线程在 m_ckan 被删除后继续访问（use-after-free）。
+void CKanManager::discardCurrentInstance()
+{
+    // 1. 请求中止在途任务：索引/模组下载与安装均以 200ms 轮询取消标志，取消后会很快结束
+    m_indexCancelRequested.store(true);
+    if (m_ckan)
+        m_ckan->cancelInstall();
+
+    // 2. 等待全部在途 future 结束（仅在 future 有效时等待，避免 setFuture 未调用时卡死）。
+    //    等待期间工作线程不依赖 UI 线程完成，因此不会死锁；取消后等待窗口很短。
+    if (m_scanWatcher && m_scanWatcher->future().isValid())
+        m_scanWatcher->future().waitForFinished();
+    if (m_indexWatcher && m_indexWatcher->future().isValid())
+        m_indexWatcher->future().waitForFinished();
+    if (m_downloadWatcher && m_downloadWatcher->future().isValid())
+        m_downloadWatcher->future().waitForFinished();
+    if (m_installWatcher && m_installWatcher->future().isValid())
+        m_installWatcher->future().waitForFinished();
+
+    // 在途索引刷新已结束，复位防重入标志（其 finished 回调随后在事件循环中也会复位，幂等）
+    m_indexRefreshing.store(false);
+
+    // 3. 清理 watcher（含 DLL 扫描 watcher）与 m_ckan
+    clearWatchers();
+    if (m_scanWatcher) { m_scanWatcher->deleteLater(); m_scanWatcher = nullptr; }
+    delete m_ckan;
+    m_ckan = nullptr;
+    m_instanceName.clear();
+}
+
 void CKanManager::openInstance(const QString &gameDir, const QString &instanceName)
 {
     if (m_ckan && m_ckan->gameDir() == gameDir)
         return; // 已是同一实例
-    clearWatchers();
-    // 切换实例：放弃在途的 DLL 扫描（其完成信号不再关联旧实例）
-    if (m_scanWatcher) { m_scanWatcher->deleteLater(); m_scanWatcher = nullptr; }
-    delete m_ckan;
+    // 切换实例：先取消并等待在途后台任务结束，再释放旧实例，避免工作线程访问已删除的 m_ckan
+    discardCurrentInstance();
 
     // 一次性把库运行配置传入 CKan 门面（缓存目录/镜像前缀/并发），
     // 替代原先的全局静态配置（RepoIndex::setCacheDir 等）与配置双向渗透。
@@ -94,16 +121,18 @@ void CKanManager::openInstance(const QString &gameDir, const QString &instanceNa
 
 void CKanManager::closeInstance()
 {
-    clearWatchers();
-    if (m_scanWatcher) { m_scanWatcher->deleteLater(); m_scanWatcher = nullptr; }
-    delete m_ckan;
-    m_ckan = nullptr;
-    m_instanceName.clear();
+    discardCurrentInstance();
 }
 
 QString CKanManager::gameDir() const
 {
     return m_ckan ? m_ckan->gameDir() : QString();
+}
+
+void CKanManager::reloadRegistry()
+{
+    if (m_ckan)
+        m_ckan->reloadRegistry();
 }
 
 QString CKanManager::cacheRoot() const
@@ -171,6 +200,10 @@ int CKanManager::cleanDownloadCache()
 void CKanManager::refreshIndexAsync(bool force)
 {
     if (!m_ckan) { emit indexRefreshed(false, tr("尚未绑定游戏实例")); return; }
+    // 防重入：索引刷新已在途时忽略本次请求（在途刷新完成后会照常发出 indexRefreshed），
+    // 避免多个后台线程同时写 CKan::m_index 造成数据竞争。
+    if (m_indexRefreshing.exchange(true))
+        return;
     clearWatchers();
     m_indexCancelRequested.store(false);
 
@@ -194,10 +227,17 @@ void CKanManager::refreshIndexAsync(bool force)
         return qMakePair(ok, err);
     });
     connect(watcher, &QFutureWatcher<QPair<bool, QString>>::finished, this, [this, watcher]() {
+        // 刷新期间被切实例取代（discardCurrentInstance）：仅丢弃 watcher，不再发信号。
+        if (m_indexWatcher != watcher) {
+            watcher->deleteLater();
+            m_indexRefreshing.store(false);
+            return;
+        }
         const QPair<bool, QString> r = watcher->result();
         emit indexRefreshed(r.first, r.second);
         watcher->deleteLater();
         if (m_indexWatcher == watcher) m_indexWatcher = nullptr;
+        m_indexRefreshing.store(false);
     });
     watcher->setFuture(future);
 }
@@ -268,6 +308,7 @@ void CKanManager::scanUnmanagedDllsAsync()
         m_ckan->scanUnmanagedDlls();
     });
     connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
+        if (m_scanWatcher != watcher) { watcher->deleteLater(); return; } // 已切实例
         watcher->deleteLater();
         if (m_scanWatcher == watcher) m_scanWatcher = nullptr;
         emit unmanagedScanFinished();
@@ -315,6 +356,7 @@ void CKanManager::uninstallAsync(const QString &identifier)
         return m_ckan->uninstall(identifier);
     });
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this, [this, watcher]() {
+        if (m_installWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
         const ckan::InstallResult r = watcher->result();
         m_ckan->reloadRegistry();
         emit installedChanged();
@@ -394,6 +436,7 @@ void CKanManager::uninstallBatchAsync(const QStringList &identifiers)
         return r;
     });
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this, [this, watcher, toRemove]() {
+        if (m_installWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
         const ckan::InstallResult r = watcher->result();
         m_ckan->reloadRegistry();
         emit installedChanged();
@@ -498,6 +541,7 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
     });
     connect(watcher, &QFutureWatcher<DownloadPhaseResult>::finished, this,
             [this, watcher, modules, doneMessage, preUninstall]() {
+        if (m_downloadWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
         const DownloadPhaseResult r = watcher->result();
         watcher->deleteLater();
         if (m_downloadWatcher == watcher) m_downloadWatcher = nullptr;
@@ -713,6 +757,7 @@ void CKanManager::startInstallPhase(const QVector<ckan::CkanModule> &modules,
     });
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this,
             [this, watcher, doneMessage]() {
+        if (m_installWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
         const ckan::InstallResult r = watcher->result();
         m_ckan->reloadRegistry(); // 刷新已安装数据
         emit installedChanged();

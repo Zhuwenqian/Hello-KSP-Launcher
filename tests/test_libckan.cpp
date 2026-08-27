@@ -144,7 +144,8 @@ static QByteArray makeTarEntry(const QString &name, const QByteArray &data)
     return out;
 }
 
-// 用 miniz raw deflate 构造 gzip（仓库归档测试使用；尾部 CRC/ISIZE 以 0 填充，解析器不校验）
+// 用 miniz raw deflate 构造 gzip（仓库归档测试使用；尾部写入真实 CRC32 与 ISIZE，
+// 因有界 gunzip 会校验 ISIZE 以检测截断/损坏）
 static QByteArray makeTarGz(const QList<QPair<QString, QByteArray>> &files)
 {
     QByteArray tar;
@@ -163,7 +164,16 @@ static QByteArray makeTarGz(const QList<QPair<QString, QByteArray>> &files)
     gz.append(char(0xff));                                               // OS
     gz.append(QByteArray(static_cast<const char *>(comp), static_cast<int>(compLen)));
     mz_free(comp);
-    gz.append(QByteArray(8, '\0')); // CRC32 + ISIZE（解析器不校验）
+
+    // gzip 尾部：CRC32 + ISIZE（未压缩大小 mod 2^32，小端序）。
+    // 有界 gunzip 会校验 ISIZE 以检测截断/损坏，测试助手须写入真实值。
+    const mz_ulong crc = mz_crc32(0, reinterpret_cast<const unsigned char *>(tar.constData()),
+                                  static_cast<size_t>(tar.size()));
+    const quint32 isize = static_cast<quint32>(tar.size());
+    for (int i = 0; i < 4; ++i)
+        gz.append(char((crc >> (8 * i)) & 0xff));
+    for (int i = 0; i < 4; ++i)
+        gz.append(char((isize >> (8 * i)) & 0xff));
     return gz;
 }
 
@@ -1558,12 +1568,57 @@ private slots:
         QVERIFY(!dlls.contains(QStringLiteral("egg")));
     }
 
+    // 回归：注册表文件被删除后（如 .ckan 整合包导入清空），loadRegistry 必须重置内存态，
+    // 否则已删除的暂存数据仍滞留内存，污染后续安装与文件归属判断。
+    void reloadRegistryResetsWhenFileDeleted()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        // 先让内存与磁盘都有已安装数据
+        InstalledModule im;
+        im.identifier = QStringLiteral("ModA");
+        im.module = makeModule(QStringLiteral("ModA"), QStringLiteral("1.0"));
+        im.files = {QStringLiteral("GameData/ModA/x.dll")};
+        gi.registry()->registerModule(im); // 触发首次加载
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("ModA")));
+
+        // 删除注册表文件（整合包导入清空场景）
+        QVERIFY2(QFile::remove(gi.registryPath()), "remove registry failed");
+
+        // 重新加载：文件不存在时内存态必须重置为空
+        gi.loadRegistry();
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("ModA")));
+    }
+
     void scanMissingGameDataReturnsEmpty()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         GameInstance gi(dir.path(), QStringLiteral("test"));
         QVERIFY(gi.scanUnmanagedDlls().isEmpty());
+    }
+
+    // 回归（防 Zip Slip）：toAbsoluteGameDir 必须拒绝逃逸出游戏目录的路径，返回空
+    void toAbsoluteRejectsEscapingPaths()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        // 合法路径：游戏目录内保持原样
+        QCOMPARE(gi.toAbsoluteGameDir(QStringLiteral("GameData/ModA/a.dll")),
+                 dir.filePath(QStringLiteral("GameData/ModA/a.dll")));
+        // 逃逸路径：返回空（调用方据此拒绝写入）
+        QVERIFY(gi.toAbsoluteGameDir(QStringLiteral("../evil.txt")).isEmpty());
+        QVERIFY(gi.toAbsoluteGameDir(QStringLiteral("GameData/../../evil.txt")).isEmpty());
+        // 以 / 开头的绝对路径会被规范化剥离为游戏目录内相对路径（安全，不会逃逸）
+        QCOMPARE(gi.toAbsoluteGameDir(QStringLiteral("/absolute/path")),
+                 dir.filePath(QStringLiteral("absolute/path")));
+        // 相对化后恰好回到游戏目录：合法（安装路径不会使用，但不应报逃逸）
+        QCOMPARE(gi.toAbsoluteGameDir(QStringLiteral("GameData/..")), dir.path());
     }
 
     void uninstallCascade()
@@ -2259,6 +2314,53 @@ private slots:
         QCOMPARE(counts.value(QStringLiteral("ModA")), 12345);
         QVERIFY(!counts.contains(QStringLiteral("ModB"))); // 负数不计入
     }
+
+    void parseTarGzRejectsTruncated()
+    {
+        // 回归：截断的 gzip（下载中途断开）必须被拒绝，而不是解析出半成品索引
+        const QByteArray gz = makeTarGz({
+            {QStringLiteral("CKAN-meta-master/ModA/ModA-1.0.ckan"),
+             QByteArrayLiteral("{\"identifier\":\"ModA\",\"name\":\"Mod A\",\"version\":\"1.0\"}")},
+        });
+        QVERIFY(gz.size() > 30);
+        const QByteArray chopped = gz.left(gz.size() - 10); // 去掉尾部（含 ISIZE），deflate 流不完整
+        QMap<QString, QVector<CkanModule>> index;
+        QString err;
+        QVERIFY(!RepoIndex::parseTarGz(chopped, &index, nullptr, &err));
+        QVERIFY(!err.isEmpty());
+        QVERIFY(index.isEmpty());
+    }
+
+    void parseTarGzRejectsBadFooter()
+    {
+        // 回归：ISIZE（尾部 4 字节）与实际解压大小不符 → 判定归档损坏
+        const QByteArray gz = makeTarGz({
+            {QStringLiteral("CKAN-meta-master/ModA/ModA-1.0.ckan"),
+             QByteArrayLiteral("{\"identifier\":\"ModA\",\"name\":\"Mod A\",\"version\":\"1.0\"}")},
+        });
+        QByteArray bad = gz;
+        bad[bad.size() - 1] = char(bad[bad.size() - 1] ^ 0xff); // 翻转 ISIZE 末字节
+        QMap<QString, QVector<CkanModule>> index;
+        QString err;
+        QVERIFY(!RepoIndex::parseTarGz(bad, &index, nullptr, &err));
+        QVERIFY(!err.isEmpty());
+    }
+
+    void parseTarGzRejectsDecompressionBomb()
+    {
+        // 回归（安全）：解压炸弹——高度可压缩的大体积数据（300MB 全零，压缩后极小）
+        // 超过 256MB 解压上限时必须被拒绝，防止恶意归档膨胀内存。
+        const QByteArray big = QByteArray(300 * 1024 * 1024, '\0');
+        const QByteArray gz = makeTarGz({
+            {QStringLiteral("CKAN-meta-master/pad/pad-1.0.ckan"), big},
+        });
+        QVERIFY(gz.size() < big.size() / 10); // 压缩后远小于原始体积，验证其"炸弹"特性
+        QMap<QString, QVector<CkanModule>> index;
+        QString err;
+        QVERIFY(!RepoIndex::parseTarGz(gz, &index, nullptr, &err));
+        QVERIFY(!err.isEmpty());
+        QVERIFY(index.isEmpty());
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -2734,6 +2836,32 @@ private slots:
         QVERIFY(!QDir(gameData + QStringLiteral("/OldMod")).exists());
         // Squad 保留
         QVERIFY(QDir(gameData + QStringLiteral("/Squad")).exists());
+    }
+
+    void importRejectsPathTraversal()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 恶意 zip：条目借 .. 试图逃逸出 GameData（Zip Slip）
+        const QByteArray zip = makeZip({
+            {QStringLiteral("GameData/ModA/a.dll"), QByteArray("A")},
+            {QStringLiteral("GameData/../../escape.txt"), QByteArray("EVIL")},
+        });
+        QFile f(dir.filePath(QStringLiteral("evil.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        std::atomic_bool cancel{false};
+        QString error;
+        const bool ok = modpackImportGameData(f.fileName(), dir.path(),
+                                              [](int) {}, &cancel, &error);
+        QVERIFY(!ok);
+        QVERIFY(!error.isEmpty());
+        // 越界文件不得被写出
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("escape.txt"))));
+        // 整体拒绝：合法条目也不得被部分导入
+        QVERIFY(!QFileInfo::exists(dir.path() + QStringLiteral("/GameData/ModA/a.dll")));
     }
 };
 
