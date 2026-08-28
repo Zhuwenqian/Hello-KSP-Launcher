@@ -7,6 +7,8 @@
 struct InstanceKeyInfo {
     QString displayName;
     QString category;
+    // 是否在游戏设置界面隐藏（隐藏的高级设置，值保存时保留不动）
+    bool hidden = false;
 };
 
 // 查询指定设置键（settings.cfg 键名）的显示名与分类；

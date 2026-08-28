@@ -50,6 +50,8 @@ QList<GameSetting> InstanceManager::loadGameSettings(const QString &gamePath) co
             s.key = key;
             s.value = line.mid(eqPos + 1).trimmed();
             const InstanceKeyInfo ki = instanceGetKeyInfo(key);
+            // 隐藏高级设置不再展示（保留的原值在保存时不受影响）
+            if (ki.hidden) continue;
             s.displayName = ki.displayName;
             s.category = ki.category;
             settings.append(s);

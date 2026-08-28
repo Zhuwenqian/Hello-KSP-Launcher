@@ -1191,8 +1191,8 @@
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="140"/>
-        <source>  管理Kerbals</source>
-        <translation>  管理Kerbals</translation>
+        <source>  管理小绿人</source>
+        <translation>  管理小绿人</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="146"/>
@@ -1217,8 +1217,8 @@
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="203"/>
-        <source>双击Kerbal可编辑其属性</source>
-        <translation>双击Kerbal可编辑其属性</translation>
+        <source>双击小绿人可编辑其属性</source>
+        <translation>双击小绿人可编辑其属性</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="223"/>
@@ -1357,8 +1357,8 @@
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="377"/>
-        <source>（未检测到Kerbal）</source>
-        <translation>（未检测到Kerbal）</translation>
+        <source>（未检测到小绿人）</source>
+        <translation>（未检测到小绿人）</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="422"/>
@@ -1434,8 +1434,8 @@
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="556"/>
-        <source>Kerbal数据已保存！</source>
-        <translation>Kerbal数据已保存！</translation>
+        <source>小绿人数据已保存！</source>
+        <translation>小绿人数据已保存！</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="568"/>
@@ -1444,8 +1444,8 @@
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="568"/>
-        <source>无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。</source>
-        <translation>无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。</translation>
+        <source>无法保存小绿人数据，请检查文件权限或文件格式是否损坏。</source>
+        <translation>无法保存小绿人数据，请检查文件权限或文件格式是否损坏。</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="575"/>

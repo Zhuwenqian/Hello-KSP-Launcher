@@ -178,6 +178,23 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
+    # 将 appicon.ico 嵌入 exe，作为资源管理器/任务栏固定的 exe 图标。
+    # 注意：源码目录 "Hello KSP Launcher" 含空格，CMake 会把含空格的 include 目录
+    # 直接传给 windres，导致其内部预处理器(gcc)按空格拆解参数而失败。
+    # 因此这里用独立自定义命令编译 app.rc（内容仅一条 ICON，无需任何 include），
+    # 不传入 -I 标志，产出 .o 再链接进 exe，从而规避该问题。
+    set(APPICON_ABS "${CMAKE_SOURCE_DIR}/resources/appicon.ico")
+    configure_file(resources/app.rc.in ${CMAKE_CURRENT_BINARY_DIR}/app.rc @ONLY)
+    set(APPICON_OBJ ${CMAKE_CURRENT_BINARY_DIR}/appicon.res.o)
+    add_custom_command(
+        OUTPUT ${APPICON_OBJ}
+        COMMAND ${CMAKE_RC_COMPILER} -O coff ${CMAKE_CURRENT_BINARY_DIR}/app.rc ${APPICON_OBJ}
+        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/app.rc
+        VERBATIM
+    )
+    add_custom_target(app_icon ALL DEPENDS ${APPICON_OBJ})
+    add_dependencies(${PROJECT_NAME} app_icon)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${APPICON_OBJ})
 endif()
 
 # ---------------------------------------------------------------------------

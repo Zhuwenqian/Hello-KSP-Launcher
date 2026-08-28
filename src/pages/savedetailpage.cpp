@@ -137,7 +137,7 @@ void SaveDetailPage::setupUI()
     m_saveInfoBtn->setMinimumHeight(40);
     connect(m_saveInfoBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
-    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  管理Kerbals"), m_sidebar);
+    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  管理小绿人"), m_sidebar);
     m_kerbalsBtn->setObjectName("detailNavButton");
     m_kerbalsBtn->setCheckable(true);
     m_kerbalsBtn->setMinimumHeight(40);
@@ -200,7 +200,7 @@ void SaveDetailPage::setupKerbalsTab()
     QVBoxLayout* listLayout = new QVBoxLayout(listPage);
     listLayout->setContentsMargins(15, 10, 15, 15);
 
-    QLabel* listNote = new QLabel(tr("双击Kerbal可编辑其属性"), listPage);
+    QLabel* listNote = new QLabel(tr("双击小绿人可编辑其属性"), listPage);
     listNote->setStyleSheet("color: #888; font-size: 9pt;");
     listLayout->addWidget(listNote);
 
@@ -374,7 +374,7 @@ void SaveDetailPage::loadSaveData()
     }
 
     if (m_kerbals.isEmpty()) {
-        m_kerbalList->addItem(tr("（未检测到Kerbal）"));
+        m_kerbalList->addItem(tr("（未检测到小绿人）"));
     }
 
     m_kerbalsStack->setCurrentIndex(0);
@@ -553,7 +553,7 @@ void SaveDetailPage::onSaveKerbalsClicked()
             k.originalName = k.name;
         }
         m_currentKerbalName = newName;
-        QMessageBox::information(this, tr("保存成功"), tr("Kerbal数据已保存！"));
+        QMessageBox::information(this, tr("保存成功"), tr("小绿人数据已保存！"));
         // 刷新列表显示
         loadSaveData();
         m_kerbalsStack->setCurrentIndex(1);
@@ -565,7 +565,7 @@ void SaveDetailPage::onSaveKerbalsClicked()
             }
         }
     } else {
-        QMessageBox::warning(this, tr("保存失败"), tr("无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。"));
+        QMessageBox::warning(this, tr("保存失败"), tr("无法保存小绿人数据，请检查文件权限或文件格式是否损坏。"));
     }
 }
 

@@ -1249,7 +1249,7 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="140"/>
-        <source>  管理Kerbals</source>
+        <source>  管理小绿人</source>
         <translation>  Manage Kerbals</translation>
     </message>
     <message>
@@ -1275,7 +1275,7 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="203"/>
-        <source>双击Kerbal可编辑其属性</source>
+        <source>双击小绿人可编辑其属性</source>
         <translation>Double-click a Kerbal to edit its attributes</translation>
     </message>
     <message>
@@ -1415,7 +1415,7 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="377"/>
-        <source>（未检测到Kerbal）</source>
+        <source>（未检测到小绿人）</source>
         <translation>(No Kerbals detected)</translation>
     </message>
     <message>
@@ -1492,7 +1492,7 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="556"/>
-        <source>Kerbal数据已保存！</source>
+        <source>小绿人数据已保存！</source>
         <translation>Kerbal data has been saved!</translation>
     </message>
     <message>
@@ -1502,7 +1502,7 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/pages/savedetailpage.cpp" line="568"/>
-        <source>无法保存Kerbal数据，请检查文件权限或文件格式是否损坏。</source>
+        <source>无法保存小绿人数据，请检查文件权限或文件格式是否损坏。</source>
         <translation>Unable to save Kerbal data. Please check file permissions or if the file format is corrupted.</translation>
     </message>
     <message>

@@ -3,6 +3,7 @@
         <file>themes/dark.qss</file>
         <file>themes/light.qss</file>
         <file>backgrounds/default.png</file>
+        <file>appicon.ico</file>
         <file>icons/add.svg</file>
         <file>icons/arrow-left.svg</file>
         <file>icons/back.svg</file>
