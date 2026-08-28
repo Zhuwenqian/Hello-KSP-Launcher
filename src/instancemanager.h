@@ -56,6 +56,7 @@ struct BackupInfo {
     QString saveName;    // 存档名称
     QDateTime timestamp; // 备份时间
     qint64 fileSize;     // 文件大小（字节）
+    QString note;        // 备注（如"恢复前备份"，空为普通备份）
 };
 
 class InstanceManager : public QObject
@@ -81,17 +82,27 @@ public:
     QString getPersistentSfsPath(const QString& saveFolderPath) const;
 
     // 备份管理
+    // 备份目录结构：backups/{实例名}/{存档名}/*.zip
     QString getBackupsRootDir() const;
-    QString getBackupDirForSave(const QString& saveName) const;
-    QList<BackupInfo> listBackups(const QString& saveName) const;
-    bool createBackup(const QString& saveFolderPath, const QString& saveName,
+    QString getBackupDirForSave(const QString& instanceName, const QString& saveName) const;
+    QList<BackupInfo> listBackups(const QString& instanceName, const QString& saveName) const;
+    bool createBackup(const QString& saveFolderPath, const QString& instanceName,
+                      const QString& saveName, const QString& note = QString(),
                       std::function<void(int progress)> progressCallback = nullptr) const;
     bool deleteBackup(const QString& backupFilePath) const;
     bool revealBackupInExplorer(const QString& backupFilePath) const;
+    // 从备份恢复：恢复前自动备份当前状态，然后清空存档目录并解压备份。删除内容前请先由界面提示用户。
+    bool restoreBackup(const QString& backupFilePath, const QString& saveFolderPath,
+                       const QString& instanceName, const QString& saveName,
+                       std::function<void(int progress)> progressCallback = nullptr) const;
 
     // 整合包导出
     bool exportModpack(const QString& gamePath, const QString& zipFilePath,
                        std::function<void(int progress)> progressCallback = nullptr) const;
+
+private:
+    // 将旧单层结构 backups/{存档名}/ 中的备份迁移到 backups/{实例名}/{存档名}/
+    void migrateLegacyBackups(const QString& instanceName, const QString& saveName) const;
 
 signals:
     void gameStarted();

@@ -16,7 +16,7 @@ class SaveDetailPage : public QWidget
 public:
     explicit SaveDetailPage(QWidget *parent = nullptr);
 
-    void setSavePath(const QString& saveFolderPath);
+    void setSavePath(const QString& saveFolderPath, const QString& instanceName);
     void loadSaveData();
     void refreshIcons(const QString& color);
 
@@ -35,6 +35,7 @@ private slots:
     void onRefreshBackupsClicked();
     void onDeleteBackupClicked(const QString& filePath);
     void onRevealBackupClicked(const QString& filePath);
+    void onRestoreBackupClicked(const QString& filePath);
 
 private:
     void setupUI();
@@ -47,6 +48,7 @@ private:
 
     QString m_saveFolderPath;
     QString m_saveName;
+    QString m_instanceName;
     SaveInfo m_saveInfo;
     QList<KerbalInfo> m_kerbals;
 

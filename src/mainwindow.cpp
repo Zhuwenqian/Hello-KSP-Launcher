@@ -14,6 +14,7 @@
 #include "backgroundmanager.h"
 #include "steamdiscovery.h"
 #include "ckan/ckan.h"
+#include "ckan/gameinstance.h"
 #include <QSet>
 #include <QFileInfo>
 
@@ -389,9 +390,24 @@ void MainWindow::onAddInstanceRequested()
 
     QFileInfo fi(exePath);
     KSPInstance inst;
-    inst.name = fi.baseName();
-    inst.path = rootPath;
     inst.exePath = exePath;
+    inst.path = rootPath;
+
+    // GameData 缺少必需的 Squad 目录 → 判定安装损坏，中止添加
+    bool corrupted = false;
+    ckan::GameInstance::detectInstallKindTags(rootPath, &corrupted);
+    if (corrupted) {
+        QMessageBox::warning(this, tr("错误"),
+            tr("所选 GameData 目录缺少运行必需的 Squad 文件夹，游戏安装可能已损坏，无法添加实例。"));
+        return;
+    }
+
+    // 使用建议名称：KSP + 版本号 + 安装类型标签（如 "KSP 1.12.5 RSS RO"），重名自动追加序号
+    QSet<QString> usedNames;
+    for (const KSPInstance &existing : ConfigManager::instance().instances())
+        usedNames.insert(existing.name);
+    inst.name = makeUniqueInstanceName(ckan::GameInstance::suggestedInstanceName(rootPath), usedNames);
+
     ConfigManager::instance().addInstance(inst);
 
     onCurrentInstanceChanged();
@@ -405,9 +421,13 @@ void MainWindow::runSteamDiscovery()
 
     // 已存在实例按规范化路径去重，避免重复加入
     QSet<QString> existingPaths;
+    // 已存在实例名集合，用于建议名称去重
+    QSet<QString> usedNames;
     const QList<KSPInstance> instances = ConfigManager::instance().instances();
-    for (const KSPInstance &inst : instances)
+    for (const KSPInstance &inst : instances) {
         existingPaths.insert(QDir::cleanPath(inst.path));
+        usedNames.insert(inst.name);
+    }
 
     int added = 0;
     for (const QString &dir : kspDirs) {
@@ -421,11 +441,8 @@ void MainWindow::runSteamDiscovery()
         const QString exe32 = QDir(cleanDir).filePath(QStringLiteral("KSP.exe"));
         inst.exePath = QFile::exists(exe64) ? exe64 : exe32;
 
-        // 名称 = 目录名 + 检测到的版本号（如 "Kerbal Space Program (1.12.5)"）
-        inst.name = QFileInfo(cleanDir).fileName();
-        const ckan::GameVersion version = ckan::CKan::detectVersionFromDir(cleanDir);
-        if (version.isValid())
-            inst.name += QStringLiteral(" (%1)").arg(version.toString());
+        // 名称 = KSP + 检测到的版本号 + 安装类型标签（如 "KSP 1.12.5 Clean Stock"），重名自动追加序号
+        inst.name = makeUniqueInstanceName(ckan::GameInstance::suggestedInstanceName(cleanDir), usedNames);
 
         // 仅加入实例列表，不切换当前实例（实例列表页经 instancesChanged 自动刷新）
         ConfigManager::instance().addInstance(inst);
@@ -438,6 +455,21 @@ void MainWindow::runSteamDiscovery()
         onCurrentInstanceChanged();
     }
 #endif
+}
+
+QString MainWindow::makeUniqueInstanceName(const QString &base, QSet<QString> &usedNames) const
+{
+    if (!usedNames.contains(base)) {
+        usedNames.insert(base);
+        return base;
+    }
+    int n = 2;
+    QString candidate;
+    do {
+        candidate = QStringLiteral("%1 (%2)").arg(base).arg(n++);
+    } while (usedNames.contains(candidate));
+    usedNames.insert(candidate);
+    return candidate;
 }
 
 void MainWindow::onInstanceEntered(const QString &id)
@@ -616,9 +648,9 @@ void MainWindow::onBackFromSavesList()
     m_launchBar->hide();
 }
 
-void MainWindow::onSaveSelected(const QString &savePath)
+void MainWindow::onSaveSelected(const QString &savePath, const QString &instanceName)
 {
-    m_saveDetailPage->setSavePath(savePath);
+    m_saveDetailPage->setSavePath(savePath, instanceName);
     showPage(m_saveDetailPage);
     m_launchBar->hide();
     setNavButtonChecked(nullptr);

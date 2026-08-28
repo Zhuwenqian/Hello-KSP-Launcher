@@ -112,7 +112,7 @@ void SavesListPage::onSaveItemDoubleClicked(QListWidgetItem *item)
 {
     QString savePath = item->data(Qt::UserRole).toString();
     if (!savePath.isEmpty()) {
-        emit saveSelected(savePath);
+        emit saveSelected(savePath, m_instance.name);
     }
 }
 

@@ -19,7 +19,7 @@ public:
 
 signals:
     void backClicked();
-    void saveSelected(const QString& saveFolderPath);
+    void saveSelected(const QString& saveFolderPath, const QString& instanceName);
 
 private slots:
     void onBackClicked();

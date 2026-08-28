@@ -1816,6 +1816,112 @@ private slots:
         GameInstance gi(dir.path(), QStringLiteral("test"));
         QVERIFY(!gi.detectVersion().isValid());
     }
+
+    void installKindTagsCleanStockOnlySquad()
+    {
+        // 仅含 Squad → Clean Stock
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad/Part"))));
+        bool corrupted = false;
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path(), &corrupted),
+                 QStringList({QStringLiteral("Clean Stock")}));
+        QVERIFY(!corrupted);
+    }
+
+    void installKindTagsCleanStockWithSquadExpansion()
+    {
+        // 只有 Squad 和 SquadExpansion → Clean Stock
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/SquadExpansion/EasterEggs"))));
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path()),
+                 QStringList({QStringLiteral("Clean Stock")}));
+    }
+
+    void installKindTagsROAndRSSAndRP1Order()
+    {
+        // RealSolarSystem + RealismOverhaul + RP-1 → RSS 在前，RP-1 在 RO 之后
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RealismOverhaul"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RealSolarSystem"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RP-1"))));
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path()),
+                 QStringList({QStringLiteral("RSS"), QStringLiteral("RO"), QStringLiteral("RP-1")}));
+    }
+
+    void installKindTagsSolPositionBeforeRO()
+    {
+        // Sol-Configs 位置与 RSS 相同，在 RO 之前
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Sol-Configs"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RealismOverhaul"))));
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path()),
+                 QStringList({QStringLiteral("Sol"), QStringLiteral("RO")}));
+    }
+
+    void installKindTagsCaseInsensitive()
+    {
+        // 目录匹配不区分大小写
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/realismoverhaul"))));
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path()),
+                 QStringList({QStringLiteral("RO")}));
+    }
+
+    void installKindTagsCorruptedMissingSquad()
+    {
+        // GameData 存在但缺少必需的 Squad → 判定损坏，无标签
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/CustomMod"))));
+        bool corrupted = false;
+        QVERIFY(GameInstance::detectInstallKindTags(dir.path(), &corrupted).isEmpty());
+        QVERIFY(corrupted);
+    }
+
+    void installKindTagsUnknownModsNoTag()
+    {
+        // 含官方目录 + 其它第三方模组（非已知类型）→ 无标签
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/SomeRandomMod"))));
+        QCOMPARE(GameInstance::detectInstallKindTags(dir.path()), QStringList());
+    }
+
+    void suggestedNameWithVersionAndTags()
+    {
+        // KSP + 版本（经 buildID）+ 标签
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile f(dir.filePath(QStringLiteral("buildID64.txt")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("build id = 03190\n");   // 1.12.5.3190
+        f.close();
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RealismOverhaul"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/RealSolarSystem"))));
+        QCOMPARE(GameInstance::suggestedInstanceName(dir.path()),
+                 QStringLiteral("KSP 1.12.5.3190 RSS RO"));
+    }
+
+    void suggestedNameCleanStockNoVersion()
+    {
+        // 无 buildID/readme → 省略版本号；仅 Squad → Clean Stock
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData/Squad"))));
+        QCOMPARE(GameInstance::suggestedInstanceName(dir.path()),
+                 QStringLiteral("KSP Clean Stock"));
+    }
 };
 
 // ---------------------------------------------------------------------------

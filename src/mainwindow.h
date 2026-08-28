@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QProcess>
+#include <QSet>
 #include "configmanager.h"
 #include "pages/homepage.h"
 #include "pages/instancelistpage.h"
@@ -43,7 +44,7 @@ private slots:
     void switchInstanceFromMenu(QAction* action);
     void onSavesManageRequested();
     void onBackFromSavesList();
-    void onSaveSelected(const QString& savePath);
+    void onSaveSelected(const QString& savePath, const QString& instanceName);
     void onBackFromSaveDetail();
     void onHomeFromSaveDetail();
     void onBackgroundChanged();
@@ -58,6 +59,9 @@ private:
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();
     void applyTransparency();
+
+    // 对建议实例名去重：存在同名则追加 " (n)" 序号
+    QString makeUniqueInstanceName(const QString &base, QSet<QString> &usedNames) const;
 
     QWidget* m_centralWidget;
     QWidget* m_sidebar;
