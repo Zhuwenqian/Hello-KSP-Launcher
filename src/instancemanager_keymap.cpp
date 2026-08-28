@@ -70,7 +70,7 @@ QMap<QString, KeyInfo> createKeyInfoMap() {
     m["SOUND_NORMALIZER_SKIPSAMPLES"] = {"标准化跳过采样数", "Normalizer Skip Samples", "音频"};
 
     // ===== 游戏玩法 (Gameplay) =====
-    m["LANGUAGE"] = {"游戏语言", "Game Language", "游戏玩法"};
+    m["LANGUAGE"] = {"游戏语言", "Game Language", "游戏玩法", true};
     m["KERBIN_TIME"] = {"使用Kerbin时间", "Use Kerbin Time", "游戏玩法"};
     m["MAX_VESSELS_BUDGET"] = {"最大飞船数量", "Max Vessels", "游戏玩法"};
     m["SIMULATE_IN_BACKGROUND"] = {"后台模拟", "Simulate in Background", "游戏玩法"};
@@ -137,7 +137,7 @@ QMap<QString, KeyInfo> createKeyInfoMap() {
     m["CONTROLPOINT_COLOR_FORWARD"] = {"控制点前方颜色", "Control Point Forward Color", "编辑器", true};
     m["CONTROLPOINT_COLOR_UP"] = {"控制点上方颜色", "Control Point Up Color", "编辑器", true};
     m["CONTROLPOINT_COLOR_RIGHT"] = {"控制点右方颜色", "Control Point Right Color", "编辑器", true};
-    m["STAGE_GROUP_INFO_ITEMS"] = {"分级信息项", "Staging Info Items", "编辑器"};
+    m["STAGE_GROUP_INFO_ITEMS"] = {"分级信息项", "Staging Info Items", "编辑器", true};
     m["STAGE_GROUP_INFO_WIDTH_EDITOR"] = {"编辑器分级信息宽度", "Staging Info Width (Editor)", "编辑器"};
     m["STAGE_GROUP_INFO_WIDTH_FLIGHT"] = {"飞行分级信息宽度", "Staging Info Width (Flight)", "编辑器"};
     m["STAGE_GROUP_INFO_NAME_PERCENTAGE"] = {"分级名称占比", "Staging Name Percentage", "编辑器"};

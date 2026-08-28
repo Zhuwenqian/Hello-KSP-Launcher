@@ -46,6 +46,14 @@ void InstanceDetailPage::setupGameSettingsTab()
     m_settingsTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked);
     m_settingsTree->setItemDelegate(new SettingsItemDelegate(m_settingsTree));
 
+    // 设置搜索框：按设置项显示名实时过滤
+    m_settingsSearchEdit = new QLineEdit(tab);
+    m_settingsSearchEdit->setPlaceholderText(tr("搜索设置项..."));
+    m_settingsSearchEdit->setClearButtonEnabled(true);
+    m_settingsSearchEdit->setMinimumHeight(30);
+    connect(m_settingsSearchEdit, &QLineEdit::textChanged,
+            this, &InstanceDetailPage::onSettingsSearchChanged);
+
     QWidget* btnBar = new QWidget(tab);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
@@ -57,6 +65,7 @@ void InstanceDetailPage::setupGameSettingsTab()
     btnLayout->addStretch();
     btnLayout->addWidget(saveBtn);
 
+    layout->addWidget(m_settingsSearchEdit);
     layout->addWidget(m_settingsTree, 1);
     layout->addWidget(btnBar);
     m_contentStack->addWidget(tab);
@@ -275,6 +284,32 @@ void InstanceDetailPage::loadGameSettings()
                 item->setText(1, s.value);
             }
         }
+    }
+
+    // 重新加载后按当前搜索词重新过滤。
+    if (m_settingsSearchEdit) {
+        onSettingsSearchChanged(m_settingsSearchEdit->text());
+    }
+}
+
+void InstanceDetailPage::onSettingsSearchChanged(const QString &text)
+{
+    if (!m_settingsTree) return;
+    const QString query = text.trimmed();
+    for (int i = 0; i < m_settingsTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* categoryItem = m_settingsTree->topLevelItem(i);
+        int visible = 0;
+        for (int j = 0; j < categoryItem->childCount(); ++j) {
+            QTreeWidgetItem* item = categoryItem->child(j);
+            // 按设置项显示名（当前界面语言下的名字）匹配
+            bool match = query.isEmpty()
+                || item->text(0).contains(query, Qt::CaseInsensitive);
+            item->setHidden(!match);
+            if (match) ++visible;
+        }
+        // 分类节点：没有任何匹配子项时隐藏
+        categoryItem->setHidden(visible == 0);
+        if (visible > 0) categoryItem->setExpanded(true);
     }
 }
 

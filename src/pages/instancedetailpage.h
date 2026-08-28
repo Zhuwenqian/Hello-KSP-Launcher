@@ -48,6 +48,8 @@ private slots:
     void onImportModpackClicked();
     void onBrowseClicked();
     void onBrowseActionTriggered();
+    // 设置搜索：按设置项显示名过滤设置树
+    void onSettingsSearchChanged(const QString &text);
     // mod 管理
     void onModSearchChanged(const QString &text);
     void onModFilterChanged(int index);
@@ -145,6 +147,7 @@ private:
 
     // Game Settings tab
     QTreeWidget* m_settingsTree;
+    QLineEdit* m_settingsSearchEdit;
 
     // DLC tab
     QListWidget* m_dlcList;
