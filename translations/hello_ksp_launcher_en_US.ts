@@ -205,14 +205,6 @@ Please choose how to proceed:</translation>
     </message>
 </context>
 <context>
-    <name>HomePage</name>
-    <message>
-        <location filename="../src/pages/homepage.cpp" line="20"/>
-        <source>选择实例并点击启动游戏开始</source>
-        <translation>Select an instance and click Launch Game to start</translation>
-    </message>
-</context>
-<context>
     <name>InstanceDetailPage</name>
     <message>
         <location filename="../src/pages/instancedetailpage.cpp" line="67"/>
