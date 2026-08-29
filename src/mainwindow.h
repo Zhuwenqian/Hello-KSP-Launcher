@@ -45,6 +45,9 @@ private slots:
     void onSavesManageRequested();
     void onBackFromSavesList();
     void onSaveSelected(const QString& savePath, const QString& instanceName);
+    void onSavesNavToDetail(int detailIndex);
+    void onSavesModpackAction(int actionKind);
+    bool toInstanceDetailPage();
     void onBackFromSaveDetail();
     void onHomeFromSaveDetail();
     void onBackgroundChanged();

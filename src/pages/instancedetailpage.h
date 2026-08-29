@@ -33,6 +33,12 @@ public:
     void setInstanceId(const QString& id);
     void loadCurrentInstance();
     void refreshIcons(const QString& color);
+    // 外部切换详情页的二级 tab：0=游戏设置 1=DLC 2=模组管理 3=高级（供存档等实例子页跳回）
+    void showSection(int detailIndex);
+    // 供存档等实例子页触发原属于详情页侧栏的动作
+    void triggerExportModpack();
+    void triggerImportModpack();
+    void triggerBrowse();
 
 signals:
     void backClicked();

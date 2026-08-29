@@ -131,6 +131,11 @@ void MainWindow::setupUI()
             this, &MainWindow::onBackFromSavesList);
     connect(m_savesListPage, &SavesListPage::saveSelected,
             this, &MainWindow::onSaveSelected);
+    // 存档管理页的实例二级菜单→跳回详情页对应 tab
+    connect(m_savesListPage, &SavesListPage::navToDetail,
+            this, &MainWindow::onSavesNavToDetail);
+    connect(m_savesListPage, &SavesListPage::modpackActionRequested,
+            this, &MainWindow::onSavesModpackAction);
     connect(m_saveDetailPage, &SaveDetailPage::backClicked,
             this, &MainWindow::onBackFromSaveDetail);
     connect(m_saveDetailPage, &SaveDetailPage::homeClicked,
@@ -153,12 +158,6 @@ void MainWindow::setupSidebar()
     QVBoxLayout* sidebarLayout = new QVBoxLayout(m_sidebar);
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
-
-    
-
-    QLabel* gameSection = new QLabel(tr("游戏"), m_sidebar);
-    gameSection->setObjectName("sidebarSectionLabel");
-    sidebarLayout->addWidget(gameSection);
 
     m_homeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), tr("  首页"), m_sidebar);
     m_homeBtn->setObjectName("navButton");
@@ -499,6 +498,14 @@ void MainWindow::onBackToHome()
 void MainWindow::showPage(QWidget *page)
 {
     m_contentStack->setCurrentWidget(page);
+    // 实例管理详情页 / 存档管理 / 存档详情页均自带二级菜单，隐藏全局主侧边栏
+    // 统一让实例二级菜单占位，返回顶层页（首页/实例列表/设置）时再显示。
+    const bool instanceSubPage =
+        (page == m_instanceDetailPage) ||
+        (page == m_savesListPage) ||
+        (page == m_saveDetailPage);
+    if (m_sidebar)
+        m_sidebar->setVisible(!instanceSubPage);
 }
 
 void MainWindow::onLaunchClicked()
@@ -634,6 +641,39 @@ void MainWindow::onSavesManageRequested()
     m_launchBar->hide();
     // 取消侧边栏按钮高亮
     setNavButtonChecked(nullptr);
+}
+
+void MainWindow::onSavesNavToDetail(int detailIndex)
+{
+    if (!toInstanceDetailPage())
+        return;
+    m_instanceDetailPage->showSection(detailIndex);
+}
+
+void MainWindow::onSavesModpackAction(int actionKind)
+{
+    if (!toInstanceDetailPage())
+        return;
+    m_instanceDetailPage->showSection(2); // 动作发生在地模组管理 tab
+    if (actionKind == 0)
+        m_instanceDetailPage->triggerExportModpack();
+    else if (actionKind == 1)
+        m_instanceDetailPage->triggerImportModpack();
+    else if (actionKind == 2)
+        m_instanceDetailPage->triggerBrowse();
+}
+
+// 切到实例管理详情页并隐藏启动条（当前实例为空时返回 false）
+bool MainWindow::toInstanceDetailPage()
+{
+    KSPInstance cur = ConfigManager::instance().currentInstance();
+    if (cur.id.isEmpty())
+        return false;
+    m_instanceDetailPage->loadCurrentInstance();
+    setNavButtonChecked(m_instanceManageBtn);
+    showPage(m_instanceDetailPage);
+    m_launchBar->hide();
+    return true;
 }
 
 void MainWindow::onBackFromSavesList()

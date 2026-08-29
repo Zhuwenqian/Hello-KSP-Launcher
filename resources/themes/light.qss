@@ -559,3 +559,43 @@ QFrame#pagePanel {
     border: 1px solid rgba(224, 224, 224, 180);
     border-radius: 10px;
 }
+
+/* 实例管理详情页顶部返回+标题：半透明底，便于在背景图上清晰显示 */
+QWidget#instanceDetailPage QPushButton#backButton {
+    background-color: rgba(243, 243, 243, 200);
+    border: none;
+    border-radius: 6px;
+    color: #1e1e1e;
+    padding: 8px 12px;
+}
+QWidget#instanceDetailPage QPushButton#backButton:hover {
+    background-color: rgba(232, 232, 232, 220);
+}
+QWidget#instanceDetailPage QLabel#pageTitle {
+    background-color: rgba(243, 243, 243, 200);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #1e1e1e;
+    font-size: 13pt;
+    font-weight: bold;
+}
+
+/* 存档管理页顶部返回+标题：半透明底，与详情页一致 */
+QWidget#savesListPage QPushButton#backButton {
+    background-color: rgba(243, 243, 243, 200);
+    border: none;
+    border-radius: 6px;
+    color: #1e1e1e;
+    padding: 8px 12px;
+}
+QWidget#savesListPage QPushButton#backButton:hover {
+    background-color: rgba(232, 232, 232, 220);
+}
+QWidget#savesListPage QLabel#pageTitle {
+    background-color: rgba(243, 243, 243, 200);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #1e1e1e;
+    font-size: 13pt;
+    font-weight: bold;
+}

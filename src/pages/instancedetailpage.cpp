@@ -8,6 +8,7 @@
 InstanceDetailPage::InstanceDetailPage(QWidget *parent)
     : QWidget(parent)
 {
+    setObjectName("instanceDetailPage");
     setupUI();
 }
 
@@ -142,23 +143,36 @@ void InstanceDetailPage::onNavButtonClicked()
     QPushButton* btn = qobject_cast<QPushButton*>(sender());
     if (!btn) return;
 
-    m_gameSettingsBtn->setChecked(btn == m_gameSettingsBtn);
-    m_dlcBtn->setChecked(btn == m_dlcBtn);
-    m_modsBtn->setChecked(btn == m_modsBtn);
-    m_savesBtn->setChecked(btn == m_savesBtn);
-    m_advancedBtn->setChecked(btn == m_advancedBtn);
+    if (btn == m_savesBtn) {
+        m_modsTabActive = false;
+        emit savesManageRequested();
+        // 回到游戏设置tab，避免下次进来还是选中存档管理
+        showSection(0);
+        return;
+    }
+
+    int idx = -1;
+    if (btn == m_gameSettingsBtn) idx = 0;
+    else if (btn == m_dlcBtn) idx = 1;
+    else if (btn == m_modsBtn) idx = 2;
+    else if (btn == m_advancedBtn) idx = 3;
+    if (idx >= 0)
+        showSection(idx);
+}
+
+void InstanceDetailPage::showSection(int detailIndex)
+{
+    m_gameSettingsBtn->setChecked(detailIndex == 0);
+    m_dlcBtn->setChecked(detailIndex == 1);
+    m_modsBtn->setChecked(detailIndex == 2);
+    m_advancedBtn->setChecked(detailIndex == 3);
     m_browseBtn->setChecked(false);
     m_importModpackBtn->setChecked(false);
 
-    if (btn == m_gameSettingsBtn) {
-        m_modsTabActive = false;
-        m_contentStack->setCurrentIndex(0);
-    } else if (btn == m_dlcBtn) {
-        m_modsTabActive = false;
-        m_contentStack->setCurrentIndex(1);
-    } else if (btn == m_modsBtn) {
-        m_modsTabActive = true;
-        m_contentStack->setCurrentIndex(2);
+    m_modsTabActive = (detailIndex == 2);
+    m_contentStack->setCurrentIndex(detailIndex);
+
+    if (detailIndex == 2) {
         // 数据未就绪时给出"加载中"提示（后台扫描/索引加载完成会自动填充）
         if (!m_modsReady) {
             CKanManager &mgr = CKanManager::instance();
@@ -170,18 +184,27 @@ void InstanceDetailPage::onNavButtonClicked()
             // 确保刷新按钮状态与选中态一致
             updateModActionButtons();
         }
-    } else if (btn == m_savesBtn) {
-        m_modsTabActive = false;
-        emit savesManageRequested();
-        // 回到游戏设置tab，避免下次进来还是选中存档管理
-        m_gameSettingsBtn->setChecked(true);
-        m_savesBtn->setChecked(false);
-        m_contentStack->setCurrentIndex(0);
-    } else if (btn == m_advancedBtn) {
-        m_modsTabActive = false;
+    } else if (detailIndex == 3) {
         loadLaunchArgs();
-        m_contentStack->setCurrentIndex(3);
     }
+}
+
+void InstanceDetailPage::triggerExportModpack()
+{
+    if (m_instance.path.isEmpty()) return;
+    onExportModpackClicked();
+}
+
+void InstanceDetailPage::triggerImportModpack()
+{
+    if (m_instance.path.isEmpty()) return;
+    onImportModpackClicked();
+}
+
+void InstanceDetailPage::triggerBrowse()
+{
+    if (m_instance.path.isEmpty()) return;
+    onBrowseClicked();
 }
 
 void InstanceDetailPage::refreshData()
