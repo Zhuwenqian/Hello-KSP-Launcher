@@ -1,75 +1,42 @@
 # Release Notes
 
-## v1.1.0 — Major Enhancement (2026-08-28)
+## v1.1.1 — About Page, Resizable Mod Table, & Stop Game (2026-08-29)
 
-A large set of improvements since v1.0.0 covering mod management, dependency resolution, security hardening, performance, and maintainability.
+A focused feature release adding the About page, draggable/persisted mod-table column widths, the ability to terminate the running game, and a version-bump automation script.
+
+### About Page
+
+- **Sidebar "About" entry** (`mainwindow.cpp`) — a new "About" button (info.svg) sits below the Settings entry and opens `AboutPage`, which scrolls and reuses the settings page's semi-transparent backplane (`settingsContent`).
+- **About section** — app icon + launcher name + version read from the single source `HKSPL_APP_VERSION` (`src/appversion.h`, currently v1.1.1); author avatar (author.png, circular-cropped) + name + bilibili link.
+- **Acknowledgements** — KSP-CKAN team (C# reference code and repo index), Hello Minecraft Launcher project (UI design reference), and CKAN download mirrors gh-proxy.com / ghfast.top.
+- **Dependencies** — Qt 6 Community (LGPL v3), miniz (Copyright richgel999 · MIT), libckan (Copyright Zhu Wenqian · GPL v3).
+- **Legal & Notices** — copyright © 2026 Zhu Wenqian; license GPL v3 with a repo LICENSE link.
+- **Interactions & i18n** — link rows are clickable cards (hover tint/underline via the `aboutLink`-style object `aboutCard`), opening the system browser through `QDesktopServices`; all strings translated into zh_CN / en_US and recompiled with lrelease.
 
 ### Mod Management
 
-- **Four-Tab Mod Details** — Selecting a mod shows four tabs on the right:
-  - **Metadata**: name/version/identifier/description/author/license/KSP version/release date/download and install size.
-  - **Contents**: tree of files inside the cached zip (scanned with miniz); a "Download archive" button appears when the mod is not cached, refreshing the listing automatically once downloaded.
-  - **Relationships**: lazy-loaded multi-level dependency/conflict tree (depends/recommends/suggests/conflicts), with a "Show reverse relationships" toggle that scans the full index.
-  - **Versions**: all historical versions listed in descending version order, with one-click install/downgrade (downgrades require confirmation).
-- **Batch Operations** — checkboxes in the first column of the mod table, with "Select all / Clear" and "Batch install / upgrade / uninstall" buttons; concurrent progress bar with cancel/timeout.
-- **Atomic Install/Uninstall/Upgrade** — transaction rollback via `TxFileManager`; any failure (including cancel) rolls back fully, preventing leftover files and corrupted registry state.
-- **Import Single Mod** — "Import mod" supports `.zip` or `.ckan`; falls back to matching a repository download hash by file SHA256 when no metadata is embedded.
-- **Install History** — every install/uninstall/upgrade writes a timestamped snapshot to `instance/CKAN/history/` (official history metapackage format), keeping the latest 200 entries; viewable via a dialog.
-- **Enhanced Search** — field-level syntax `@author @desc @license @depend(s) @provides` plus plain keyword matching.
-- **Repository Tag Display/Filter** — new "Tags" column and an "All tags" dropdown filter; supports `@tag/@tags:value` search.
+- **Draggable column widths** (`instancedetailpage_mods.cpp`) — every column is `Interactive` except the leading checkbox column (fixed 40); drag the header edges (Excel style); the last "Tags" column keeps `stretch-last` to fill remaining space.
+- **Persisted globally** (`configmanager.cpp`) — widths are stored once per-app in `HKSPL.json` under `modTableColumnWidths` (array indexed by column), written after a 250 ms debounce; the stretched last column is not persisted. Missing entries fall back to built-in defaults `{40,220,180,90,80,90,70,140}`.
+- **Double-click to reset** — double-clicking any header restores that column's built-in default width.
 
-### Dependency Resolution (aligned with official CKAN semantics)
+### Game Lifecycle
 
-- **Version Compatibility** — unversioned builds expand to half-open ranges (e.g. `1.12.5` → `[1.12.5.0, 1.12.6.0)`), fixing mods like kRPC being wrongly flagged incompatible.
-- **Compatible Versions Option** — top-bar "Compatible versions" selects a contiguous version-line range; defaults derive dynamically from the detected game version, and it drives both list filtering and dependency resolution.
-- **any_of Dependencies** — supports the official `any_of` child relationships, satisfied when any child is satisfied.
-- **Independent min/max Keys** — relationship constraints support standalone `min_version`/`max_version` (including inclusive flags).
-- **File-Level Overwrite Conflict Detection** — checks `Registry::fileOwner` before writing; files owned by other mods are rejected and the whole operation rolls back.
-- **Multiple Provider Selection** — when a virtual package has multiple providers, a dialog lets the user choose (mirrors official TooManyModsProvideKraken).
-- **Bidirectional Conflict Arbitration / recommends Cascading / release_status Filtering / DLC Interception.**
-- **Disk Space Pre-check** — checks the cache drive before download and the game drive before install; on shortage the user may "Ignore and continue" or "Cancel".
+- **Running game switches to "Stop"** (`mainwindow.cpp`) — the launch button turns red (dynamic property `stopActive`, with new dark/light QSS rules) showing " 停止"; its icon is re-tinted white on the red background.
+- **Confirm before terminating** (`onLaunchClicked`) — clicking while running warns "Are you sure you want to terminate the game process? This may cause data loss."; only a explicit Yes proceeds.
+- **Graceful then forced exit** (`InstanceManager::stopGame`) — `terminate()` first gives the game a chance to save, then `kill()` if it does not exit within 3 seconds.
+- **No spurious error dialog** — a new `m_stoppingGame` flag suppresses the "game process error" warning on intentionally terminated runs (which raise `errorOccurred(Crashed)`) and keeps the window state unchanged; a self-exited game still restores the window if it was minimized.
 
-### Sources & Cache
+### Build & Tooling
 
-- **Multiple Repositories** — add/remove/reorder repositories in settings with prioritized merging of index and download counts; mirror prefixes only apply to GitHub sources.
-- **Download Concurrency & Rate Limit** — configurable concurrency (1–8); per-connection download rate limit (MB/s) applied uniformly to index and mod downloads.
-- **Official CKAN Cache Compatibility** — recognizes official naming (`{identifier}-{version}.zip` and `{hash}-{identifier}-{version}.zip`) so existing CKAN download caches can be reused directly.
-- **SHA256 Download Verification + Multithreading** — mismatched hashes fail the download and fall back to a mirror; failures are never written to cache.
-- **Index Refresh Interval / Download Source**, **selectable Download Cache Folder with migration**, and **Precise Cache Cleanup** (never deletes unrelated files).
-
-### Modpacks
-
-- **Export** — "Export as CKAN file" generates an official-format metapackage: dependency-topologically sorted, excluding DLC/auto-installed/manually-installed mods, with `ksp_version_min/max` written from the detected version line.
-- **Import** — supports ZIP (auto-detects the GameData hierarchy, clears old mods then extracts) and `.ckan` (parses `depends` and installs from the repository).
-- **Path Traversal Protection** — ZIP import and mod installation both normalize and validate paths; absolute or escaping entries are rejected wholesale.
-
-### Instance Management
-
-- **Steam Library Auto-Discovery** — scans Steam libraries on startup (registry + `libraryfolders.vdf`) and adds discovered KSP installs to the instance list.
-- **Build ID → Version Mapping** — reads `buildID64.txt`/`buildID.txt` first to derive the semantic version, falling back to parsing `readme.txt`.
-- **Game Settings UI Polish** — settings search/filter, hidden over-advanced items (control points/color presets/PAW, original values preserved on save), full English-friendly names, and hidden `LANGUAGE`.
-- **Live Browse-Target Visibility** and kOS script directory compatibility for both `Ships/Script` and `Ships/Scripts`.
-
-### Security & Performance (full code review P0/P1/P2)
-
-- **Zip Slip** path traversal prevention (import/install), **index decompression-bomb protection** (≤64MB compressed, ≤256MB decompressed, ISIZE integrity check).
-- **Concurrent Index Refresh Race Fix** — index mutex + atomic build-and-swap, eliminating dangling references.
-- **Instance Switch/Close use-after-free Fix** — cancels in-flight tasks and waits for threads before deleting objects.
-- **Mod Detail Page Entry Lag Optimization** (background DLL scan + caching + progressive loading) and **theme-aware semi-transparent contrast for detail tabs**.
-- **Background Modpack Import** with non-blocking UI.
-
-### App Experience & Other
-
-- **Application Icon** — covers window/taskbar/exe icons (`appicon.ico`, injected via windres, avoiding the whitespace-path windres pitfall).
-- **Downloader Progress Fix** — installer explicitly moved to the main thread, fixing the stalled install download progress bar.
-- **Translations Completed** — zh_CN / en_US fully finished; "Kerbal" unified to "小绿人" (zh) and Serenity wording unified to Breaking Ground.
-- **libckan as Shared Library** — fully exported for open source, four-layer decoupling, with build/tests separated from the launcher.
+- **`sync_version.py`** — a cross-platform script that bumps the version across `CMakeLists.txt` `project(... VERSION ...)`, `src/appversion.h`, and the latest "## date: title" entry in `README/功能更新.md` in one step (e.g. `python sync_version.py 1.1.2`).
+- **Single version source** — new `src/appversion.h` (`HKSPL_APP_VERSION`) is the app's single source of truth for the displayed version.
+- **README polish** — updated the clone URL to the public repo and unified "Kerbal" → "小绿人" wording.
 
 ### Tech Stack
 
 - **Framework**: Qt 6 (Widgets, Svg, Network, Concurrent)
 - **Language**: C++17
 - **Build**: CMake ≥ 3.16; Windows uses Qt's bundled mingw toolchain
-- **Testing**: `test_libckan` + `test_launcher`, coverage of dependency resolution, transaction rollback, and security hardening
+- **Testing**: `test_libckan` + `test_launcher` (all passed for the stop-game changes)
 
 ---
