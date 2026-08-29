@@ -1124,11 +1124,6 @@ Game files will not be deleted.</translation>
         <translation>The selected directory is not a valid KSP game directory. Please ensure it contains settings.cfg and the GameData folder.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="475"/>
-        <source>游戏已经在运行中。</source>
-        <translation>The game is already running.</translation>
-    </message>
-    <message>
         <location filename="../src/mainwindow.cpp" line="481"/>
         <source>请先选择一个KSP实例。</source>
         <translation>Please select a KSP instance first.</translation>
@@ -1149,9 +1144,19 @@ Game files will not be deleted.</translation>
         <translation>(No instances available)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="534"/>
-        <source> 游戏运行中</source>
-        <translation> Game Running</translation>
+        <location filename="../src/mainwindow.cpp" line="523"/>
+        <source>停止游戏</source>
+        <translation>Stop Game</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="524"/>
+        <source>您确定要终止游戏进程吗，这可能会丢失数据。</source>
+        <translation>Are you sure you want to terminate the game process? This may cause data loss.</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="558"/>
+        <source> 停止</source>
+        <translation> Stop</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="575"/>
@@ -2010,6 +2015,124 @@ Are you sure you want to clear the cache?</translation>
         <location filename="../src/ckan/downloader.cpp" line="213"/>
         <source>下载失败:%1</source>
         <translation>Download failed: %1</translation>
+    </message>
+</context>
+<context>
+    <name>AboutPage</name>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>关于</source>
+        <translation>About</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Hello KSP Launcher</source>
+        <translation>Hello KSP Launcher</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>v%1</source>
+        <translation>v%1</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Zhu Wenqian</source>
+        <translation>Zhu Wenqian</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>bilibili @ZhuWenqian-KSP</source>
+        <translation>bilibili @ZhuWenqian-KSP</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>鸣谢</source>
+        <translation>Acknowledgements</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>KSP-CKAN 团队</source>
+        <translation>KSP-CKAN team</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供模组管理 C# 参考代码和仓库索引</source>
+        <translation>Provides C# reference code for mod management and the repository index</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Hello Minecraft Launcher 项目</source>
+        <translation>Hello Minecraft Launcher project</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供许多 UI 设计上的参考</source>
+        <translation>Provides many UI design references</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>gh-proxy.com</source>
+        <translation>gh-proxy.com</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>ghfast.top</source>
+        <translation>ghfast.top</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供 CKAN 索引和模组下载加速</source>
+        <translation>Provides CKAN index and mod download acceleration</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>依赖</source>
+        <translation>Dependencies</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Qt 6 社区版</source>
+        <translation>Qt 6 Community Edition</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Licence under LGPL v3</source>
+        <translation>Licence under LGPL v3</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>miniz</source>
+        <translation>miniz</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Copyright richgel999 · License: MIT</source>
+        <translation>Copyright richgel999 · License: MIT</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>libckan</source>
+        <translation>libckan</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Copyright Zhu Wenqian · License: GPL v3</source>
+        <translation>Copyright Zhu Wenqian · License: GPL v3</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>法律声明</source>
+        <translation>Legal Notices</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>版权所有 2026 Zhu Wenqian</source>
+        <translation>Copyright 2026 Zhu Wenqian</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>许可证 GPL v3</source>
+        <translation>License GPL v3</translation>
     </message>
 </context>
 </TS>

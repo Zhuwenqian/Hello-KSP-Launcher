@@ -51,7 +51,7 @@ This project uses [miniz](https://github.com/richgel999/miniz) (bundled in `thir
 ## Build
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Zhuwenqian/Hello-KSP-Launcher
 cd HelloKSPLauncher
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
@@ -147,7 +147,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **模组建议** — 安装过程中弹窗显示可选建议模组（源自 "suggests" 字段），勾选后连同其依赖自动解析安装；可在设置中关闭。
 - **灵活的下载源与缓存** — 官方/镜像下载源可切换，索引刷新间隔可配置，支持下载缓存文件夹管理（精确清理与缓存迁移）。
 - **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
-- **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑 Kerbal 属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
+- **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑小绿人属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
 - **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
@@ -174,7 +174,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 ## 构建
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Zhuwenqian/Hello-KSP-Launcher
 cd HelloKSPLauncher
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release

@@ -21,6 +21,7 @@
 #include <QAbstractScrollArea>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
 #include <QtConcurrent/QtConcurrent>
 #include <algorithm>
 
@@ -114,14 +115,39 @@ void InstanceDetailPage::setupModsTab()
     m_modTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_modTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_modTable->verticalHeader()->setVisible(false);
-    m_modTable->horizontalHeader()->setStretchLastSection(true);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColCheck, QHeaderView::Fixed);
-    m_modTable->setColumnWidth(ModsTableModel::ColCheck, 40);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColName, QHeaderView::Stretch);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColIdentifier, QHeaderView::ResizeToContents);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColStatus, QHeaderView::ResizeToContents);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColDownloads, QHeaderView::ResizeToContents);
-    m_modTable->horizontalHeader()->setSectionResizeMode(ModsTableModel::ColTags, QHeaderView::ResizeToContents);
+    // 列宽：除勾选列外均可拖动调整（Excel 式，拖表头左右边缘），宽度持久化到全局设置。
+    // 末列（标签）保留 stretch-last 拉尾，其余非勾选列用交互模式 + 持久化/默认宽度。
+    QHeaderView* hHeader = m_modTable->horizontalHeader();
+    hHeader->setStretchLastSection(true);
+    const QVector<int> colWidths = ConfigManager::instance().modTableColumnWidths();
+    for (int col = 0; col < ModsTableModel::ColumnCount; ++col) {
+        if (col == ModsTableModel::ColCheck) {
+            hHeader->setSectionResizeMode(col, QHeaderView::Fixed);
+            m_modTable->setColumnWidth(col, colWidths.value(col, 40));
+        } else {
+            hHeader->setSectionResizeMode(col, QHeaderView::Interactive);
+            m_modTable->setColumnWidth(col, colWidths.value(col));
+        }
+    }
+    // 拖动结束后（防抖 250ms）一次性写入设置；末列由拉尾布局分配宽度，不据其持久化
+    m_colWidthSaveTimer = new QTimer(this);
+    m_colWidthSaveTimer->setSingleShot(true);
+    m_colWidthSaveTimer->setInterval(250);
+    connect(m_colWidthSaveTimer, &QTimer::timeout, this, [this]() {
+        QVector<int> w(ModsTableModel::ColumnCount);
+        for (int col = 0; col < ModsTableModel::ColumnCount; ++col)
+            w[col] = m_modTable->columnWidth(col);
+        ConfigManager::instance().setModTableColumnWidths(w);
+    });
+    connect(hHeader, &QHeaderView::sectionResized, this, [this](int logical) {
+        if (logical == ModsTableModel::ColumnCount - 1) return; // 末列为拉尾列，布局会覆盖宽度
+        m_colWidthSaveTimer->start();
+    });
+    // 双击某列表头：恢复该列内置默认宽度
+    connect(hHeader, &QHeaderView::sectionHandleDoubleClicked, this, [this, hHeader](int logical) {
+        const QVector<int> def = ConfigManager::defaultModTableColumnWidths();
+        hHeader->resizeSection(logical, def.value(logical, m_modTable->columnWidth(logical)));
+    });
     m_modTable->setSortingEnabled(true);
     m_modTable->sortByColumn(ModsTableModel::ColName, Qt::AscendingOrder);
     connect(m_modTable->selectionModel(), &QItemSelectionModel::selectionChanged,

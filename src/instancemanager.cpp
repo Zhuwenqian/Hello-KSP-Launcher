@@ -46,6 +46,16 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args)
     return true;
 }
 
+void InstanceManager::stopGame()
+{
+    if (!m_gameProcess || m_gameProcess->state() == QProcess::NotRunning)
+        return;
+    // 先发送关闭信号(WM_CLOSE)给游戏一个保存机会，超时未退出再强制结束
+    m_gameProcess->terminate();
+    if (!m_gameProcess->waitForFinished(3000))
+        m_gameProcess->kill();
+}
+
 QString InstanceManager::detectGameRoot(const QString &exePath) const
 {
     QFileInfo fi(exePath);

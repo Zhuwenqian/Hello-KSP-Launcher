@@ -70,6 +70,7 @@ public:
     QList<DLCDetection> detectDLCs(const QString& gamePath) const;
     QStringList listMods(const QString& gamePath) const;
     bool launchGame(const QString& exePath, const QString& args = QString());
+    void stopGame();
     QString detectGameRoot(const QString& exePath) const;
     bool isValidKSPPath(const QString& path) const;
 

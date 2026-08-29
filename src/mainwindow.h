@@ -13,6 +13,7 @@
 #include "pages/instancelistpage.h"
 #include "pages/instancedetailpage.h"
 #include "pages/settingspage.h"
+#include "pages/aboutpage.h"
 #include "pages/saveslistpage.h"
 #include "pages/savedetailpage.h"
 
@@ -62,6 +63,7 @@ private:
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();
     void applyTransparency();
+    void resetLaunchButton();
 
     // 对建议实例名去重：存在同名则追加 " (n)" 序号
     QString makeUniqueInstanceName(const QString &base, QSet<QString> &usedNames) const;
@@ -78,12 +80,14 @@ private:
     QPushButton* m_instanceManageBtn;
     QPushButton* m_instanceListBtn;
     QPushButton* m_settingsBtn;
+    QPushButton* m_aboutBtn;
 
     // Pages
     HomePage* m_homePage;
     InstanceListPage* m_instanceListPage;
     InstanceDetailPage* m_instanceDetailPage;
     SettingsPage* m_settingsPage;
+    AboutPage* m_aboutPage;
     SavesListPage* m_savesListPage;
     SaveDetailPage* m_saveDetailPage;
 
@@ -95,6 +99,7 @@ private:
 
     QString m_currentTheme;
     bool m_gameRunning;
+    bool m_stoppingGame;
 };
 
 #endif // MAINWINDOW_H

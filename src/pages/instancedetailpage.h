@@ -24,6 +24,8 @@
 #include "../instancemanager.h"
 #include "modtablemodel.h"
 
+class QTimer;
+
 class InstanceDetailPage : public QWidget
 {
     Q_OBJECT
@@ -195,6 +197,8 @@ private:
     QProgressBar* m_modProgressBar;
     QLabel*   m_modProgressLabel;
     QPushButton* m_cancelDownloadBtn;
+    // 模组列表列宽持久化：拖动后防抖落盘
+    QTimer*   m_colWidthSaveTimer = nullptr;
 
     // Advanced tab
     QLineEdit* m_launchArgsEdit;

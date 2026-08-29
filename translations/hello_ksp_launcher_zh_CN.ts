@@ -1066,11 +1066,6 @@
         <translation>所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="475"/>
-        <source>游戏已经在运行中。</source>
-        <translation>游戏已经在运行中。</translation>
-    </message>
-    <message>
         <location filename="../src/mainwindow.cpp" line="481"/>
         <source>请先选择一个KSP实例。</source>
         <translation>请先选择一个KSP实例。</translation>
@@ -1091,9 +1086,19 @@
         <translation>（无可用实例）</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="534"/>
-        <source> 游戏运行中</source>
-        <translation> 游戏运行中</translation>
+        <location filename="../src/mainwindow.cpp" line="523"/>
+        <source>停止游戏</source>
+        <translation>停止游戏</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="524"/>
+        <source>您确定要终止游戏进程吗，这可能会丢失数据。</source>
+        <translation>您确定要终止游戏进程吗，这可能会丢失数据。</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="558"/>
+        <source> 停止</source>
+        <translation> 停止</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="575"/>
@@ -1952,6 +1957,124 @@
         <location filename="../src/ckan/downloader.cpp" line="213"/>
         <source>下载失败:%1</source>
         <translation>下载失败:%1</translation>
+    </message>
+</context>
+<context>
+    <name>AboutPage</name>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>关于</source>
+        <translation>关于</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Hello KSP Launcher</source>
+        <translation>Hello KSP Launcher</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>v%1</source>
+        <translation>v%1</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Zhu Wenqian</source>
+        <translation>Zhu Wenqian</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>bilibili @ZhuWenqian-KSP</source>
+        <translation>bilibili @ZhuWenqian-KSP</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>鸣谢</source>
+        <translation>鸣谢</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>KSP-CKAN 团队</source>
+        <translation>KSP-CKAN 团队</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供模组管理 C# 参考代码和仓库索引</source>
+        <translation>提供模组管理 C# 参考代码和仓库索引</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Hello Minecraft Launcher 项目</source>
+        <translation>Hello Minecraft Launcher 项目</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供许多 UI 设计上的参考</source>
+        <translation>提供许多 UI 设计上的参考</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>gh-proxy.com</source>
+        <translation>gh-proxy.com</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>ghfast.top</source>
+        <translation>ghfast.top</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>提供 CKAN 索引和模组下载加速</source>
+        <translation>提供 CKAN 索引和模组下载加速</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>依赖</source>
+        <translation>依赖</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Qt 6 社区版</source>
+        <translation>Qt 6 社区版</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Licence under LGPL v3</source>
+        <translation>Licence under LGPL v3</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>miniz</source>
+        <translation>miniz</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Copyright richgel999 · License: MIT</source>
+        <translation>Copyright richgel999 · License: MIT</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>libckan</source>
+        <translation>libckan</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>Copyright Zhu Wenqian · License: GPL v3</source>
+        <translation>Copyright Zhu Wenqian · License: GPL v3</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>法律声明</source>
+        <translation>法律声明</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>版权所有 2026 Zhu Wenqian</source>
+        <translation>版权所有 2026 Zhu Wenqian</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/aboutpage.cpp"/>
+        <source>许可证 GPL v3</source>
+        <translation>许可证 GPL v3</translation>
     </message>
 </context>
 </TS>

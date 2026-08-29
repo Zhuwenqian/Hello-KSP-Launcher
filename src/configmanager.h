@@ -100,6 +100,13 @@ public:
     qint64 downloadRateLimitBytesPerSecond() const;
     void setDownloadRateLimitBytesPerSecond(qint64 bps);
 
+    // 模组管理列表列宽（全局单份，按逻辑列索引对应 8 列）。
+    // 首列勾选固定 40，其余列可拖动调整；缺失字段时用内置默认宽度兜底。
+    QVector<int> modTableColumnWidths() const;
+    void setModTableColumnWidths(const QVector<int> &widths);
+    // 内置默认列宽（顺序与 ModsTableModel::Column 一致）
+    static QVector<int> defaultModTableColumnWidths();
+
     // 仓库列表（多仓库）：数组顺序即优先级（首位优先级最高）。
     // 默认仅含 KSP-CKAN 官方仓库；可自由增删。
     QVector<ckan::Repository> repositories() const;

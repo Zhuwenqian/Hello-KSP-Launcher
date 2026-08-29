@@ -233,6 +233,25 @@ QPushButton#launchButton:disabled {
     color: #aaaaaa;
 }
 
+/* 运行中切换为红色"停止"状态 */
+QPushButton#launchButton[stopActive="true"] {
+    background-color: #c42b1c;
+    border: none;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 12px 30px;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QPushButton#launchButton[stopActive="true"]:hover {
+    background-color: #d93a2b;
+}
+
+QPushButton#launchButton[stopActive="true"]:pressed {
+    background-color: #a32215;
+}
+
 QPushButton#launchSwitchButton {
     background-color: rgba(60, 60, 60, 220);
     border: none;
@@ -560,6 +579,42 @@ QFrame#pagePanel {
     background-color: rgba(37, 37, 38, 204);
     border: 1px solid rgba(62, 62, 66, 150);
     border-radius: 10px;
+}
+
+/* 启动器设置整页半透明背板：覆盖顶部标题到最下方的仓库列表 */
+QWidget#settingsContent {
+    background-color: rgba(37, 37, 38, 204);
+    border: 1px solid rgba(62, 62, 66, 150);
+    border-radius: 10px;
+}
+
+/* About 页：板块小标题 + 卡片按钮 */
+QLabel#aboutSectionTitle {
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 10pt;
+    margin-top: 6px;
+}
+
+QPushButton#aboutCard {
+    background-color: rgba(45, 45, 48, 191);
+    border: 1px solid rgba(62, 62, 66, 150);
+    border-radius: 8px;
+    min-height: 56px;
+    text-align: left;
+}
+
+QPushButton#aboutCard:hover {
+    background-color: rgba(60, 60, 65, 220);
+    border-color: rgba(100, 100, 110, 190);
+}
+
+QPushButton#aboutCard QLabel#aboutCardTitle {
+    color: #ffffff;
+}
+
+QPushButton#aboutCard QLabel#aboutCardDesc {
+    color: #a0a0a0;
 }
 
 /* 实例管理详情页顶部返回+标题：半透明底，便于在背景图上清晰显示 */

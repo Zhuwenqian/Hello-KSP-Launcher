@@ -370,6 +370,36 @@ void ConfigManager::setDownloadRateLimitBytesPerSecond(qint64 bps)
     }
 }
 
+QVector<int> ConfigManager::defaultModTableColumnWidths()
+{
+    // 顺序与 ModsTableModel::Column 一致：勾选/名称/标识符/版本/状态/大小/下载/标签
+    return { 40, 220, 180, 90, 80, 90, 70, 140 };
+}
+
+QVector<int> ConfigManager::modTableColumnWidths() const
+{
+    const QVector<int> def = defaultModTableColumnWidths();
+    const QJsonArray arr = m_config["modTableColumnWidths"].toArray();
+    QVector<int> widths = def;
+    for (int i = 0; i < arr.size() && i < widths.size(); ++i) {
+        const int w = arr.at(i).toInt(0);
+        if (w > 0) widths[i] = w;
+    }
+    return widths;
+}
+
+void ConfigManager::setModTableColumnWidths(const QVector<int> &widths)
+{
+    QVector<int> cur = modTableColumnWidths();
+    if (cur.size() != widths.size() || cur != widths) {
+        QJsonArray arr;
+        for (int w : widths) arr.append(w);
+        m_config["modTableColumnWidths"] = arr;
+        save();
+        emit configChanged();
+    }
+}
+
 QVector<ckan::Repository> ConfigManager::repositories() const
 {
     QVector<ckan::Repository> repos;

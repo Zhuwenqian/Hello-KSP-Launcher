@@ -20,7 +20,7 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_gameRunning(false),
-      m_backgroundLabel(nullptr), m_contentContainer(nullptr)
+      m_backgroundLabel(nullptr), m_contentContainer(nullptr), m_stoppingGame(false)
 {
     setWindowTitle("Hello KSP Launcher");
     resize(1000, 650);
@@ -97,6 +97,7 @@ void MainWindow::setupUI()
     m_instanceListPage = new InstanceListPage(m_contentStack);
     m_instanceDetailPage = new InstanceDetailPage(m_contentStack);
     m_settingsPage = new SettingsPage(m_contentStack);
+    m_aboutPage = new AboutPage(m_contentStack);
     m_savesListPage = new SavesListPage(m_contentStack);
     m_saveDetailPage = new SaveDetailPage(m_contentStack);
 
@@ -104,6 +105,7 @@ void MainWindow::setupUI()
     m_contentStack->addWidget(m_instanceListPage);
     m_contentStack->addWidget(m_instanceDetailPage);
     m_contentStack->addWidget(m_settingsPage);
+    m_contentStack->addWidget(m_aboutPage);
     m_contentStack->addWidget(m_savesListPage);
     m_contentStack->addWidget(m_saveDetailPage);
 
@@ -192,6 +194,14 @@ void MainWindow::setupSidebar()
     connect(m_settingsBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
 
     sidebarLayout->addWidget(m_settingsBtn);
+
+    m_aboutBtn = new QPushButton(IconUtils::tintedIcon(":/icons/info.svg", "#ffffff"), tr("  关于"), m_sidebar);
+    m_aboutBtn->setObjectName("navButton");
+    m_aboutBtn->setCheckable(true);
+    m_aboutBtn->setMinimumHeight(45);
+    connect(m_aboutBtn, &QPushButton::clicked, this, &MainWindow::onNavButtonClicked);
+
+    sidebarLayout->addWidget(m_aboutBtn);
     sidebarLayout->addStretch();
 }
 
@@ -316,10 +326,11 @@ void MainWindow::refreshIcons(const QString &theme)
     m_instanceManageBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
     m_instanceListBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
     m_settingsBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
+    m_aboutBtn->setIcon(IconUtils::tintedIcon(":/icons/info.svg", color));
     m_launchSwitchButton->setIcon(IconUtils::tintedIcon(":/icons/chevron-down.svg", color));
 
     if (m_gameRunning) {
-        m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", color));
+        m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", "#ffffff"));
     } else {
         m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
     }
@@ -336,6 +347,7 @@ void MainWindow::setNavButtonChecked(QPushButton* btn)
     m_instanceManageBtn->setChecked(btn == m_instanceManageBtn);
     m_instanceListBtn->setChecked(btn == m_instanceListBtn);
     m_settingsBtn->setChecked(btn == m_settingsBtn);
+    m_aboutBtn->setChecked(btn == m_aboutBtn);
 }
 
 void MainWindow::onNavButtonClicked()
@@ -368,6 +380,9 @@ void MainWindow::onNavButtonClicked()
         m_launchBar->hide();
     } else if (btn == m_settingsBtn) {
         showPage(m_settingsPage);
+        m_launchBar->hide();
+    } else if (btn == m_aboutBtn) {
+        showPage(m_aboutPage);
         m_launchBar->hide();
     }
 }
@@ -511,7 +526,14 @@ void MainWindow::showPage(QWidget *page)
 void MainWindow::onLaunchClicked()
 {
     if (m_gameRunning) {
-        QMessageBox::information(this, tr("提示"), tr("游戏已经在运行中。"));
+        QMessageBox::StandardButton ret = QMessageBox::warning(
+            this, tr("停止游戏"),
+            tr("您确定要终止游戏进程吗，这可能会丢失数据。"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (ret == QMessageBox::Yes) {
+            m_stoppingGame = true;
+            InstanceManager::instance().stopGame();
+        }
         return;
     }
 
@@ -569,9 +591,13 @@ void MainWindow::switchInstanceFromMenu(QAction *action)
 void MainWindow::onGameStarted()
 {
     m_gameRunning = true;
-    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(tr(" 游戏运行中"));
-    m_launchButton->setEnabled(false);
+    m_stoppingGame = false;
+    m_launchButton->setProperty("stopActive", true);
+    m_launchButton->style()->unpolish(m_launchButton);
+    m_launchButton->style()->polish(m_launchButton);
+    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/stop.svg", "#ffffff"));
+    m_launchButton->setText(tr(" 停止"));
+    m_launchButton->setEnabled(true);
 
     ConfigManager::LaunchBehavior behavior = ConfigManager::instance().launchBehavior();
     switch (behavior) {
@@ -587,16 +613,26 @@ void MainWindow::onGameStarted()
     }
 }
 
+void MainWindow::resetLaunchButton()
+{
+    m_gameRunning = false;
+    m_stoppingGame = false;
+    m_launchButton->setProperty("stopActive", false);
+    m_launchButton->style()->unpolish(m_launchButton);
+    m_launchButton->style()->polish(m_launchButton);
+    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
+    m_launchButton->setText(tr(" 启动游戏"));
+    m_launchButton->setEnabled(true);
+}
+
 void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
 {
     Q_UNUSED(exitCode);
     Q_UNUSED(status);
-    m_gameRunning = false;
-    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(tr(" 启动游戏"));
-    m_launchButton->setEnabled(true);
-
-    if (ConfigManager::instance().launchBehavior() == ConfigManager::Minimize) {
+    bool wasStoppedByButton = m_stoppingGame;
+    resetLaunchButton();
+    // 按钮触发的终止保持窗口状态；游戏自行退出且启动器被最小化时恢复正常窗口
+    if (!wasStoppedByButton && ConfigManager::instance().launchBehavior() == ConfigManager::Minimize) {
         showNormal();
         activateWindow();
     }
@@ -605,10 +641,11 @@ void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
 void MainWindow::onGameError(QProcess::ProcessError error)
 {
     Q_UNUSED(error);
-    m_gameRunning = false;
-    m_launchButton->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", IconUtils::iconColorForTheme(m_currentTheme)));
-    m_launchButton->setText(tr(" 启动游戏"));
-    m_launchButton->setEnabled(true);
+    bool wasStoppedByButton = m_stoppingGame;
+    resetLaunchButton();
+    // 按钮主动终止会触发 errorOccurred(Crashed)，此时不应误报"进程发生错误"
+    if (wasStoppedByButton)
+        return;
     showNormal();
     activateWindow();
     QMessageBox::warning(this, tr("错误"), tr("游戏进程发生错误。"));
@@ -623,7 +660,7 @@ void MainWindow::onCurrentInstanceChanged()
         m_instanceManageBtn->setEnabled(false);
     } else {
         m_currentInstanceLabel->setText(cur.name);
-        m_launchButton->setEnabled(!m_gameRunning);
+        m_launchButton->setEnabled(true);
         m_instanceManageBtn->setEnabled(true);
     }
     m_instanceListPage->refresh();

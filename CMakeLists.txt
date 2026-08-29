@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(HelloKSPLauncher VERSION 1.0.0 LANGUAGES C CXX)
+project(HelloKSPLauncher VERSION 1.1.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -111,6 +111,7 @@ set(SOURCES
     src/pages/instancedetailpage_modpack.cpp
     src/pages/modtablemodel.cpp
     src/pages/settingspage.cpp
+    src/pages/aboutpage.cpp
     src/pages/saveslistpage.cpp
     src/pages/savedetailpage.cpp
     src/widgets/instanceitemwidget.cpp
@@ -133,6 +134,7 @@ set(HEADERS
     src/pages/instancedetailpage.h
     src/pages/modtablemodel.h
     src/pages/settingspage.h
+    src/pages/aboutpage.h
     src/pages/saveslistpage.h
     src/pages/savedetailpage.h
     src/widgets/instanceitemwidget.h
