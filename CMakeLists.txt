@@ -75,6 +75,8 @@ target_compile_definitions(libckan PRIVATE
     CKAN_BUILD_SHARED
     CKAN_BUILDING_LIB
 )
+# MinGW 默认给 DLL 加 lib 前缀，去掉多余的 lib 使产物为 libckan.dll
+set_target_properties(libckan PROPERTIES PREFIX "")
 # 收窄公开 include：只暴露库自身头文件目录；src/ 与 thirdparty/ 仅内部使用。
 target_include_directories(libckan PUBLIC
     ${CMAKE_SOURCE_DIR}/src/ckan
@@ -88,6 +90,11 @@ target_link_libraries(libckan PUBLIC
     Qt6::Network
     Qt6::Concurrent
 )
+if(WIN32)
+    # autoDetectedVersion 读取 DLL 内部文件版本资源（GetFileVersionInfoW/VerQueryValueW），
+    # 需链接 Windows 的 version.dll 导入库（MinGW 下为 libversion.a）。
+    target_link_libraries(libckan PRIVATE version)
+endif()
 
 set(SOURCES
     src/main.cpp
@@ -226,6 +233,7 @@ add_test(NAME test_libckan COMMAND test_libckan)
 add_executable(test_launcher
     tests/test_launcher.cpp
     src/steamdiscovery.cpp
+    src/instancemanager.cpp
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src

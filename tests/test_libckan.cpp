@@ -3105,6 +3105,77 @@ private slots:
     }
 };
 
+class TestCkanInstalledBrowse : public QObject
+{
+    Q_OBJECT
+private slots:
+    // 已安装模组（注册表文件归属）+ AD 模组（DLL 扫描）→ GameData 顶层条目
+    void installedEntriesCoverRegistryAndAd()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("T"));
+        // 注册表已安装：目录模组（含多层子路径）+ 直接放 GameData 根的单文件模组
+        InstalledModule im;
+        im.identifier = QStringLiteral("DirMod");
+        im.module = makeModule(QStringLiteral("DirMod"), QStringLiteral("1.0"));
+        im.files = {QStringLiteral("GameData/DirMod/Plugins/x.dll"),
+                    QStringLiteral("GameData/DirMod/GameData/extra.cfg")};
+        gi.registry()->registerModule(im);
+        InstalledModule single;
+        single.identifier = QStringLiteral("RootDll");
+        single.module = makeModule(QStringLiteral("RootDll"), QStringLiteral("1.0"));
+        single.files = {QStringLiteral("GameData/RootDll.dll")};
+        gi.registry()->registerModule(single);
+        // AD 模组：DLL 扫描路径
+        gi.registry()->installedDlls[QStringLiteral("AdMod")] =
+            QStringLiteral("GameData/AdMod/AdMod.dll");
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        ckan.reloadRegistry(); // CKan 构造不自动加载注册表，需显式从磁盘读入
+        QCOMPARE(ckan.installedGameDataEntries(QStringLiteral("DirMod")),
+                 QStringList({QStringLiteral("GameData/DirMod")}));
+        QCOMPARE(ckan.installedGameDataEntries(QStringLiteral("RootDll")),
+                 QStringList({QStringLiteral("GameData/RootDll.dll")}));
+        QCOMPARE(ckan.installedGameDataEntries(QStringLiteral("AdMod")),
+                 QStringList({QStringLiteral("GameData/AdMod")}));
+        // 未安装/未知标识符 → 空
+        QVERIFY(ckan.installedGameDataEntries(QStringLiteral("Nope")).isEmpty());
+    }
+
+    // AD 模组版本：按 DLL 文件名点号后缀推导（标识符为点前部分，其后即版本）
+    void adVersionFromDllFilename()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("T"));
+        gi.registry()->installedDlls[QStringLiteral("ModuleManager")] =
+            QStringLiteral("GameData/ModuleManager/ModuleManager.4.2.3.dll");
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        ckan.reloadRegistry();
+        QCOMPARE(ckan.autoDetectedVersion(QStringLiteral("ModuleManager")),
+                 QStringLiteral("4.2.3"));
+    }
+
+    // AD 模组版本：文件名无版本部分且非有效 PE 文件 → 空（调用方回退标记最新版）
+    void adVersionFallsBackEmpty()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("T"));
+        gi.registry()->installedDlls[QStringLiteral("SomeTool")] =
+            QStringLiteral("GameData/SomeTool/SomeTool.dll");
+        QVERIFY2(gi.saveRegistry(), "save registry failed");
+
+        CKan ckan(dir.path(), QStringLiteral("T"));
+        ckan.reloadRegistry();
+        QVERIFY(ckan.autoDetectedVersion(QStringLiteral("SomeTool")).isEmpty());
+    }
+};
+
 static int runSuite(int argc, char *argv[], QObject &suite)
 {
     return QTest::qExec(&suite, argc, argv);
@@ -3131,6 +3202,7 @@ int main(int argc, char *argv[])
     TestCkanExport tCkanExport;
     TestModpackIO tModpackIO;
     TestCkanHistoryImport tCkanHistoryImport;
+    TestCkanInstalledBrowse tCkanInstalledBrowse;
     failures += runSuite(argc, argv, tModVer);
     failures += runSuite(argc, argv, tGameVer);
     failures += runSuite(argc, argv, tRel);
@@ -3147,6 +3219,7 @@ int main(int argc, char *argv[])
     failures += runSuite(argc, argv, tCkanExport);
     failures += runSuite(argc, argv, tModpackIO);
     failures += runSuite(argc, argv, tCkanHistoryImport);
+    failures += runSuite(argc, argv, tCkanInstalledBrowse);
     return failures;
 }
 

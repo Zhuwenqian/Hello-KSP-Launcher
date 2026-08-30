@@ -64,6 +64,11 @@ QString InstanceManager::detectGameRoot(const QString &exePath) const
 
 bool InstanceManager::isValidKSPPath(const QString &path) const
 {
+    // settings.cfg 由游戏首次启动后生成，全新未运行过的安装没有该文件，因此不作为合法性必要条件。
+    // 只需存在 KSP 可执行文件与 GameData 目录即可判定为有效的 KSP 游戏目录。
     QDir dir(path);
-    return dir.exists("settings.cfg") && dir.exists("GameData");
+    if (!dir.exists("GameData")) return false;
+    return QFileInfo::exists(dir.filePath(QStringLiteral("KSP_x64.exe")))
+        || QFileInfo::exists(dir.filePath(QStringLiteral("KSP.exe")))
+        || QFileInfo::exists(dir.filePath(QStringLiteral("KSP.x86_64")));
 }

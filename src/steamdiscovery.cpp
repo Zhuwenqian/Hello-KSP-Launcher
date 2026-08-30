@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QVariant>
 #include <QMetaType>
@@ -134,8 +135,11 @@ QStringList SteamDiscovery::discoverKSPDirs()
                                         .filePath(QStringLiteral("common")))
                                         .filePath(QStringLiteral("Kerbal Space Program"));
             if (!QDir(kspDir).exists()) continue;
-            if (QDir(kspDir).exists(QStringLiteral("settings.cfg"))
-                && QDir(kspDir).exists(QStringLiteral("GameData"))) {
+            // settings.cfg 首次启动后才生成，未运行的全新安装没有该文件，故以 KSP 可执行文件 + GameData 校验。
+            const bool hasExec = QFileInfo::exists(QDir(kspDir).filePath(QStringLiteral("KSP_x64.exe")))
+                              || QFileInfo::exists(QDir(kspDir).filePath(QStringLiteral("KSP.exe")))
+                              || QFileInfo::exists(QDir(kspDir).filePath(QStringLiteral("KSP.x86_64")));
+            if (hasExec && QDir(kspDir).exists(QStringLiteral("GameData"))) {
                 result.append(QDir::cleanPath(kspDir));
                 break;
             }

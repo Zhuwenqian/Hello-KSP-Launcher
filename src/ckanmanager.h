@@ -69,6 +69,8 @@ public:
     QVector<ckan::InstalledModule> installedModules() const;
     QString installedVersion(const QString &identifier) const;
     bool isInstalled(const QString &identifier) const;
+    // 该标识符已安装模组的 GameData 顶层条目（覆盖注册表与 AD 模组），供「文件」tab 浏览
+    QStringList installedGameDataEntries(const QString &identifier) const;
     // 仓库中存在更新版本（最新版 > 已装版）
     bool isUpgradable(const QString &identifier) const;
 
@@ -80,6 +82,8 @@ public:
     bool unmanagedScanDone() const;
     // 该标识符是否被 DLL 扫描识别为手动安装模组
     bool isAutoDetected(const QString &identifier) const;
+    // 手动安装（AD）模组的已装版本（文件名→DLL内部版本，尽力推导，可能为空）
+    QString autoDetectedVersion(const QString &identifier) const;
 
     // ---- 整合包导出 ----
     // 生成官方 CKAN 元包 JSON（depends 列出已安装模组，依赖优先）。

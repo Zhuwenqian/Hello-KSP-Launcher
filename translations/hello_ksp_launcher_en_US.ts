@@ -1602,8 +1602,8 @@ Game files will not be deleted.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="401" />
-        <source>所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。</source>
-        <translation>The selected directory is not a valid KSP game directory. Please ensure it contains settings.cfg and the GameData folder.</translation>
+        <source>所选目录不是有效的KSP游戏目录，请确认包含KSP可执行文件和GameData文件夹。</source>
+        <translation>The selected directory is not a valid KSP game directory. Please ensure it contains the KSP executable and the GameData folder.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="415" />

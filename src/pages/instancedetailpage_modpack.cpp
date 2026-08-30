@@ -84,16 +84,23 @@ void InstanceDetailPage::exportAsZip()
         m_instance.path,
         zipFilePath,
         [&](int progress) {
-            // 在 UI 线程中更新进度
-            QMetaObject::invokeMethod(&progressDialog, [&progressDialog, &cancelled, progress]() {
-                if (progressDialog.wasCanceled()) {
-                    cancelled = true;
-                    return;
-                }
-                progressDialog.setValue(progress);
-            }, Qt::QueuedConnection);
-            // 处理事件以保持 UI 响应
+            // 检测用户点击取消
+            if (cancelled || progressDialog.wasCanceled()) {
+                cancelled = true;
+                return;
+            }
+            progressDialog.setValue(progress);
+            // 处理事件以保持 UI 响应（让取消按钮可被点击）
             QCoreApplication::processEvents();
+        },
+        [&]() -> bool {
+            // 遍历每个文件前检查：处理事件让取消按钮生效后判断
+            QCoreApplication::processEvents();
+            if (progressDialog.wasCanceled()) {
+                cancelled = true;
+                return true; // 立即中断导出
+            }
+            return cancelled;
         }
     );
 

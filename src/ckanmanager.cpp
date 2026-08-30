@@ -293,6 +293,11 @@ bool CKanManager::isInstalled(const QString &identifier) const
     return m_ckan && m_ckan->isInstalled(identifier);
 }
 
+QStringList CKanManager::installedGameDataEntries(const QString &identifier) const
+{
+    return m_ckan ? m_ckan->installedGameDataEntries(identifier) : QStringList();
+}
+
 bool CKanManager::isUpgradable(const QString &identifier) const
 {
     if (!m_ckan || !m_ckan->indexReady()) return false;
@@ -330,6 +335,11 @@ bool CKanManager::unmanagedScanDone() const
 bool CKanManager::isAutoDetected(const QString &identifier) const
 {
     return m_ckan && m_ckan->isAutoDetected(identifier);
+}
+
+QString CKanManager::autoDetectedVersion(const QString &identifier) const
+{
+    return m_ckan ? m_ckan->autoDetectedVersion(identifier) : QString();
 }
 
 QByteArray CKanManager::exportModpackCkan(QString *error)

@@ -1,8 +1,10 @@
 #include <QtTest/QtTest>
 #include <QFile>
 #include <QTemporaryDir>
+#include <QDir>
 
 #include "steamdiscovery.h"
+#include "instancemanager.h"
 
 // 启动器逻辑测试：Steam 库发现（仅与 src/steamdiscovery.cpp 相关，不依赖 libckan）。
 class TestSteamDiscovery : public QObject
@@ -70,12 +72,71 @@ private slots:
     }
 };
 
+// 实例目录合法性检测：settings.cfg 不是必须项，仅需 GameData + KSP 可执行文件。
+class TestValidKSPPath : public QObject
+{
+    Q_OBJECT
+private:
+    InstanceManager &mgr;
+public:
+    TestValidKSPPath() : mgr(InstanceManager::instance()) {}
+
+private slots:
+    void freshInstallWithoutSettingsCfgIsValid()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData"))));
+        QFile exe(dir.filePath(QStringLiteral("KSP_x64.exe")));
+        QVERIFY(exe.open(QIODevice::WriteOnly));
+        exe.close();
+        // 无 settings.cfg（全新未运行安装）应判为合法
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("settings.cfg"))));
+        QVERIFY(mgr.isValidKSPPath(dir.path()));
+    }
+
+    void missingGameDataIsInvalid()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile exe(dir.filePath(QStringLiteral("KSP.exe")));
+        QVERIFY(exe.open(QIODevice::WriteOnly));
+        exe.close();
+        QVERIFY(!mgr.isValidKSPPath(dir.path()));
+    }
+
+    void missingExecutableIsInvalid()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData"))));
+        QFile cfg(dir.filePath(QStringLiteral("settings.cfg")));
+        QVERIFY(cfg.open(QIODevice::WriteOnly));
+        cfg.close();
+        // 仅有 settings.cfg + GameData、无 KSP 可执行文件，不应判为合法
+        QVERIFY(!mgr.isValidKSPPath(dir.path()));
+    }
+
+    void unixExecutableFallbackIsValid()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData"))));
+        QFile exe(dir.filePath(QStringLiteral("KSP.x86_64")));
+        QVERIFY(exe.open(QIODevice::WriteOnly));
+        exe.close();
+        QVERIFY(mgr.isValidKSPPath(dir.path()));
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     int failures = 0;
     TestSteamDiscovery tSteamDisc;
     failures += QTest::qExec(&tSteamDisc, argc, argv);
+    TestValidKSPPath tValid;
+    failures += QTest::qExec(&tValid, argc, argv);
     return failures;
 }
 

@@ -161,6 +161,10 @@ void MainWindow::setupSidebar()
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
+    QLabel* gameSection = new QLabel(tr("游戏"), m_sidebar);
+    gameSection->setObjectName("sidebarSectionLabel");
+    sidebarLayout->addWidget(gameSection);
+
     m_homeBtn = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), tr("  首页"), m_sidebar);
     m_homeBtn->setObjectName("navButton");
     m_homeBtn->setCheckable(true);
@@ -398,7 +402,7 @@ void MainWindow::onAddInstanceRequested()
 
     QString rootPath = InstanceManager::instance().detectGameRoot(exePath);
     if (!InstanceManager::instance().isValidKSPPath(rootPath)) {
-        QMessageBox::warning(this, tr("错误"), tr("所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。"));
+        QMessageBox::warning(this, tr("错误"), tr("所选目录不是有效的KSP游戏目录，请确认包含KSP可执行文件和GameData文件夹。"));
         return;
     }
 

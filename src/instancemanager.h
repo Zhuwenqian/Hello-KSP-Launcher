@@ -97,9 +97,11 @@ public:
                        const QString& instanceName, const QString& saveName,
                        std::function<void(int progress)> progressCallback = nullptr) const;
 
-    // 整合包导出
+    // 整合包导出。progressCallback 报告进度（0-100）；shouldCancel 在遍历每个文件前被调用，
+    // 返回 true 则立即中断导出并返回 false（用于支持用户取消）。
     bool exportModpack(const QString& gamePath, const QString& zipFilePath,
-                       std::function<void(int progress)> progressCallback = nullptr) const;
+                       std::function<void(int progress)> progressCallback = nullptr,
+                       std::function<bool()> shouldCancel = nullptr) const;
 
 private:
     // 将旧单层结构 backups/{存档名}/ 中的备份迁移到 backups/{实例名}/{存档名}/

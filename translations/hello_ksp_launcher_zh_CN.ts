@@ -1552,8 +1552,8 @@
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="401" />
-        <source>所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。</source>
-        <translation>所选目录不是有效的KSP游戏目录，请确认包含settings.cfg和GameData文件夹。</translation>
+        <source>所选目录不是有效的KSP游戏目录，请确认包含KSP可执行文件和GameData文件夹。</source>
+        <translation>所选目录不是有效的KSP游戏目录，请确认包含KSP可执行文件和GameData文件夹。</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="415" />

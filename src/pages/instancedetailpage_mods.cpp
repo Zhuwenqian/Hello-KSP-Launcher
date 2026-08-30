@@ -18,6 +18,8 @@
 #include <QListWidget>
 #include <QSplitter>
 #include <QFile>
+#include <QDir>
+#include <QFileInfo>
 #include <QAbstractScrollArea>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -33,6 +35,23 @@ QString formatBytes(qint64 bytes)
     if (bytes < 1024 * 1024)
         return QStringLiteral("%1 KB").arg(QString::number(bytes / 1024.0, 'f', 1));
     return QStringLiteral("%1 MB").arg(QString::number(bytes / 1024.0 / 1024.0, 'f', 1));
+}
+
+// 递归把 absDir 下所有内容加入 parent（子目录标记 dir 并可继续展开，文件显示大小）。
+// 供「文件」tab 无缓存但已安装时，直接浏览已安装模组目录。
+void addDirContentsToTree(QTreeWidgetItem *parent, const QString &absDir)
+{
+    QDir d(absDir);
+    const QFileInfoList infos = d.entryInfoList(
+        QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name | QDir::DirsFirst);
+    for (const QFileInfo &fi : infos) {
+        QTreeWidgetItem *item = new QTreeWidgetItem(
+            parent, {fi.fileName(), fi.isFile() ? formatBytes(fi.size()) : QString()});
+        if (fi.isDir()) {
+            item->setData(0, Qt::UserRole, QStringLiteral("dir"));
+            addDirContentsToTree(item, fi.absoluteFilePath());
+        }
+    }
 }
 } // namespace
 
@@ -700,6 +719,32 @@ void InstanceDetailPage::showContentsTab(const ckan::CkanModule &mod)
     const QString zipPath =
         ckan::ModuleInstaller::findCacheZip(CKanManager::instance().downloadDir(), mod);
     if (zipPath.isEmpty()) {
+        // 压缩包未缓存：若该模组已安装（含手动安装 AD），直接浏览已安装目录；
+        // 第一层仍为 GameData，第二层才是模组文件夹。
+        const QStringList installedEntries =
+            CKanManager::instance().installedGameDataEntries(mod.identifier);
+        if (!installedEntries.isEmpty()) {
+            m_contentsStatusLabel->setText(tr("压缩包尚未缓存，以下为已安装目录："));
+            CKanManager &mgr = CKanManager::instance();
+            const QString gameDir = mgr.gameDir();
+            const QString prefix = QStringLiteral("GameData/");
+            QTreeWidgetItem *gd = new QTreeWidgetItem(m_contentsTree, {QStringLiteral("GameData"), QString()});
+            gd->setData(0, Qt::UserRole, QStringLiteral("dir"));
+            // 根层无展开指示符（rootIsDecorated(false)），默认展开以露出第二层模组文件夹
+            gd->setExpanded(true);
+            for (const QString &entry : installedEntries) {
+                if (!entry.startsWith(prefix, Qt::CaseInsensitive)) continue;
+                const QString abs = QDir(gameDir).filePath(entry);
+                const QFileInfo fi(abs);
+                QTreeWidgetItem *item = new QTreeWidgetItem(
+                    gd, {fi.fileName(), fi.isFile() ? formatBytes(fi.size()) : QString()});
+                if (fi.isDir()) {
+                    item->setData(0, Qt::UserRole, QStringLiteral("dir"));
+                    addDirContentsToTree(item, abs);
+                }
+            }
+            return;
+        }
         m_contentsStatusLabel->setText(tr("压缩包尚未缓存。下载后才能查看文件清单。"));
         return;
     }
@@ -855,16 +900,39 @@ void InstanceDetailPage::showVersionsTab(const ckan::CkanModule &mod)
     std::sort(vs.begin(), vs.end(), [](const ckan::CkanModule &a, const ckan::CkanModule &b) {
         return ckan::ModuleVersion(a.version) > ckan::ModuleVersion(b.version);
     });
-    const QString installed = CKanManager::instance().installedVersion(mod.identifier);
+    CKanManager &mgr = CKanManager::instance();
+    QString installed = mgr.installedVersion(mod.identifier);
+    bool ad = false;
+    // 手动安装（AD）模组注册表无版本号：从 DLL 文件名/内部版本推导，失败则回退标记最新版
+    if (installed.isEmpty() && mgr.isAutoDetected(mod.identifier)) {
+        ad = true;
+        installed = mgr.autoDetectedVersion(mod.identifier);
+    }
+    const ckan::ModuleVersion installedVer(installed);
+    bool marked = false; // AD 推导出的版本是否已命中某条目
     for (const ckan::CkanModule &v : vs) {
         QString status;
-        if (v.version == installed) status = tr("已安装");
-        else if (installed.isEmpty()) status = tr("未安装");
+        if (!installed.isEmpty()) {
+            // 先精确字符串匹配（沿用既有行为），再退化为数值比较（兼容 AD 推导的 .0 后缀等）
+            const bool match = v.version == installed
+                || (installedVer.isValid() && installedVer == ckan::ModuleVersion(v.version));
+            if (match) {
+                status = ad ? tr("已安装(AD)") : tr("已安装");
+                if (ad) marked = true;
+            }
+        } else {
+            status = tr("未安装");
+        }
         QTreeWidgetItem *item = new QTreeWidgetItem({
             v.version, v.releaseDate, formatBytes(v.downloadSize), status});
         item->setData(0, Qt::UserRole, v.version);
         item->setData(1, Qt::UserRole, v.toJson()); // 存该版本完整元数据供安装
         m_versionsTree->addTopLevelItem(item);
+    }
+    // AD 版本未能命中任何条目：把最新版标记为“已安装(AD)”
+    if (ad && !marked && !vs.isEmpty()) {
+        QTreeWidgetItem *top = m_versionsTree->topLevelItem(0);
+        if (top) top->setText(3, tr("已安装(AD)"));
     }
 }
 
