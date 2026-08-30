@@ -79,20 +79,21 @@ def sync_changelog(ver):
 
     # 匹配最新(第一条)更新记录标题，形如 "## 2026-08-29：xxx" 或已带版本 "## ... v1.1.1：xxx"
     header = re.compile(
-        r"^(## \d{4}-\d{2}-\d{2})\s*(?:v\d+\.\d+\.\d+)?\s*([：:])(.*)$"
+        r"^(## \d{4}-\d{2}-\d{2})\s*(?:v\d+\.\d+\.\d+)?\s*([：:])"
     )
     done = False
     for i, line in enumerate(lines):
         m = header.match(line)
         if not m:
             continue
-        prefix, colon, rest = m.group(1), m.group(2), m.group(3)
+        prefix, colon = m.group(1), m.group(2)
         # 已是目标版本则无需改动
         if line.startswith(prefix + " v" + ver + colon):
             print("[sync] 功能更新.md 最新记录已标注 v{}".format(ver))
             return
+        # 只插入版本号，保留该行原有行尾（\n 或 \r\n），避免与下一行标题粘连
         lines[i] = "{prefix} v{ver}{colon}{rest}".format(
-            prefix=prefix, ver=ver, colon=colon, rest=rest
+            prefix=prefix, ver=ver, colon=colon, rest=line[m.end():]
         )
         done = True
         break
