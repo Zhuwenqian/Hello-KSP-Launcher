@@ -29,7 +29,10 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files); or import a modpack from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
 - **Custom Background** — Choose any PNG/JPG as the launcher background. Cover-mode scaling. Resets to default with one click.
 - **Theme Support** — Dark and light themes with translucent UI and automatic icon tinting.
-- **Launch Arguments** — Configure custom command-line arguments (e.g. `-force-d3d11 -popupwindow`) per instance.
+- **Launch Configuration (Profile)** — Each instance carries its own launch profile: custom command-line arguments (e.g. `-force-d3d11 -popupwindow`), a system-level process memory cap (Job Object on Windows / `RLIMIT_AS` on POSIX), and process priority (High first closes Edge/Chrome/Firefox then raises the game's priority; Low leaves everything untouched).
+- **Custom Title Bar** — A frameless, semi-transparent theme-colored title bar with custom minimize/maximize(restore)/close buttons, drag-to-move, double-click maximize, Aero snap, and edge resizing (Windows).
+- **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. Optional auto-check on startup plus a manual "Check for Updates" button.
+- **About Page Release Link** — The version entry in the About page opens its corresponding GitHub Release.
 - **Windows Only** — Built with Qt 6 and CMake, targeting Windows (x64).
 
 ---
@@ -60,7 +63,7 @@ cmake --build .
 
 > **Windows note:** Use Qt's bundled mingw (e.g. `E:\Qt\Tools\mingw1310_64\bin`) rather than a standalone mingw installation.
 
-The executable will be placed in the `dist/` directory.
+Both the main executable (`HelloKSPLauncher.exe`) and the standalone update component (`updater.exe`) will be placed in the `dist/` directory.
 
 ---
 
@@ -86,6 +89,8 @@ Settings are persisted in `HKSPL.json` next to the executable, including:
 - Download concurrency (1–8)
 - Show suggested mods during installation
 - Download cache folder
+- Per-instance launch profile (memory limit, process priority)
+- Auto-check for updates on startup
 
 ---
 
@@ -108,6 +113,10 @@ HelloKSPLauncher/
 │   ├── configmanager.cpp/h
 │   ├── iconutils.cpp/h
 │   ├── instancemanager.cpp/h
+│   ├── processopt.cpp/h       # Memory job / priority / browser kill
+│   ├── updatemanager.cpp/h    # GitHub release query & download
+│   ├── updateflow.cpp/h       # Update dialog orchestration
+│   ├── updater/               # Standalone updater.exe source
 │   ├── pages/             # UI pages (homepage, instances, settings, saves, etc.)
 │   └── widgets/           # Custom widgets (toggleswitch, instanceitemwidget)
 ├── thirdparty/
@@ -153,7 +162,10 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
 - **主题支持** — 深色和浅色主题，半透明 UI 搭配自动图标色调适配。
-- **启动参数** — 为每个实例配置自定义命令行参数（如 `-force-d3d11 -popupwindow`）。
+- **启动配置（Profile）** — 每个实例独立携带一份启动配置：自定义命令行参数（如 `-force-d3d11 -popupwindow`）、系统级进程内存上限（Windows 用 Job Object、POSIX 用 `RLIMIT_AS`）以及进程优先级（「高」先结束 Edge/Chrome/Firefox 再把游戏进程设为高优先，「低」不做任何处理）。
+- **自绘标题栏** — 无边框、半透明主题色标题栏，含自定义最小化/最大化→还原/关闭按钮，支持拖动、双击最大化、Aero 贴靠与边缘缩放（Windows）。
+- **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；可选启动时自动检查，另设手动「检查更新」按钮。
+- **关于页 Release 链接** — 关于页版本首条可点击，跳转对应 GitHub Release。
 - **仅支持 Windows** — 基于 Qt 6 和 CMake 构建，面向 Windows（x64）平台。
 
 ---
@@ -184,7 +196,7 @@ cmake --build .
 
 > **Windows 提示：** 请使用 Qt 自带的 mingw（如 `E:\Qt\Tools\mingw1310_64\bin`），而非独立的 mingw 安装。
 
-编译产物位于 `dist/` 目录。
+编译产物位于 `dist/` 目录（含主程序 `HelloKSPLauncher.exe` 与独立更新组件 `updater.exe`）。
 
 ---
 
@@ -210,6 +222,8 @@ cmake --build .
 - 下载并发数（1–8）
 - 安装时是否显示建议模组
 - 下载缓存文件夹
+- 每实例启动配置（内存上限、进程优先级）
+- 启动时是否自动检查更新
 
 ---
 
@@ -232,6 +246,10 @@ HelloKSPLauncher/
 │   ├── configmanager.cpp/h
 │   ├── iconutils.cpp/h
 │   ├── instancemanager.cpp/h
+│   ├── processopt.cpp/h       # 进程内存限制 / 优先级 / 结束浏览器
+│   ├── updatemanager.cpp/h    # GitHub Release 查询与下载
+│   ├── updateflow.cpp/h       # 更新流程弹窗编排
+│   ├── updater/               # 独立 updater.exe 源码
 │   ├── pages/             # UI 页面（首页、实例、设置、存档等）
 │   └── widgets/           # 自定义控件（开关、实例列表项）
 ├── thirdparty/
