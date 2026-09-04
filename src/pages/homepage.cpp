@@ -13,9 +13,7 @@ void HomePage::setupUI()
     mainLayout->setContentsMargins(30, 30, 30, 30);
     mainLayout->setSpacing(20);
 
-    QLabel* welcomeLabel = new QLabel("Hello KSP Launcher", this);
-    welcomeLabel->setStyleSheet("font-size: 24pt; font-weight: bold;");
-    mainLayout->addWidget(welcomeLabel);
+    // 主标题已移除：应用标题栏已显示应用名
 
     mainLayout->addStretch(1);
 }

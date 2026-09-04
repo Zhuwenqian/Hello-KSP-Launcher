@@ -40,6 +40,7 @@ private slots:
     void onMoveRepoUp();
     void onMoveRepoDown();
     void onRefreshRepos();
+    void onCheckUpdateClicked();
 
 private:
     void setupUI();
@@ -68,6 +69,9 @@ private:
 
     // 仓库列表相关
     QListWidget* m_repoList;
+
+    // 更新相关
+    ToggleSwitch* m_autoUpdateToggle;
 
     QScrollArea* m_scrollArea;
 };

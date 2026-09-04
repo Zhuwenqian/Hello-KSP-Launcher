@@ -19,6 +19,7 @@
 #include <QSet>
 #include "../backgroundmanager.h"
 #include "../ckanmanager.h"
+#include "../updateflow.h"
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget(parent),
@@ -33,7 +34,8 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_rateLimitEdit(nullptr),
       m_cacheDirLabel(nullptr),
       m_installSuggestsToggle(nullptr),
-      m_diskSpaceCheckToggle(nullptr)
+      m_diskSpaceCheckToggle(nullptr),
+      m_autoUpdateToggle(nullptr)
 {
     setupUI();
     loadSettings();
@@ -103,6 +105,26 @@ void SettingsPage::setupUI()
     QLabel* themeLabel = new QLabel(tr("主题："), generalGroup);
     themeLabel->setObjectName("settingLabel");
     generalLayout->addRow(themeLabel, m_themeCombo);
+
+    // 自动检查更新
+    m_autoUpdateToggle = new ToggleSwitch(generalGroup);
+    m_autoUpdateToggle->setToolTip(tr("启动启动器时自动检查 GitHub 是否有新版本（默认开启）；关闭后仅可在下方手动检查"));
+    connect(m_autoUpdateToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setAutoCheckUpdate(checked); });
+    QLabel* autoUpdateLabel = new QLabel(tr("启动时自动检查更新："), generalGroup);
+    autoUpdateLabel->setObjectName("settingLabel");
+    generalLayout->addRow(autoUpdateLabel, m_autoUpdateToggle);
+
+    // 立即检查更新按钮
+    QHBoxLayout* updRow = new QHBoxLayout();
+    QPushButton* checkUpdBtn = new QPushButton(QIcon(":/icons/refresh.svg"), tr(" 检查更新..."), generalGroup);
+    checkUpdBtn->setObjectName("primaryButton");
+    checkUpdBtn->setMinimumHeight(34);
+    checkUpdBtn->setMinimumWidth(150);
+    connect(checkUpdBtn, &QPushButton::clicked, this, &SettingsPage::onCheckUpdateClicked);
+    updRow->addWidget(checkUpdBtn);
+    updRow->addStretch();
+    generalLayout->addRow(QString(), updRow);
 
     mainLayout->addWidget(generalGroup);
 
@@ -344,6 +366,7 @@ void SettingsPage::loadSettings()
     m_concurrencyCombo->blockSignals(true);
     m_installSuggestsToggle->blockSignals(true);
     m_diskSpaceCheckToggle->blockSignals(true);
+    m_autoUpdateToggle->blockSignals(true);
 
     QString lang = ConfigManager::instance().language();
     int langIdx = m_languageCombo->findData(lang);
@@ -382,6 +405,7 @@ void SettingsPage::loadSettings()
 
     m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
     m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
+    m_autoUpdateToggle->setChecked(ConfigManager::instance().autoCheckUpdate());
 
     loadRepoList();
 
@@ -394,6 +418,7 @@ void SettingsPage::loadSettings()
     m_concurrencyCombo->blockSignals(false);
     m_installSuggestsToggle->blockSignals(false);
     m_diskSpaceCheckToggle->blockSignals(false);
+    m_autoUpdateToggle->blockSignals(false);
 }
 
 void SettingsPage::refreshBackgroundPreview()
@@ -682,4 +707,9 @@ void SettingsPage::onRefreshRepos()
     CKanManager::instance().refreshIndexAsync(true);
     // 索引重新下载后顺带强制重扫一次 DLL（更新手动安装模组识别）
     CKanManager::instance().scanUnmanagedDllsAsync(true);
+}
+
+void SettingsPage::onCheckUpdateClicked()
+{
+    updateflow::checkManual(this);
 }

@@ -81,6 +81,10 @@ public:
     bool diskSpaceCheck() const;
     void setDiskSpaceCheck(bool enable);
 
+    // 启动时是否自动检查 GitHub 更新（默认开启）；关闭后仅可在设置页手动检查
+    bool autoCheckUpdate() const;
+    void setAutoCheckUpdate(bool enable);
+
     // ---- 模组管理设置 ----
     // 下载源偏好：官方优先（默认）或镜像优先
     enum DownloadSource { OfficialFirst, MirrorFirst };

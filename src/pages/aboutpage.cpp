@@ -65,7 +65,9 @@ AboutPage::AboutPage(QWidget *parent)
     mainLayout->addWidget(makeLinkRow(
         tr("Hello KSP Launcher"),
         tr("v%1").arg(QStringLiteral(HKSPL_APP_VERSION)),
-        QString(),
+        // 点击跳转到当前版本对应的 GitHub Release 页面
+        QStringLiteral("https://github.com/Zhuwenqian/Hello-KSP-Launcher/releases/tag/v%1")
+            .arg(QStringLiteral(HKSPL_APP_VERSION)),
         appIcon));
 
     mainLayout->addWidget(makeLinkRow(

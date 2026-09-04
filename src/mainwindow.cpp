@@ -13,6 +13,7 @@
 #include "iconutils.h"
 #include "backgroundmanager.h"
 #include "steamdiscovery.h"
+#include "updateflow.h"
 #include "ckan/ckan.h"
 #include "ckan/gameinstance.h"
 #include <QSet>
@@ -81,6 +82,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 启动时自动扫描 Steam 库，把发现的 KSP 直接加入实例列表（窗口显示后执行）
     QTimer::singleShot(0, this, &MainWindow::runSteamDiscovery);
+
+    // 延迟静默检查更新（窗口就绪后再发起，避免冷启动阻塞）
+    QTimer::singleShot(8000, this, []() { updateflow::checkSilent(); });
 }
 
 MainWindow::~MainWindow()

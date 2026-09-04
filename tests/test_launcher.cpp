@@ -5,6 +5,7 @@
 
 #include "steamdiscovery.h"
 #include "instancemanager.h"
+#include "updatemanager.h"
 
 // 启动器逻辑测试：Steam 库发现（仅与 src/steamdiscovery.cpp 相关，不依赖 libckan）。
 class TestSteamDiscovery : public QObject
@@ -178,6 +179,33 @@ private slots:
 #endif
 };
 
+// 自更新版本比较（纯逻辑，无需网络）
+class TestUpdaterManager : public QObject
+{
+    Q_OBJECT
+private slots:
+    void versionComparison();
+};
+
+void TestUpdaterManager::versionComparison()
+{
+    // 简单递增
+    QVERIFY(UpdaterManager::versionLess("1.1.2", "1.1.3"));
+    QVERIFY(UpdaterManager::versionLess("1.1.2", "1.2.0"));
+    QVERIFY(UpdaterManager::versionLess("1.1.2", "2.0.0"));
+    // 相等 / 反向
+    QVERIFY(!UpdaterManager::versionLess("1.1.2", "1.1.2"));
+    QVERIFY(!UpdaterManager::versionLess("1.1.3", "1.1.2"));
+    // 段数不同的补齐（1.3 == 1.3.0，2 == 2.0.0）
+    QVERIFY(!UpdaterManager::versionLess("1.3", "1.3.0"));
+    QVERIFY(UpdaterManager::versionLess("1.3", "1.3.1"));
+    QVERIFY(UpdaterManager::versionLess("2", "2.0.1"));
+    // 大版本优先
+    QVERIFY(UpdaterManager::versionLess("1.9.9", "2.0.0"));
+    // 非纯数字段（预发布）→ 字典序兜底，不崩溃
+    QVERIFY(!UpdaterManager::versionLess("1.1.2-beta", "1.1.2"));
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -188,6 +216,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tValid, argc, argv);
     TestLaunchOptions tLaunchOpts;
     failures += QTest::qExec(&tLaunchOpts, argc, argv);
+    TestUpdaterManager tUpdater;
+    failures += QTest::qExec(&tUpdater, argc, argv);
     return failures;
 }
 

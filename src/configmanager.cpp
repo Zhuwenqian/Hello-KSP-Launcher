@@ -41,6 +41,7 @@ void ConfigManager::loadDefaults()
     m_config["downloadCacheDir"] = QString();
     m_config["downloadConcurrency"] = 3;
     m_config["diskSpaceCheck"] = true;
+    m_config["autoCheckUpdate"] = true;
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -70,6 +71,9 @@ bool ConfigManager::load()
     // 确保新字段有默认值(旧版配置文件可能没有)
     if (!m_config.contains("backgroundPath")) {
         m_config["backgroundPath"] = QString();
+    }
+    if (!m_config.contains("autoCheckUpdate")) {
+        m_config["autoCheckUpdate"] = true;
     }
 
     m_instances.clear();
@@ -279,6 +283,20 @@ void ConfigManager::setDiskSpaceCheck(bool enable)
 {
     if (diskSpaceCheck() != enable) {
         m_config["diskSpaceCheck"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+bool ConfigManager::autoCheckUpdate() const
+{
+    return m_config["autoCheckUpdate"].toBool(true);
+}
+
+void ConfigManager::setAutoCheckUpdate(bool enable)
+{
+    if (autoCheckUpdate() != enable) {
+        m_config["autoCheckUpdate"] = enable;
         save();
         emit configChanged();
     }

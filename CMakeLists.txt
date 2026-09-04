@@ -111,6 +111,8 @@ set(SOURCES
     src/backgroundmanager.cpp
     src/ckanmanager.cpp
     src/processopt.cpp
+    src/updatemanager.cpp
+    src/updateflow.cpp
     src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
@@ -178,6 +180,25 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/ckan
 )
 
+# ---------------------------------------------------------------------------
+# updater：独立更新组件。主程序检测到新版本后启动它，它负责清理旧文件、
+# 解压新包、替换、重启主程序并自行退出。
+# ---------------------------------------------------------------------------
+add_executable(updater WIN32
+    src/updater/main.cpp
+    thirdparty/miniz.c
+)
+target_include_directories(updater PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/thirdparty
+)
+target_link_libraries(updater PRIVATE
+    Qt6::Core
+)
+if(WIN32)
+    set_target_properties(updater PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
 # Copy translations (.qm files) to output directory
 file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
@@ -240,12 +261,15 @@ add_executable(test_launcher
     src/steamdiscovery.cpp
     src/instancemanager.cpp
     src/processopt.cpp
+    src/updatemanager.cpp
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/ckan
 )
 target_link_libraries(test_launcher PRIVATE
     Qt6::Core
+    Qt6::Network
     Qt6::Test
 )
 add_test(NAME test_launcher COMMAND test_launcher)
