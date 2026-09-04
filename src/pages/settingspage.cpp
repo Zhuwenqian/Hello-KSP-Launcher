@@ -586,8 +586,11 @@ void SettingsPage::applyRepos(const QVector<ckan::Repository> &repos, bool refre
     }
     ConfigManager::instance().setRepositories(dedup);
     loadRepoList();
-    if (refresh)
+    if (refresh) {
         CKanManager::instance().refreshIndexAsync(true); // 仓库变更：强制重新下载索引
+        // 索引重新下载后顺带强制重扫一次 DLL（更新手动安装模组识别）
+        CKanManager::instance().scanUnmanagedDllsAsync(true);
+    }
 }
 
 void SettingsPage::onAddPresetRepo(const ckan::Repository &preset)
@@ -677,4 +680,6 @@ void SettingsPage::onMoveRepoDown()
 void SettingsPage::onRefreshRepos()
 {
     CKanManager::instance().refreshIndexAsync(true);
+    // 索引重新下载后顺带强制重扫一次 DLL（更新手动安装模组识别）
+    CKanManager::instance().scanUnmanagedDllsAsync(true);
 }

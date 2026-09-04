@@ -17,6 +17,10 @@ struct KSPInstance {
     QString path;
     QString exePath;
     QString launchArgs;
+    // 启动配置（每个实例的高级页即一份启动 Profile）
+    int launchMemoryMB = 0;          // 内存上限 MB，0=不限制。KSP 是 64 位 Unity 无 -Xmx，
+                                     // 该值为系统级进程内存上限（Job Object / RLIMIT_AS）。
+    bool launchHighPriority = false; // 进程优先级：true=高（结束浏览器+设高优先），false=低/不处理
     // 用户勾选的兼容 KSP 版本线（如 {"1.9","1.10","1.11","1.12"}），按实例记忆。
     // 空列表表示未勾选任何版本（兼容判定仅以当前实例实际版本为准）。
     // compatVersionsSet==false（新实例/旧配置缺字段）表示未显式配置，
@@ -117,6 +121,10 @@ public:
     void removeInstance(const QString& id);
     void renameInstance(const QString& id, const QString& newName);
     void updateInstanceLaunchArgs(const QString& id, const QString& args);
+    int instanceLaunchMemoryMB(const QString& id) const;
+    void setInstanceLaunchMemoryMB(const QString& id, int mb);
+    bool instanceLaunchHighPriority(const QString& id) const;
+    void setInstanceLaunchHighPriority(const QString& id, bool high);
     KSPInstance currentInstance() const;
     void setCurrentInstance(const QString& id);
     KSPInstance getInstance(const QString& id) const;

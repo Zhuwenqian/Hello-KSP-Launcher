@@ -17,11 +17,38 @@
 #include "ckan/gameinstance.h"
 #include <QSet>
 #include <QFileInfo>
+#include <QMouseEvent>
+#include <QShowEvent>
+#include <QWindow>
+#include <QApplication>
+
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#include <dwmapi.h>
+
+// 较旧的 mingw SDK 头缺失圆角窗口相关常量，这里补充定义
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#ifndef DWMWCP_DONOTROUND
+enum DWM_WINDOW_CORNER_PREFERENCE {
+    DWMWCP_DEFAULT = 0,
+    DWMWCP_DONOTROUND = 1,
+    DWMWCP_ROUND = 2,
+    DWMWCP_ROUNDSMALL = 3
+};
+#endif
+#endif
+#endif
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_gameRunning(false),
-      m_backgroundLabel(nullptr), m_contentContainer(nullptr), m_stoppingGame(false)
+      m_backgroundLabel(nullptr), m_contentContainer(nullptr), m_stoppingGame(false),
+      m_titleBar(nullptr), m_winMinBtn(nullptr), m_winMaxBtn(nullptr), m_winCloseBtn(nullptr),
+      m_dwmApplied(false), m_titleBarDrag(false)
 {
+    // 无边框窗口 + 自绘标题栏，实现主题色半透明标题栏
+    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setWindowTitle("Hello KSP Launcher");
     resize(1000, 650);
     setMinimumSize(800, 500);
@@ -86,6 +113,9 @@ void MainWindow::setupUI()
     QHBoxLayout* contentLayout = new QHBoxLayout();
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
+
+    setupTitleBar();
+    mainLayout->insertWidget(0, m_titleBar);
 
     setupSidebar();
     contentLayout->addWidget(m_sidebar);
@@ -208,6 +238,169 @@ void MainWindow::setupSidebar()
     sidebarLayout->addWidget(m_aboutBtn);
     sidebarLayout->addStretch();
 }
+
+void MainWindow::setupTitleBar()
+{
+    m_titleBar = new QWidget(m_contentContainer);
+    m_titleBar->setObjectName("titleBar");
+    m_titleBar->setFixedHeight(38);
+    m_titleBar->installEventFilter(this);
+
+    QHBoxLayout* tbLayout = new QHBoxLayout(m_titleBar);
+    tbLayout->setContentsMargins(14, 0, 0, 0);
+    tbLayout->setSpacing(8);
+
+    QLabel* appIcon = new QLabel(m_titleBar);
+    appIcon->setPixmap(QIcon(QStringLiteral(":/appicon.ico")).pixmap(18, 18));
+    tbLayout->addWidget(appIcon);
+
+    m_titleLabel = new QLabel(tr("Hello KSP Launcher"), m_titleBar);
+    m_titleLabel->setObjectName("titleLabel");
+    tbLayout->addWidget(m_titleLabel);
+    tbLayout->addStretch();
+
+    auto makeWinBtn = [&](const QString &iconPath) {
+        QPushButton* b = new QPushButton(IconUtils::tintedIcon(iconPath, "#d0d0d0"), QString(), m_titleBar);
+        b->setObjectName("winBtn");
+        b->setFixedSize(46, 38);
+        b->setCursor(Qt::ArrowCursor);
+        return b;
+    };
+
+    m_winMinBtn = makeWinBtn(QStringLiteral(":/icons/window-minimize.svg"));
+    m_winMaxBtn = makeWinBtn(QStringLiteral(":/icons/window-maximize.svg"));
+    m_winCloseBtn = makeWinBtn(QStringLiteral(":/icons/window-close.svg"));
+    m_winCloseBtn->setObjectName("winCloseBtn");
+
+    connect(m_winMinBtn, &QPushButton::clicked, this, &MainWindow::onWindowMinClicked);
+    connect(m_winMaxBtn, &QPushButton::clicked, this, &MainWindow::onWindowMaxClicked);
+    connect(m_winCloseBtn, &QPushButton::clicked, this, &MainWindow::onWindowCloseClicked);
+
+    tbLayout->addWidget(m_winMinBtn);
+    tbLayout->addWidget(m_winMaxBtn);
+    tbLayout->addWidget(m_winCloseBtn);
+}
+
+void MainWindow::onWindowMinClicked()
+{
+    showMinimized();
+}
+
+void MainWindow::onWindowMaxClicked()
+{
+    toggleMaximize();
+}
+
+void MainWindow::onWindowCloseClicked()
+{
+    close();
+}
+
+void MainWindow::toggleMaximize()
+{
+    if (isMaximized())
+        showNormal();
+    else
+        showMaximized();
+    updateWindowButtons();
+    applyWindowCornerPreference();
+}
+
+void MainWindow::updateWindowButtons()
+{
+    if (!m_winMaxBtn) return;
+    const QString icon = isMaximized()
+        ? QStringLiteral(":/icons/window-restore.svg")
+        : QStringLiteral(":/icons/window-maximize.svg");
+    m_winMaxBtn->setIcon(IconUtils::tintedIcon(icon, "#d0d0d0"));
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
+{
+    if (obj == m_titleBar) {
+        if (ev->type() == QEvent::MouseButtonPress) {
+            QMouseEvent* me = static_cast<QMouseEvent*>(ev);
+            if (me->button() == Qt::LeftButton && windowHandle()) {
+                m_titleBarDrag = true;
+                m_titleBarPressPos = me->globalPosition().toPoint();
+                // 不消费事件：让系统有机会判定后续双击
+                return false;
+            }
+        } else if (ev->type() == QEvent::MouseButtonRelease) {
+            m_titleBarDrag = false;
+        } else if (ev->type() == QEvent::MouseMove) {
+            // 拖动超过阈值才交给系统 move，避免和双击最大化冲突；支持 Aero 贴靠
+            if (m_titleBarDrag && windowHandle()) {
+                const QPoint cur = static_cast<QMouseEvent*>(ev)->globalPosition().toPoint();
+                if ((cur - m_titleBarPressPos).manhattanLength() >= QApplication::startDragDistance()) {
+                    m_titleBarDrag = false;
+                    windowHandle()->startSystemMove();
+                    return true;
+                }
+            }
+        } else if (ev->type() == QEvent::MouseButtonDblClick) {
+            QMouseEvent* me = static_cast<QMouseEvent*>(ev);
+            if (me->button() == Qt::LeftButton) {
+                m_titleBarDrag = false;
+                toggleMaximize();
+                return true;
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, ev);
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    if (!m_dwmApplied) {
+        m_dwmApplied = true;
+        updateWindowButtons();
+        QTimer::singleShot(0, this, &MainWindow::applyWindowCornerPreference);
+    }
+}
+
+void MainWindow::applyWindowCornerPreference()
+{
+#if defined(_WIN32)
+    if (!windowHandle()) return;
+    const HWND hwnd = reinterpret_cast<HWND>(windowHandle()->winId());
+    // 最大化时直角，普通状态圆角
+    DWM_WINDOW_CORNER_PREFERENCE pref = isMaximized() ? DWMWCP_DONOTROUND : DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+#endif
+}
+
+#if defined(_WIN32)
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+    Q_UNUSED(eventType);
+    MSG* msg = static_cast<MSG*>(message);
+    // 无边框窗口仅在普通(非最大化/全屏)状态处理边缘缩放
+    if (msg->message == WM_NCHITTEST && !isMaximized() && !isFullScreen()) {
+        const QPoint pos = mapFromGlobal(QCursor::pos());
+        const QRect r = rect();
+        const int b = 6;
+        const bool top    = pos.y() <= b;
+        const bool bottom = pos.y() >= r.height() - 1 - b;
+        const bool left   = pos.x() <= b;
+        const bool right  = pos.x() >= r.width() - 1 - b;
+
+        int ht = HTCLIENT;
+        if      (top && left)  ht = HTTOPLEFT;
+        else if (top && right) ht = HTTOPRIGHT;
+        else if (bottom && left)  ht = HTBOTTOMLEFT;
+        else if (bottom && right) ht = HTBOTTOMRIGHT;
+        else if (top)    ht = HTTOP;
+        else if (bottom) ht = HTBOTTOM;
+        else if (left)   ht = HTLEFT;
+        else if (right)  ht = HTRIGHT;
+        *result = ht;
+        return true;
+    }
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+#endif
 
 void MainWindow::setupLaunchBar()
 {
@@ -552,7 +745,8 @@ void MainWindow::onLaunchClicked()
         return;
     }
 
-    bool launched = InstanceManager::instance().launchGame(inst.exePath, inst.launchArgs);
+    bool launched = InstanceManager::instance().launchGame(
+        inst.exePath, inst.launchArgs, inst.launchMemoryMB, inst.launchHighPriority);
     if (!launched) {
         QMessageBox::warning(this, tr("错误"), tr("启动游戏失败。"));
     }

@@ -367,18 +367,18 @@ void InstanceDetailPage::prepareMods()
     // 应用用户勾选的兼容版本区间（过滤代理 + 安装/依赖解析共用）
     applyCompatRange();
 
-    // 手动安装模组（AD）DLL 扫描：后台线程执行，结果缓存，避免阻塞 UI 与重复全盘扫描
-    if (!mgr.unmanagedScanDone()) {
-        m_modsModel->clear();
-        mgr.scanUnmanagedDllsAsync();
-    }
-
     if (!mgr.indexReady()) {
-        // 首次进入：自动加载仓库索引（优先使用本地缓存）
+        // 需要加载/刷新索引：加载索引的同时强制重扫一次 DLL，
+        // 保持手动安装（AD）模组识别最新（新放入/移除的模组 DLL 即时反映）
         m_modsModel->clear();
         setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
         showDownloadProgress();
         mgr.refreshIndexAsync();
+        mgr.scanUnmanagedDllsAsync(true);
+    } else if (!mgr.unmanagedScanDone()) {
+        // 索引已就绪但本实例 DLL 扫描尚未完成（如首次构造）→ 后台扫描
+        m_modsModel->clear();
+        mgr.scanUnmanagedDllsAsync();
     }
 
     maybePopulateMods();
@@ -553,6 +553,8 @@ void InstanceDetailPage::onRefreshModsClicked()
     setDetailNote(tr("正在刷新仓库索引..."));
     showDownloadProgress();
     CKanManager::instance().refreshIndexAsync(true); // 手动刷新：强制重新下载
+    // 顺带强制重新扫描一次 DLL，更新手动安装（AD）模组识别（如新放入/移除的模组 DLL）
+    CKanManager::instance().scanUnmanagedDllsAsync(true);
 }
 
 void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
@@ -693,8 +695,13 @@ void InstanceDetailPage::showMetaTab(const ckan::CkanModule &mod)
         s += "<br/>" + tr("作者：%1").arg(mod.author.join(QStringLiteral(", ")).toHtmlEscaped());
     if (!mod.license.isEmpty())
         s += "<br/>" + tr("许可：%1").arg(mod.license.join(QStringLiteral(", ")).toHtmlEscaped());
-    if (!mod.kspVersion.isEmpty())
-        s += "<br/>" + tr("KSP 版本：%1").arg(ckan::ModuleVersion(mod.kspVersion).toString());
+    // 部分模组（如 Astronomer's Visual Pack）只声明 ksp_version_min/max 区间，
+    // 不填 ksp_version；此时 kspVersion 为空，回退显示区间端点（max 优先）。
+    QString kspSrc = mod.kspVersion;
+    if (kspSrc.isEmpty() && !mod.kspVersionMax.isEmpty()) kspSrc = mod.kspVersionMax;
+    if (kspSrc.isEmpty() && !mod.kspVersionMin.isEmpty()) kspSrc = mod.kspVersionMin;
+    if (!kspSrc.isEmpty())
+        s += "<br/>" + tr("KSP 版本：%1").arg(ckan::ModuleVersion(kspSrc).toString());
     if (!mod.releaseDate.isEmpty())
         s += "<br/>" + tr("发布日期：%1").arg(mod.releaseDate.toHtmlEscaped());
     if (mod.downloadSize > 0)

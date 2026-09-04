@@ -27,6 +27,12 @@ public:
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void changeEvent(QEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* ev) override;
+    void showEvent(QShowEvent* event) override;
+
+#if defined(_WIN32)
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+#endif
 
 private slots:
     void applyTheme(const QString& theme);
@@ -52,13 +58,20 @@ private slots:
     void onBackFromSaveDetail();
     void onHomeFromSaveDetail();
     void onBackgroundChanged();
+    void onWindowMinClicked();
+    void onWindowMaxClicked();
+    void onWindowCloseClicked();
 
 private:
     void setupUI();
     void setupSidebar();
     void setupLaunchBar();
+    void setupTitleBar();
     void showPage(QWidget* page);
     void setNavButtonChecked(QPushButton* btn);
+    void toggleMaximize();
+    void updateWindowButtons();
+    void applyWindowCornerPreference();
     
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();
@@ -96,6 +109,16 @@ private:
     QPushButton* m_launchSwitchButton;
     QLabel* m_currentInstanceLabel;
     QMenu* m_switchMenu;
+
+    // 自绘标题栏（无边框窗口）
+    QWidget* m_titleBar;
+    QLabel* m_titleLabel;
+    QPushButton* m_winMinBtn;
+    QPushButton* m_winMaxBtn;
+    QPushButton* m_winCloseBtn;
+    bool m_dwmApplied;
+    bool m_titleBarDrag;         // 标题栏是否处于拖动候选状态
+    QPoint m_titleBarPressPos;   // 按下时的全局坐标，用于拖动阈值判定
 
     QString m_currentTheme;
     bool m_gameRunning;

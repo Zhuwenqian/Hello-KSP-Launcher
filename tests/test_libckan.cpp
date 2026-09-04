@@ -1568,6 +1568,79 @@ private slots:
         QVERIFY(!dlls.contains(QStringLiteral("egg")));
     }
 
+    // 回归：BDArmory.dll 被原版 BDArmory / BDAc / BDAP（BDArmoryForRunwayProject）
+    // 三个继任者共用，DLL 扫描必须按实际 KSP 版本消歧，否则会把 BDAP 的 DLL 误判成
+    // 原版 BDArmory（而 BDAP 的 conflicts 声明了 BDArmory），导致重装 BDAP 误报不兼容。
+    void scanDisambiguatesSharedDllByKspVersion()
+    {
+        const auto mkfile = [](const QString &root, const QString &rel, const QByteArray &content) {
+            const QString abs = root + QLatin1Char('/') + rel;
+            QDir().mkpath(QFileInfo(abs).absolutePath());
+            QFile f(abs);
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(rel));
+            f.write(content);
+            f.close();
+        };
+        // 返回某标识符扫描到的 DLL 相对路径；未命中时为空串（路径必非空，可区分）
+        const auto scannedKey = [](const QString &root, const QString &key) {
+            GameInstance gi(root, QStringLiteral("test"));
+            return gi.scanUnmanagedDlls().value(key);
+        };
+        const QString relDll = QStringLiteral("GameData/BDArmory/BDArmory.dll");
+
+        // 1) 现代 KSP 1.12.5 → BDAP（持续维护）
+        {
+            QTemporaryDir dir;
+            QVERIFY(dir.isValid());
+            mkfile(dir.path(), QStringLiteral("buildID64.txt"), QByteArrayLiteral("build id = 3190\n"));
+            mkfile(dir.path(), QStringLiteral("GameData/BDArmory/BDArmory.dll"), "x");
+            QCOMPARE(scannedKey(dir.path(), QStringLiteral("BDArmoryForRunwayProject")), relDll);
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmory")).isEmpty());
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmoryContinued")).isEmpty());
+        }
+
+        // 2) KSP 1.3.0 → BDAc（BDArmoryContinued）
+        {
+            QTemporaryDir dir;
+            QVERIFY(dir.isValid());
+            mkfile(dir.path(), QStringLiteral("buildID64.txt"), QByteArrayLiteral("build id = 1804\n"));
+            mkfile(dir.path(), QStringLiteral("GameData/BDArmory/BDArmory.dll"), "x");
+            QCOMPARE(scannedKey(dir.path(), QStringLiteral("BDArmoryContinued")), relDll);
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmory")).isEmpty());
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmoryForRunwayProject")).isEmpty());
+        }
+
+        // 3) 老版本 KSP 1.1.0（build 表外，走 readme 兜底）→ 原版 BDArmory
+        {
+            QTemporaryDir dir;
+            QVERIFY(dir.isValid());
+            mkfile(dir.path(), QStringLiteral("readme.txt"), QByteArrayLiteral("Version 1.1.0\n"));
+            mkfile(dir.path(), QStringLiteral("GameData/BDArmory/BDArmory.dll"), "x");
+            QCOMPARE(scannedKey(dir.path(), QStringLiteral("BDArmory")), relDll);
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmoryContinued")).isEmpty());
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmoryForRunwayProject")).isEmpty());
+        }
+
+        // 4) 版本未知 → 回退持续维护的 BDAP（避免误判为原版 BDArmory 引发假冲突）
+        {
+            QTemporaryDir dir;
+            QVERIFY(dir.isValid());
+            mkfile(dir.path(), QStringLiteral("GameData/BDArmory/BDArmory.dll"), "x");
+            QCOMPARE(scannedKey(dir.path(), QStringLiteral("BDArmoryForRunwayProject")), relDll);
+            QVERIFY(scannedKey(dir.path(), QStringLiteral("BDArmory")).isEmpty());
+        }
+
+        // 5) 非共享 DLL 不受消歧影响
+        {
+            QTemporaryDir dir;
+            QVERIFY(dir.isValid());
+            mkfile(dir.path(), QStringLiteral("buildID64.txt"), QByteArrayLiteral("build id = 3190\n"));
+            mkfile(dir.path(), QStringLiteral("GameData/ModX/ModX.dll"), "x");
+            QCOMPARE(scannedKey(dir.path(), QStringLiteral("ModX")),
+                     QStringLiteral("GameData/ModX/ModX.dll"));
+        }
+    }
+
     // 回归：注册表文件被删除后（如 .ckan 整合包导入清空），loadRegistry 必须重置内存态，
     // 否则已删除的暂存数据仍滞留内存，污染后续安装与文件归属判断。
     void reloadRegistryResetsWhenFileDeleted()

@@ -14,6 +14,7 @@
 #include <QTableView>
 #include <QTextEdit>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QProgressBar>
 #include <QCheckBox>
 #include <QTabWidget>
@@ -200,8 +201,10 @@ private:
     // 模组列表列宽持久化：拖动后防抖落盘
     QTimer*   m_colWidthSaveTimer = nullptr;
 
-    // Advanced tab
+    // Advanced tab（高级页即启动配置 Profile）
     QLineEdit* m_launchArgsEdit;
+    QSpinBox* m_launchMemorySpin;     // 内存上限 MB，0=不限制
+    QComboBox* m_launchPriorityCombo; // 0=低(不处理) 1=高
     QPushButton* m_saveLaunchArgsBtn;
 };
 

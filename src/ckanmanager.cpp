@@ -308,10 +308,12 @@ bool CKanManager::isUpgradable(const QString &identifier) const
     return ckan::ModuleVersion(latest.version) > ckan::ModuleVersion(installed);
 }
 
-void CKanManager::scanUnmanagedDllsAsync()
+void CKanManager::scanUnmanagedDllsAsync(bool force)
 {
-    if (!m_ckan || m_ckan->dllsScanned() || m_scanWatcher)
-        return; // 未绑定、已扫描（缓存命中）或在途 → 无需重复全盘扫描
+    if (!m_ckan || m_scanWatcher)
+        return; // 未绑定或在途 → 无法启动新扫描
+    if (!force && m_ckan->dllsScanned())
+        return; // 非强制：已扫描（缓存命中）→ 无需重复全盘扫描
 
     auto watcher = new QFutureWatcher<void>(this);
     m_scanWatcher = watcher;

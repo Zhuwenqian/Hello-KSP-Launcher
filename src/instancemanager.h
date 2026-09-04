@@ -8,6 +8,7 @@
 #include <QList>
 #include <QDateTime>
 #include <functional>
+#include "processopt.h"
 
 struct GameSetting {
     QString key;         // 原始键名 (如 SCREEN_RESOLUTION_WIDTH)
@@ -69,7 +70,8 @@ public:
     bool saveGameSettings(const QString& gamePath, const QList<GameSetting>& settings) const;
     QList<DLCDetection> detectDLCs(const QString& gamePath) const;
     QStringList listMods(const QString& gamePath) const;
-    bool launchGame(const QString& exePath, const QString& args = QString());
+    bool launchGame(const QString& exePath, const QString& args = QString(),
+                    int memoryLimitMB = 0, bool highPriority = false);
     void stopGame();
     QString detectGameRoot(const QString& exePath) const;
     bool isValidKSPPath(const QString& path) const;
@@ -106,6 +108,8 @@ public:
 private:
     // 将旧单层结构 backups/{存档名}/ 中的备份迁移到 backups/{实例名}/{存档名}/
     void migrateLegacyBackups(const QString& instanceName, const QString& saveName) const;
+    // 释放游戏进程内存限制所用的 Job Object（Windows）；其它平台为空实现
+    void releaseMemoryJob();
 
 signals:
     void gameStarted();
@@ -119,6 +123,9 @@ private:
     InstanceManager& operator=(const InstanceManager&) = delete;
 
     QProcess* m_gameProcess;
+#if defined(_WIN32)
+    void* m_memoryJob = nullptr; // 进程内存限制所用的 Job Object 句柄（须在游戏退出/析构时释放）
+#endif
 };
 
 #endif // INSTANCEMANAGER_H

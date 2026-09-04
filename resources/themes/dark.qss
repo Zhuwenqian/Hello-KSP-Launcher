@@ -490,6 +490,22 @@ QLineEdit:read-only {
     background-color: rgba(60, 60, 60, 180);
 }
 
+QSpinBox {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px 6px;
+    color: #ffffff;
+}
+QSpinBox:hover, QSpinBox:focus {
+    border-color: #007acc;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 16px;
+    border: none;
+    background-color: transparent;
+}
+
 QPushButton {
     background-color: #3c3c3c;
     border: 1px solid #555555;
@@ -655,4 +671,28 @@ QWidget#savesListPage QLabel#pageTitle {
     color: #ffffff;
     font-size: 13pt;
     font-weight: bold;
+}
+
+/* 自绘无边框标题栏 */
+#titleBar {
+    background-color: rgba(28, 28, 31, 200);
+}
+#titleLabel {
+    color: #ffffff;
+    font-size: 11pt;
+    font-weight: 600;
+}
+QPushButton#winBtn, QPushButton#winCloseBtn {
+    background-color: transparent;
+    border: none;
+    border-radius: 0px;
+    padding: 0px;
+    icon-size: 14px 14px;
+}
+QPushButton#winBtn:hover {
+    background-color: rgba(255, 255, 255, 26);
+}
+QPushButton#winCloseBtn:hover {
+    background-color: #e81123;
+    border-radius: 0px;
 }

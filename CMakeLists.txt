@@ -110,6 +110,7 @@ set(SOURCES
     src/iconutils.cpp
     src/backgroundmanager.cpp
     src/ckanmanager.cpp
+    src/processopt.cpp
     src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
@@ -136,6 +137,7 @@ set(HEADERS
     src/iconutils.h
     src/backgroundmanager.h
     src/ckanmanager.h
+    src/processopt.h
     src/pages/homepage.h
     src/pages/instancelistpage.h
     src/pages/instancedetailpage.h
@@ -168,6 +170,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 # 消费 libckan.dll 需 dllimport（CKAN_BUILD_SHARED）；声明自身 include 目录
 target_compile_definitions(${PROJECT_NAME} PRIVATE CKAN_BUILD_SHARED)
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dwmapi)
+endif()
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/ckan
@@ -234,6 +239,7 @@ add_executable(test_launcher
     tests/test_launcher.cpp
     src/steamdiscovery.cpp
     src/instancemanager.cpp
+    src/processopt.cpp
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src

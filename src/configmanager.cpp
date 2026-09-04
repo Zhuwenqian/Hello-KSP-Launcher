@@ -82,6 +82,8 @@ bool ConfigManager::load()
         inst.path = obj["path"].toString();
         inst.exePath = obj["exePath"].toString();
         inst.launchArgs = obj["launchArgs"].toString();
+        inst.launchMemoryMB = obj["launchMemoryMB"].toInt(0);
+        inst.launchHighPriority = obj["launchHighPriority"].toBool(false);
         // 兼容版本勾选：字段存在（可能为空数组）按持久化值，空即"未勾选任何版本"；
         // 字段缺失（旧配置/新实例）保持未配置，由 compatibleVersions() 按检测到的
         // 游戏版本动态推导默认勾选（1.9~1.12 区间内回退到 1.9，低于 1.9 仅勾选自身版本线）。
@@ -113,6 +115,8 @@ bool ConfigManager::save()
         obj["path"] = inst.path;
         obj["exePath"] = inst.exePath;
         obj["launchArgs"] = inst.launchArgs;
+        obj["launchMemoryMB"] = inst.launchMemoryMB;
+        obj["launchHighPriority"] = inst.launchHighPriority;
         // 仅持久化用户显式配置的兼容版本；未配置时省略该字段，
         // 下次加载仍保持"未配置"，由游戏版本动态推导默认勾选。
         if (inst.compatVersionsSet)
@@ -494,6 +498,43 @@ void ConfigManager::updateInstanceLaunchArgs(const QString &id, const QString &a
     for (int i = 0; i < m_instances.size(); ++i) {
         if (m_instances[i].id == id) {
             m_instances[i].launchArgs = args;
+            save();
+            emit instancesChanged();
+            return;
+        }
+    }
+}
+
+int ConfigManager::instanceLaunchMemoryMB(const QString &id) const
+{
+    return getInstance(id).launchMemoryMB;
+}
+
+void ConfigManager::setInstanceLaunchMemoryMB(const QString &id, int mb)
+{
+    const int clamped = qBound(0, mb, 65536); // 0=不限制，上限 64GB 防误填
+    for (KSPInstance &inst : m_instances) {
+        if (inst.id == id) {
+            if (inst.launchMemoryMB == clamped) return;
+            inst.launchMemoryMB = clamped;
+            save();
+            emit instancesChanged();
+            return;
+        }
+    }
+}
+
+bool ConfigManager::instanceLaunchHighPriority(const QString &id) const
+{
+    return getInstance(id).launchHighPriority;
+}
+
+void ConfigManager::setInstanceLaunchHighPriority(const QString &id, bool high)
+{
+    for (KSPInstance &inst : m_instances) {
+        if (inst.id == id) {
+            if (inst.launchHighPriority == high) return;
+            inst.launchHighPriority = high;
             save();
             emit instancesChanged();
             return;

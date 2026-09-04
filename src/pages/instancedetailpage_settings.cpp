@@ -94,19 +94,47 @@ void InstanceDetailPage::setupAdvancedTab()
     layout->setContentsMargins(20, 15, 20, 15);
     layout->setSpacing(10);
 
-    QLabel* titleLabel = new QLabel(tr("启动参数"), panel);
+    QLabel* titleLabel = new QLabel(tr("启动配置"), panel);
     titleLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
     layout->addWidget(titleLabel);
 
-    QLabel* descLabel = new QLabel(tr("在这里输入附加启动参数，例如：-force-d3d11 -popupwindow"), panel);
+    QLabel* descLabel = new QLabel(tr("在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。"), panel);
     descLabel->setStyleSheet("color: #888; font-size: 9pt;");
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
+    // 启动参数
+    layout->addWidget(new QLabel(tr("自定义启动参数"), panel));
     m_launchArgsEdit = new QLineEdit(panel);
-    m_launchArgsEdit->setPlaceholderText(tr("输入启动参数，多个参数用空格分隔"));
+    m_launchArgsEdit->setPlaceholderText(tr("输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow"));
     m_launchArgsEdit->setMinimumHeight(36);
     layout->addWidget(m_launchArgsEdit);
+
+    // 内存限制
+    layout->addWidget(new QLabel(tr("内存限制（MB）"), panel));
+    m_launchMemorySpin = new QSpinBox(panel);
+    m_launchMemorySpin->setRange(0, 65536);
+    m_launchMemorySpin->setSingleStep(512);
+    m_launchMemorySpin->setSpecialValueText(tr("不限制"));
+    m_launchMemorySpin->setSuffix(QStringLiteral(" MB"));
+    // 只在值 >0 时显示 MB 后缀；值为 0 时显示“不限制”
+    connect(m_launchMemorySpin, &QSpinBox::valueChanged, this, [this](int v) {
+        m_launchMemorySpin->setSuffix(v > 0 ? QStringLiteral(" MB") : QString());
+    });
+    m_launchMemorySpin->setMinimumHeight(36);
+    layout->addWidget(m_launchMemorySpin);
+    QLabel* memHint = new QLabel(tr("此处为系统级进程内存上限，0 表示不限制。"), panel);
+    memHint->setStyleSheet("color: #888; font-size: 9pt;");
+    memHint->setWordWrap(true);
+    layout->addWidget(memHint);
+
+    // 进程优先级
+    layout->addWidget(new QLabel(tr("进程优先级"), panel));
+    m_launchPriorityCombo = new QComboBox(panel);
+    m_launchPriorityCombo->addItem(tr("低"), 0);
+    m_launchPriorityCombo->addItem(tr("高"), 1);
+    m_launchPriorityCombo->setMinimumHeight(36);
+    layout->addWidget(m_launchPriorityCombo);
 
     QWidget* btnBar = new QWidget(panel);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
@@ -385,11 +413,21 @@ void InstanceDetailPage::loadLaunchArgs()
     if (m_instanceId.isEmpty()) return;
     KSPInstance inst = ConfigManager::instance().getInstance(m_instanceId);
     m_launchArgsEdit->setText(inst.launchArgs);
+    m_launchMemorySpin->setValue(inst.launchMemoryMB);
+    const int idx = m_launchPriorityCombo->findData(inst.launchHighPriority ? 1 : 0);
+    m_launchPriorityCombo->setCurrentIndex(idx >= 0 ? idx : 0);
 }
 
 void InstanceDetailPage::onSaveLaunchArgsClicked()
 {
     QString args = m_launchArgsEdit->text().trimmed();
-    ConfigManager::instance().updateInstanceLaunchArgs(m_instanceId, args);
-    QMessageBox::information(this, tr("提示"), tr("启动参数已保存"));
+    ConfigManager &cfg = ConfigManager::instance();
+    cfg.updateInstanceLaunchArgs(m_instanceId, args);
+    cfg.setInstanceLaunchMemoryMB(m_instanceId, m_launchMemorySpin->value());
+    const bool high = m_launchPriorityCombo->currentData().toInt() == 1;
+    cfg.setInstanceLaunchHighPriority(m_instanceId, high);
+    // 高优先级的“结束浏览器”说明仅在保存时提示一次
+    QMessageBox::information(this, tr("提示"),
+        high ? tr("已保存。高优先级将在启动时结束 Edge/Chrome/Firefox 的所有进程，并提升游戏进程优先级。")
+             : tr("启动配置已保存"));
 }

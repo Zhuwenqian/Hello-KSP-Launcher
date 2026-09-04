@@ -129,6 +129,55 @@ private slots:
     }
 };
 
+// 启动参数/Profile 相关：跨平台进程钩子（高优先级 / 浏览器结束命令）的纯函数回归。
+class TestLaunchOptions : public QObject
+{
+    Q_OBJECT
+private slots:
+    void browserKillCommandsNotEmpty()
+    {
+        // 高优先级模式下应能生成结束浏览器的命令
+        QVERIFY(!processopt::browserKillCommands().isEmpty());
+    }
+
+    void browserKillCommandsTargetCommonBrowsers()
+    {
+        const QList<processopt::KillCommand> cmds = processopt::browserKillCommands();
+        QStringList flattened;
+        for (const processopt::KillCommand &c : cmds) {
+            QVERIFY(!c.program.isEmpty());
+            flattened << c.program << c.args;
+        }
+#if defined(_WIN32)
+        // Windows：taskkill 按映像名结束 msedge/chrome/firefox
+        QVERIFY(flattened.contains(QStringLiteral("msedge.exe")));
+        QVERIFY(flattened.contains(QStringLiteral("chrome.exe")));
+        QVERIFY(flattened.contains(QStringLiteral("firefox.exe")));
+#else
+        // POSIX：pkill 匹配进程名
+        QVERIFY(flattened.contains(QStringLiteral("msedge")));
+        QVERIFY(flattened.contains(QStringLiteral("firefox")));
+        QVERIFY(flattened.contains(QStringLiteral("chrome")));
+#endif
+    }
+
+    void invalidPidHighPriorityFails()
+    {
+        // 非法 pid（0 / 负数）不应误判为成功
+        QVERIFY(!processopt::setProcessHighPriority(0));
+        QVERIFY(!processopt::setProcessHighPriority(-5));
+    }
+
+#if defined(_WIN32)
+    void windowsMemoryJobRejectsInvalidPid()
+    {
+        // 内存限制 Job Object：非法 pid 返回空句柄
+        QVERIFY(processopt::openMemoryJob(0, 4096) == nullptr);
+        QVERIFY(processopt::openMemoryJob(-1, 4096) == nullptr);
+    }
+#endif
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -137,6 +186,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tSteamDisc, argc, argv);
     TestValidKSPPath tValid;
     failures += QTest::qExec(&tValid, argc, argv);
+    TestLaunchOptions tLaunchOpts;
+    failures += QTest::qExec(&tLaunchOpts, argc, argv);
     return failures;
 }
 

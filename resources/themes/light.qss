@@ -488,6 +488,22 @@ QLineEdit:read-only {
     background-color: rgba(240, 240, 240, 200);
 }
 
+QSpinBox {
+    background-color: #ffffff;
+    border: 1px solid #969696;
+    border-radius: 4px;
+    padding: 4px 6px;
+    color: #1e1e1e;
+}
+QSpinBox:hover, QSpinBox:focus {
+    border-color: #0078d4;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 16px;
+    border: none;
+    background-color: transparent;
+}
+
 QPushButton {
     background-color: #e0e0e0;
     border: 1px solid #969696;
@@ -633,6 +649,30 @@ QWidget#instanceDetailPage QLabel#pageTitle {
     color: #1e1e1e;
     font-size: 13pt;
     font-weight: bold;
+}
+
+/* 自绘无边框标题栏 */
+#titleBar {
+    background-color: rgba(255, 255, 255, 210);
+}
+#titleLabel {
+    color: #1e1e1e;
+    font-size: 11pt;
+    font-weight: 600;
+}
+QPushButton#winBtn, QPushButton#winCloseBtn {
+    background-color: transparent;
+    border: none;
+    border-radius: 0px;
+    padding: 0px;
+    icon-size: 14px 14px;
+}
+QPushButton#winBtn:hover {
+    background-color: rgba(0, 0, 0, 24);
+}
+QPushButton#winCloseBtn:hover {
+    background-color: #e81123;
+    border-radius: 0px;
 }
 
 /* 存档管理页顶部返回+标题：半透明底，与详情页一致 */

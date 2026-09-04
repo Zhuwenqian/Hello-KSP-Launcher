@@ -1,4 +1,4 @@
-﻿# KSP 启动器 UI 诊断自动化脚本
+# KSP 启动器 UI 诊断自动化脚本
 Add-Type -ReferencedAssemblies @("System.Drawing", "System.Windows.Forms") -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;

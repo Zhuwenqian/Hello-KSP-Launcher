@@ -29,5 +29,9 @@
         <file>icons/stop.svg</file>
         <file>icons/sun.svg</file>
         <file>icons/trash-2.svg</file>
+    <file>icons/window-minimize.svg</file>
+        <file>icons/window-maximize.svg</file>
+        <file>icons/window-restore.svg</file>
+        <file>icons/window-close.svg</file>
     </qresource>
 </RCC>
