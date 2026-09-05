@@ -16,6 +16,7 @@ AdvancedTabPage::AdvancedTabPage(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("advancedTabPage");
+    setAttribute(Qt::WA_StyledBackground, true); // 普通 QWidget 需此属性才按 QSS 绘制半透明背板
     QVBoxLayout* outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(15, 10, 15, 15);
 

@@ -448,7 +448,7 @@ QTableView::item:hover {
 }
 
 /* Mods management area: translucent panel like the detail sidebar */
-#modsContentWidget {
+#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage {
     background-color: rgba(243, 243, 243, 204);
     border-radius: 8px;
 }

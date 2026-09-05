@@ -449,8 +449,9 @@ QTableView::item:hover {
     background-color: rgba(58, 58, 62, 120);
 }
 
-/* Mods management area: translucent panel like the detail sidebar */
-#modsContentWidget {
+/* 实例管理二级 tab 内容区：半透明背板，与侧栏风格对齐。
+   模组页/游戏设置/DLC/高级 tab 拆为独立页类后需各自带背板，避免露出背景图 */
+#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage {
     background-color: rgba(37, 37, 38, 165);
     border-radius: 8px;
 }
