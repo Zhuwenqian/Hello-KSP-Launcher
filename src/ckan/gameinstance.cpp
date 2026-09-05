@@ -354,13 +354,14 @@ QStringList GameInstance::detectInstallKindTags(const QString &gameDir, bool *co
 
     bool hasSquad = false;   // Squad 为游戏运行必需目录
     bool hasOther = false;   // 除官方目录与已知模组外的其它第三方目录
-    bool rss = false, sol = false, ro = false, rp1 = false;
+    bool rss = false, sol = false, beyondHome = false, ro = false, rp1 = false;
     for (const QString &d : dirs) {
         const QString low = d.toLower();   // 目录匹配不区分大小写
         if (low == QStringLiteral("squad"))           { hasSquad = true; continue; }
         if (low == QStringLiteral("squadexpansion"))  continue;            // 官方扩展目录
         if (low == QStringLiteral("realsolarsystem")) { rss = true; continue; }
         if (low == QStringLiteral("sol-configs"))     { sol = true; continue; }
+        if (low == QStringLiteral("beyondhome"))      { beyondHome = true; continue; } // 星球包，与 RSS/Sol/RP-1/RO 不共存
         if (low == QStringLiteral("realismoverhaul")) { ro  = true; continue; }
         if (low == QStringLiteral("rp-1"))            { rp1 = true; continue; }
         hasOther = true;
@@ -372,9 +373,10 @@ QStringList GameInstance::detectInstallKindTags(const QString &gameDir, bool *co
         return tags;
     }
 
-    // 固定顺序：RSS → Sol → RO → RP-1
+    // 固定顺序：RSS → Sol → Beyond Home（同为星球包）→ RO → RP-1
     if (rss) tags << QStringLiteral("RSS");
     if (sol) tags << QStringLiteral("Sol");
+    if (beyondHome) tags << QStringLiteral("Beyond Home");
     if (ro)  tags << QStringLiteral("RO");
     if (rp1) tags << QStringLiteral("RP-1");
 

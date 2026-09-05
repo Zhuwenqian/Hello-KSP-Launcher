@@ -8,8 +8,8 @@
 #include <QSet>
 
 // 管理实例列表项图标：
-//  - 按实例名后缀判定图标来源：RP-1(最高优先级) > RSS(含 Sol 分支) > 读取 exe 图标。
-//  - RSS/RP-1 大图与 exe 图标均在后台线程加载/提取并缓存，避免列表刷新卡顿。
+//  - 按实例名后缀判定图标来源：Beyond Home(最高优先级) > RP-1 > RSS(含 Sol 分支) > 读取 exe 图标。
+//  - Beyond Home/RSS/RP-1 大图与 exe 图标均在后台线程加载/提取并缓存，避免列表刷新卡顿。
 class InstanceIconManager : public QObject
 {
     Q_OBJECT
@@ -22,7 +22,7 @@ public:
                      const QString& exePath);
 
     // 供单元测试/自检使用的纯函数：根据实例名判定图标来源。
-    enum class Source { None, Rss, Rp1, Exe };
+    enum class Source { None, Rss, Rp1, BeyondHome, Exe };
     static Source resolveSource(const QString& instanceName);
 
 signals:

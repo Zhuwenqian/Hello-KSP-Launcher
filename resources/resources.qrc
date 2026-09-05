@@ -3,6 +3,9 @@
         <file>themes/dark.qss</file>
         <file>themes/light.qss</file>
         <file>backgrounds/default.png</file>
+        <file>instanceicons/RSS.png</file>
+        <file>instanceicons/RP-1.png</file>
+        <file>instanceicons/BeyondHome.png</file>
         <file>appicon.ico</file>
         <file>author.png</file>
         <file>icons/add.svg</file>

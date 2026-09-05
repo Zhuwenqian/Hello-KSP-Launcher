@@ -32,11 +32,11 @@ InstanceIconManager::InstanceIconManager(QObject *parent)
 {
 }
 
-// 静态图标文件在本机下的可能位置：优先随发布目录（exe 旁 instanceicons/），
-// 其次源码目录（开发期直接运行）。
+// 静态图标来源：优先使用编译进 exe 的 qrc 资源，其次 exe 旁的 instanceicons/ 与源码目录。
 static QString iconFilePath(const QString& fileName)
 {
     const QStringList candidates = {
+        QStringLiteral(":/instanceicons/") + fileName,
         QCoreApplication::applicationDirPath() + QLatin1String("/resources/instanceicons/") + fileName,
         QCoreApplication::applicationDirPath() + QLatin1String("/instanceicons/") + fileName,
         QStringLiteral("e:/Projects/Hello KSP Launcher/resources/instanceicons/") + fileName,
@@ -166,6 +166,9 @@ static QImage extractExeIconImage(const QString& exePath)
 InstanceIconManager::Source InstanceIconManager::resolveSource(const QString& instanceName)
 {
     const QString lower = instanceName.toLower();
+    // Beyond Home 星球包（与 RSS/Sol/RP-1/RO 不共存），优先级最高
+    if (lower.contains(QLatin1String("beyond home")))
+        return Source::BeyondHome;
     // 优先级：RP-1 > RSS（Sol 是 RSS 的超级美化分支，同样使用 RSS 图标）
     if (lower.contains(QLatin1String("rp-1")))
         return Source::Rp1;
@@ -184,6 +187,27 @@ void InstanceIconManager::requestIcon(const QString& instanceId, const QString& 
         m_pending.remove(id);
         emit iconReady(id, img);
     };
+
+    if (src == Source::BeyondHome) {
+        const QString path = iconFilePath(QStringLiteral("BeyondHome.png"));
+        auto it = m_staticCache.constFind(path);
+        if (it != m_staticCache.constEnd()) {
+            deliver(instanceId, *it);
+            return;
+        }
+        if (m_pending.contains(instanceId))
+            return;
+        m_pending.insert(instanceId);
+        QFutureWatcher<QImage>* watcher = new QFutureWatcher<QImage>(this);
+        connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, deliver, watcher, instanceId, path] {
+            const QImage img = watcher->result();
+            watcher->deleteLater();
+            m_staticCache.insert(path, img);   // 失败也缓存空，避免重复加载
+            deliver(instanceId, img);
+        });
+        watcher->setFuture(QtConcurrent::run([path] { return loadStaticIcon(QStringLiteral("BeyondHome.png")); }));
+        return;
+    }
 
     if (src == Source::Rss) {
         const QString path = iconFilePath(QStringLiteral("RSS.png"));

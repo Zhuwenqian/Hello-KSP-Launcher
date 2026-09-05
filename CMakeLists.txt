@@ -204,10 +204,6 @@ endif()
 # Copy translations (.qm files) to output directory
 file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-# Copy instance list custom icons (RSS/RP-1 large images) next to the exe,
-# since they are too large to embed in the qrc/exe and are read at runtime.
-file(COPY ${CMAKE_SOURCE_DIR}/resources/instanceicons DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
-
 # Custom target to regenerate .qm files from .ts files
 add_custom_target(update_translations
     COMMAND Qt6::lrelease ${CMAKE_SOURCE_DIR}/translations/hello_ksp_launcher_zh_CN.ts
