@@ -111,15 +111,22 @@ set(SOURCES
     src/instanceiconmanager.cpp
     src/backgroundmanager.cpp
     src/ckanmanager.cpp
+    src/moddecision.cpp
+    src/services/indexservice.cpp
+    src/services/cacheservice.cpp
+    src/services/installservice.cpp
     src/processopt.cpp
     src/updatemanager.cpp
     src/updateflow.cpp
     src/pages/homepage.cpp
     src/pages/instancelistpage.cpp
     src/pages/instancedetailpage.cpp
-    src/pages/instancedetailpage_settings.cpp
-    src/pages/instancedetailpage_mods.cpp
-    src/pages/instancedetailpage_modpack.cpp
+    src/pages/gamesettingstabpage.cpp
+    src/pages/dlctabpage.cpp
+    src/pages/advancedtabpage.cpp
+    src/pages/modstabpage.cpp
+    src/pages/modscontroller.cpp
+    src/pages/modpackcontroller.cpp
     src/pages/modtablemodel.cpp
     src/pages/settingspage.cpp
     src/pages/aboutpage.cpp
@@ -141,10 +148,23 @@ set(HEADERS
     src/instanceiconmanager.h
     src/backgroundmanager.h
     src/ckanmanager.h
+    src/moddecision.h
+    src/services/indexservice.h
+    src/services/scanservice.h
+    src/services/installservice.h
+    src/services/uninstallservice.h
+    src/services/modpackservice.h
+    src/services/cacheservice.h
     src/processopt.h
     src/pages/homepage.h
     src/pages/instancelistpage.h
     src/pages/instancedetailpage.h
+    src/pages/gamesettingstabpage.h
+    src/pages/dlctabpage.h
+    src/pages/advancedtabpage.h
+    src/pages/modstabpage.h
+    src/pages/modscontroller.h
+    src/pages/modpackcontroller.h
     src/pages/modtablemodel.h
     src/pages/settingspage.h
     src/pages/aboutpage.h
@@ -257,7 +277,7 @@ target_link_libraries(test_libckan PRIVATE
 )
 add_test(NAME test_libckan COMMAND test_libckan)
 
-# 启动器逻辑测试（Steam 库发现等，依赖 src/ 下启动器源码，不链接 libckan）
+# 启动器逻辑测试（Steam 库发现等，依赖 src/ 下启动器源码；含服务层纯逻辑，需链接 libckan）
 add_executable(test_launcher
     tests/test_launcher.cpp
     src/steamdiscovery.cpp
@@ -265,6 +285,10 @@ add_executable(test_launcher
     src/processopt.cpp
     src/updatemanager.cpp
     src/instanceiconmanager.cpp
+    src/services/indexservice.cpp
+    src/services/cacheservice.cpp
+    src/services/installservice.cpp
+    src/configmanager.cpp
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -276,5 +300,6 @@ target_link_libraries(test_launcher PRIVATE
     Qt6::Network
     Qt6::Concurrent
     Qt6::Test
+    libckan
 )
 add_test(NAME test_launcher COMMAND test_launcher)

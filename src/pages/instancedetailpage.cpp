@@ -1,10 +1,20 @@
 #include "instancedetailpage.h"
+#include "modstabpage.h"
+#include "gamesettingstabpage.h"
+#include "dlctabpage.h"
+#include "advancedtabpage.h"
+#include "modpackcontroller.h"
 #include "../ckanmanager.h"
 #include "../iconutils.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QIcon>
-#include <QTimer>
+#include <QLabel>
+#include <QMenu>
+#include <QAction>
+#include <QFileInfo>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QMessageBox>
 
 InstanceDetailPage::InstanceDetailPage(QWidget *parent)
     : QWidget(parent)
@@ -107,11 +117,23 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->addStretch();
 
     m_contentStack = new QStackedWidget(this);
-    setupGameSettingsTab();
-    setupDLCTab();
-    setupModsTab();
-    setupAdvancedTab();
+    // 各二级 tab 拆为独立页面类；栈下标按 showSection 约定：0=游戏设置 1=DLC 2=模组管理 3=高级
+    m_gameSettingsTabPage = new GameSettingsTabPage(m_contentStack);
+    m_contentStack->addWidget(m_gameSettingsTabPage);
+    m_dlcTabPage = new DlcTabPage(m_contentStack);
+    m_contentStack->addWidget(m_dlcTabPage);
+    m_modsTabPage = new ModsTabPage(m_contentStack);
+    m_contentStack->addWidget(m_modsTabPage);
+    m_advancedTabPage = new AdvancedTabPage(m_contentStack);
+    m_contentStack->addWidget(m_advancedTabPage);
     setupBrowseMenu();
+
+    // 整合包导入/导出流程控制器（对话框以本页为父窗口）
+    m_modpackController = new ModpackController(this, this);
+    m_modpackController->setInstance(m_instance);
+    connect(m_modpackController, &ModpackController::showSettingsRequested, this, &InstanceDetailPage::onModpackShowSettings);
+    connect(m_modpackController, &ModpackController::modsReloadRequested,  this, &InstanceDetailPage::onModpackReloadMods);
+    connect(m_modpackController, &ModpackController::modsInstallRequested, this, &InstanceDetailPage::onModpackModsInstall);
 
     contentLayout->addWidget(m_detailSidebar);
     contentLayout->addWidget(m_contentStack, 1);
@@ -145,9 +167,9 @@ void InstanceDetailPage::onNavButtonClicked()
     if (!btn) return;
 
     if (btn == m_savesBtn) {
-        m_modsTabActive = false;
+        // 切到存档页：先离开模组管理（停轮询），再回到游戏设置 tab 兜底
+        m_modsTabPage->setTabActive(false);
         emit savesManageRequested();
-        // 回到游戏设置tab，避免下次进来还是选中存档管理
         showSection(0);
         return;
     }
@@ -169,33 +191,13 @@ void InstanceDetailPage::showSection(int detailIndex)
     m_advancedBtn->setChecked(detailIndex == 3);
     m_browseBtn->setChecked(false);
     m_importModpackBtn->setChecked(false);
+    m_exportModpackBtn->setChecked(false);
 
-    m_modsTabActive = (detailIndex == 2);
+    m_modsTabPage->setTabActive(detailIndex == 2);
     m_contentStack->setCurrentIndex(detailIndex);
 
-    // 注册表锁等待仅在该页前台时轮询：进入模组页则恢复轮询，离开则停止
-    if (detailIndex == 2) {
-        if (m_registryLockWaiting && m_registryLockPollTimer
-            && !m_registryLockPollTimer->isActive())
-            m_registryLockPollTimer->start();
-    } else if (m_registryLockWaiting && m_registryLockPollTimer) {
-        m_registryLockPollTimer->stop();
-    }
-
-    if (detailIndex == 2) {
-        // 数据未就绪时给出"加载中"提示（后台扫描/索引加载完成会自动填充）
-        if (!m_modsReady) {
-            CKanManager &mgr = CKanManager::instance();
-            if (!mgr.indexReady())
-                setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
-            else
-                setDetailNote(tr("正在扫描已安装的 DLL，请稍候..."));
-        } else {
-            // 确保刷新按钮状态与选中态一致
-            updateModActionButtons();
-        }
-    } else if (detailIndex == 3) {
-        loadLaunchArgs();
+    if (detailIndex == 3) {
+        m_advancedTabPage->loadLaunchArgs(m_instanceId);
     }
 }
 
@@ -221,10 +223,11 @@ void InstanceDetailPage::refreshData()
 {
     if (m_instance.path.isEmpty()) return;
     updateBrowseMenuState();
-    loadGameSettings();
-    loadDLCs();
-    loadLaunchArgs();
-    prepareMods();
+    m_gameSettingsTabPage->loadGameSettings(m_instance.path);
+    m_dlcTabPage->loadDLCs(m_instance.path);
+    m_advancedTabPage->loadLaunchArgs(m_instanceId);
+    m_modpackController->setInstance(m_instance);
+    m_modsTabPage->setInstance(m_instance, m_instanceId);
 }
 
 void InstanceDetailPage::refreshIcons(const QString &color)
@@ -238,10 +241,181 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
     m_importModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_browseBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
-    m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
-    m_refreshModsBtn->setIcon(IconUtils::tintedIcon(":/icons/refresh.svg", color));
-    m_installModBtn->setIcon(IconUtils::tintedIcon(":/icons/add.svg", color));
-    m_uninstallModBtn->setIcon(IconUtils::tintedIcon(":/icons/trash-2.svg", color));
-    m_upgradeModBtn->setIcon(IconUtils::tintedIcon(":/icons/check.svg", color));
-    m_compatBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
+    m_advancedTabPage->refreshIcons(color);
+    m_modsTabPage->refreshIcons(color);
+}
+
+// ---- 整合包导出/导入菜单入口（实际流程在 ModpackController） ----
+
+void InstanceDetailPage::onExportModpackClicked()
+{
+    if (m_instance.path.isEmpty()) {
+        QMessageBox::warning(this, tr("导出失败"), tr("实例路径为空，无法导出整合包。"));
+        m_exportModpackBtn->setChecked(false);
+        return;
+    }
+
+    // 弹出菜单让用户选择导出方式
+    QMenu menu(this);
+    QAction *zipAction = menu.addAction(tr("打包 GameData 为 ZIP"));
+    QAction *ckanAction = menu.addAction(tr("导出为 CKAN 文件"));
+    m_exportModpackBtn->setChecked(false);
+    const QPoint pos = m_exportModpackBtn->mapToGlobal(QPoint(0, m_exportModpackBtn->height() + 4));
+    QAction *selected = menu.exec(pos);
+    if (selected == zipAction)
+        m_modpackController->exportAsZip();
+    else if (selected == ckanAction)
+        m_modpackController->exportAsCkan();
+}
+
+void InstanceDetailPage::onImportModpackClicked()
+{
+    m_importModpackBtn->setChecked(false);
+    if (m_instance.path.isEmpty()) {
+        QMessageBox::warning(this, tr("导入失败"), tr("实例路径为空，无法导入整合包。"));
+        return;
+    }
+    if (!QDir(m_instance.path + QStringLiteral("/GameData")).exists()) {
+        QMessageBox::warning(this, tr("导入失败"), tr("GameData 目录不存在，无法导入整合包。"));
+        return;
+    }
+
+    // 弹出菜单让用户选择导入方式
+    QMenu menu(this);
+    QAction *zipAction = menu.addAction(tr("从 ZIP 导入"));
+    QAction *ckanAction = menu.addAction(tr("从 .ckan 文件导入"));
+    const QPoint pos = m_importModpackBtn->mapToGlobal(QPoint(0, m_importModpackBtn->height() + 4));
+    QAction *selected = menu.exec(pos);
+    if (selected == zipAction)
+        m_modpackController->importFromZip();
+    else if (selected == ckanAction)
+        m_modpackController->importFromCkan();
+}
+
+// ---- ModpackController 信号接线 ----
+
+void InstanceDetailPage::onModpackShowSettings()
+{
+    m_gameSettingsBtn->setChecked(true);
+    m_exportModpackBtn->setChecked(false);
+    m_importModpackBtn->setChecked(false);
+    m_contentStack->setCurrentIndex(0);
+}
+
+void InstanceDetailPage::onModpackReloadMods()
+{
+    // 重启 CKan（注册表/Filesystem 已变），然后重新准备并预填充模组模型
+    CKanManager::instance().closeInstance();
+    m_modsTabPage->prepareMods();
+    m_modsTabPage->maybePopulateMods();
+}
+
+void InstanceDetailPage::onModpackModsInstall(const QStringList &identifiers)
+{
+    // 跳转到模组管理界面进行下载（showSection 会切栈、勾选侧栏并激活模组页；
+    // queueCkanInstall 绑实例、确保数据就绪，索引未就绪则进入待装清单，就绪后自动安装）
+    showSection(2);
+    m_modsTabPage->queueCkanInstall(identifiers);
+}
+
+// ---- 浏览菜单 ----
+
+void InstanceDetailPage::setupBrowseMenu()
+{
+    m_browseMenu = new QMenu(this);
+    m_browseRootAction = m_browseMenu->addAction(tr("游戏根目录"));
+    m_browseRootAction->setData("root");
+
+    struct BrowseEntry {
+        const char* data;
+        QString label;
+    };
+    const QList<BrowseEntry> entries = {
+        {"ksp_log",      tr("KSP.log")},
+        {"logs",         tr("模块日志")},
+        {"principia",    tr("Principia日志文件夹")},
+        {"gamedata",     tr("模组文件夹")},
+        {"ships",        tr("飞船文件夹")},
+        {"kos_scripts",  tr("kOS代码文件夹")},
+        {"saves",        tr("存档文件夹")}
+    };
+    m_browseActions.clear();
+    m_browsePaths.clear();
+    for (const BrowseEntry& e : entries) {
+        QAction* action = m_browseMenu->addAction(e.label);
+        action->setData(QString::fromLatin1(e.data));
+        m_browseActions.append(action);
+        m_browsePaths.append(QString());
+    }
+    connect(m_browseRootAction, &QAction::triggered, this, &InstanceDetailPage::onBrowseActionTriggered);
+    for (QAction* action : m_browseActions) {
+        connect(action, &QAction::triggered, this, &InstanceDetailPage::onBrowseActionTriggered);
+    }
+}
+
+void InstanceDetailPage::updateBrowseMenuState()
+{
+    if (!m_browseMenu) return;
+    const QString& root = m_instance.path;
+    const bool rootExists = !root.isEmpty() && QDir(root).exists();
+
+    m_browseBtn->setVisible(rootExists);
+    m_browseRootAction->setVisible(rootExists);
+    m_browseRootAction->setEnabled(rootExists);
+    m_browseRootAction->setData(root);
+    if (!rootExists) return;
+
+    const QStringList paths = {
+        QDir(root).filePath("KSP.log"),
+        QDir(root).filePath("Logs"),
+        QDir(root).filePath("glog/Principia"),
+        QDir(root).filePath("GameData"),
+        QDir(root).filePath("Ships"),
+        QDir(root).filePath("Ships/Script"),
+        QDir(root).filePath("saves")
+    };
+    for (int i = 0; i < m_browseActions.size() && i < m_browsePaths.size(); ++i) {
+        QString p = paths.at(i);
+        if (i == 5 && !QFileInfo(p).exists()) {
+            QString alt = QDir(root).filePath("Ships/Scripts");
+            if (QFileInfo(alt).exists())
+                p = alt;
+        }
+        m_browsePaths[i] = p;
+        bool exists = QFileInfo(p).exists();
+        m_browseActions[i]->setVisible(exists);
+        m_browseActions[i]->setEnabled(exists);
+        m_browseActions[i]->setData(p);
+    }
+}
+
+void InstanceDetailPage::onBrowseClicked()
+{
+    if (!m_browseMenu) return;
+    updateBrowseMenuState();
+    m_browseBtn->setChecked(false);
+    QPoint pos = m_browseBtn->mapToGlobal(QPoint(0, m_browseBtn->height() + 4));
+    m_browseMenu->exec(pos);
+}
+
+void InstanceDetailPage::onBrowseActionTriggered()
+{
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    QString path = action->data().toString();
+    if (path.isEmpty()) return;
+    openBrowseTarget(path);
+}
+
+void InstanceDetailPage::openBrowseTarget(const QString &path)
+{
+    QFileInfo info(path);
+    if (!info.exists()) {
+        QMessageBox::information(this, tr("浏览"), tr("目标不存在：\n%1").arg(QDir::toNativeSeparators(path)));
+        return;
+    }
+    QUrl url = QUrl::fromLocalFile(path);
+    if (!QDesktopServices::openUrl(url)) {
+        QMessageBox::warning(this, tr("浏览"), tr("无法打开：\n%1").arg(QDir::toNativeSeparators(path)));
+    }
 }

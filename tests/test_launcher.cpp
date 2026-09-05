@@ -7,6 +7,9 @@
 #include "instancemanager.h"
 #include "updatemanager.h"
 #include "instanceiconmanager.h"
+#include "services/indexservice.h"
+#include "services/cacheservice.h"
+#include "services/installservice.h"
 
 // 启动器逻辑测试：Steam 库发现（仅与 src/steamdiscovery.cpp 相关，不依赖 libckan）。
 class TestSteamDiscovery : public QObject
@@ -273,6 +276,74 @@ void TestInstanceIconSource::resolveSource()
     QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 rss"))), Src::Rss);
 }
 
+// 业务服务层：Repository 索引版本比较（纯逻辑，不依赖真实仓库）
+class TestIndexService : public QObject
+{
+    Q_OBJECT
+private slots:
+    void isNewerVersion()
+    {
+        using services::IndexService;
+        // simple increments
+        QVERIFY(IndexService::isNewerVersion(QStringLiteral("1.1.3"), QStringLiteral("1.1.2")));
+        QVERIFY(IndexService::isNewerVersion(QStringLiteral("2.0.0"), QStringLiteral("1.9.9")));
+        // equal / reverse
+        QVERIFY(!IndexService::isNewerVersion(QStringLiteral("1.1.2"), QStringLiteral("1.1.2")));
+        QVERIFY(!IndexService::isNewerVersion(QStringLiteral("1.1.2"), QStringLiteral("1.1.3")));
+        // segment padding (1.3 == 1.3.0)
+        QVERIFY(!IndexService::isNewerVersion(QStringLiteral("1.3"), QStringLiteral("1.3.0")));
+        QVERIFY(IndexService::isNewerVersion(QStringLiteral("1.3.1"), QStringLiteral("1.3")));
+
+        // 无索引 / 无效版本不抛、返回 false（达到 UI 层的乐观路径语义）
+        services::IndexService svc; // 未 setCkan → 查询空
+        QVERIFY(!svc.isUpgradable(QStringLiteral("any.identifier")));
+        QVERIFY(!svc.indexReady());
+    }
+};
+
+// 下载缓存服务：缓存 zip 文件名匹配（精确清理的核心决策，纯逻辑）
+class TestCacheService : public QObject
+{
+    Q_OBJECT
+private slots:
+    void knownCacheFileNames()
+    {
+        using services::CacheService;
+        const QString id = QStringLiteral("TweakScale");
+        const QString ver = QStringLiteral("2.4.8.4");
+        const QString url =
+            QStringLiteral("https://github.com/net-lisias-ksp/TweakScale/releases/download/2.4.8.4/TweakScale_2.4.8.4.zip");
+        // 必须同时给出官方 <hash8>-<id>-<ver>.zip、<id>-<ver>.zip 与 <id>_<safe>.zip 三种名
+        const QStringList names = CacheService::knownCacheFileNames(id, ver, url);
+        QVERIFY(names.size() >= 3);
+        QVERIFY(names.contains(id + QLatin1Char('_') + ckan::CKan::safeCacheFileName(ver) + QStringLiteral(".zip")));
+        QVERIFY(names.contains(QStringLiteral("TweakScale-2.4.8.4.zip")));
+        QVERIFY(names.contains(ckan::CKan::officialCacheFileName(id, ver, url)));
+        // 为空标识符/版本时不产出（不作为已知文件参与清理 → 不误删）
+        QVERIFY(CacheService::knownCacheFileNames(QString(), ver, url).isEmpty());
+        QVERIFY(CacheService::knownCacheFileNames(id, QString(), url).isEmpty());
+    }
+};
+
+// 安装前置决策服务：未绑定实例时的失败分支（无依赖、不触弹窗）
+class TestInstallService : public QObject
+{
+    Q_OBJECT
+private slots:
+    void nullInstanceFails()
+    {
+        services::InstallService svc; // 未 setCkan
+        const auto res = svc.resolveInstallSet({}, true, false);
+        QVERIFY(!res.ok);
+        QVERIFY(!res.cancelled);
+        QVERIFY(!res.nothingToDo);
+        QVERIFY(!res.error.isEmpty());
+
+        const services::InstallService svc2; // 未 setCkan
+        QVERIFY(!svc2.resolveInstallSet({ ckan::CkanModule{} }, true, false).ok);
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -287,6 +358,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tUpdater, argc, argv);
     TestInstanceIconSource tIconSrc;
     failures += QTest::qExec(&tIconSrc, argc, argv);
+    TestIndexService tIndex;
+    failures += QTest::qExec(&tIndex, argc, argv);
     return failures;
 }
 

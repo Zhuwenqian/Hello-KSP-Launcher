@@ -11,6 +11,13 @@
 #include <atomic>
 
 #include "ckan/ckan.h"
+#include "moddecision.h"
+#include "services/indexservice.h"
+#include "services/scanservice.h"
+#include "services/installservice.h"
+#include "services/uninstallservice.h"
+#include "services/modpackservice.h"
+#include "services/cacheservice.h"
 
 // 阶段一（下载全部 zip + 计算实际冲突）的后台返回结果
 struct DownloadPhaseResult {
@@ -31,20 +38,25 @@ public:
 
     static CKanManager& instance();
 
+    // 安装/卸载流程中的交互决策钩子（冲突/建议/提供者/磁盘/确认弹窗）。
+    // 默认注入真实 Qt 弹窗实现；测试或后续 ModsController 可替换为自定义实现，
+    // 从而使业务层（resolveAndInstall 等）不依赖任何 Qt Widget。
+    void setModDecisions(const moddecision::Hooks &hooks)
+    {
+        m_decisions = hooks;
+        m_install.setDecisions(hooks); // 安装前置决策（依赖解析内弹窗）走同一套钩子
+    }
+
     // ---- 实例绑定 ----
     void openInstance(const QString &gameDir, const QString &instanceName);
     void closeInstance();
-    bool hasInstance() const { return m_ckan != nullptr; }
     QString gameDir() const;
     // 尝试获取当前实例注册表写锁（跨进程，registry.locked）。
     // 返回 false 表示被其他进程（官方 CKAN / 另一启动器）占用；
     // 供"模组管理"页在加载索引前门控：占用时弹窗 + 10s 轮询，释放后自动加载。
     bool tryAcquireRegistryLock();
     // 当前实例实际检测到的 KSP 版本（检测失败返回无效版本）
-    ckan::GameVersion detectedVersion() const
-    {
-        return m_ckan ? m_ckan->detectedVersion() : ckan::GameVersion();
-    }
+    ckan::GameVersion detectedVersion() const { return m_index.detectedVersion(); }
     // 设置用户勾选的额外兼容区间（无效区间表示未启用）。
     // 安装/依赖解析时，候选兼容当前实例版本 或 兼容该区间（任一满足即可）。
     void setCompatRange(const ckan::GameVersionRange &r) { m_compatRange = r; }
@@ -63,14 +75,11 @@ public:
     // force=true 时忽略本地缓存，强制重新下载（用户手动“刷新仓库”）。
     void refreshIndexAsync(bool force = false);
     bool indexReady() const;
-    int  indexSize() const;
     QVector<ckan::CkanModule> search(const QString &query) const;
     QVector<ckan::CkanModule> versionsOf(const QString &identifier) const;
     ckan::CkanModule latestOf(const QString &identifier) const;
     // 某标识符的下载次数（来自仓库 download_counts.json）；无数据返回 -1
     int downloadCount(const QString &identifier) const;
-    // 索引中全部标识符（用于反向关系扫描：找出哪些模组依赖/冲突当前模组）
-    QStringList allIdentifiers() const;
 
     // ---- 已安装 ----
     QVector<ckan::InstalledModule> installedModules() const;
@@ -121,8 +130,6 @@ public:
 
     // 请求中止当前下载/安装任务（线程安全）。
     void cancelCurrentOperation();
-    // 当前是否有进行中的下载/安装任务（用于显示/隐藏取消按钮）
-    bool isInstalling() const { return m_installWatcher != nullptr || m_downloadWatcher != nullptr; }
 
     // 安装/卸载/升级提交成功后生成安装历史快照（尽力而为，失败静默）。
     void writeHistorySnapshot();
@@ -150,29 +157,10 @@ private:
 
     void resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool autoRecommends,
                            const QString &doneMessage);
-    // 冲突处理决策（取代用 "__CANCEL__" 占位串表达取消的控制流）
-    enum class FolderConflictAction { OverwriteAll, DeleteOld, Cancel };
-    struct FolderConflictChoice {
-        FolderConflictAction action = FolderConflictAction::OverwriteAll;
-        QStringList foldersToDelete; // 仅 action==DeleteOld 时有效
-    };
-    // 冲突弹窗（3 选项），返回决策与（删除旧保新时）待删除文件夹；无冲突返回 OverwriteAll+空
-    FolderConflictChoice askFolderConflicts(const QStringList &conflicts);
-    // 级联建议勾选弹窗；cancelled 输出用户是否取消（区别于"全都不选"）
-    QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests,
-                                          bool *cancelled);
-    // 多提供者选择弹窗：每个虚拟包从候选提供者中选一个；
-    // 返回所选提供者模块；取消时 cancelled=true 并返回空
-    QVector<ckan::CkanModule> askProviders(const QVector<ckan::ProviderChoice> &choices,
-                                           bool *cancelled);
     // 安装阶段：前置卸载 + 从缓存安装（单事务，全部经 CKan 门面）
     void startInstallPhase(const QVector<ckan::CkanModule> &modules,
                            const QStringList &foldersToDelete, const QString &doneMessage,
                            const QStringList &preUninstall);
-    // 磁盘空间不足警告弹窗：显示所需/可用空间，用户可选择"忽略并继续"或"取消"。
-    // forDownload=true 表示检查的是下载缓存盘，false 表示游戏盘。返回 true 表示忽略继续。
-    bool askDiskSpaceWarning(const QStorageInfo &storage, qint64 required,
-                             const QString &path, bool forDownload);
     void clearWatchers();
     // 放弃当前实例：先取消并等待在途后台任务（扫描/索引/下载/安装）全部结束，
     // 再释放 m_ckan，避免工作线程在 m_ckan 被删除后继续访问（use-after-free）。
@@ -183,6 +171,16 @@ private:
     ckan::GameVersionRange m_compatRange; // 用户勾选的额外兼容区间（无效表示未启用）
     QStringList m_indexMirrorPrefixes;  // 索引下载镜像前缀（拼接在仓库自身 GitHub URL 前）
     QStringList m_moduleMirrorPrefixes; // 模组下载镜像前缀（拼接在官方下载 URL 前）
+
+    // 拆分出的业务服务（引用的 m_ckan 生命周期随 openInstance/closeInstance 注入/置空）
+    services::IndexService     m_index;
+    services::ScanService      m_scan;
+    services::InstallService   m_install;
+    services::UninstallService m_uninstall;
+    services::ModpackService   m_modpack;
+    services::CacheService     m_cache;
+    // 安装/卸载流程中的交互决策（默认真实 Qt 弹窗，可注入替换）
+    moddecision::Hooks m_decisions;
 
     QFutureWatcher<QPair<bool, QString>>  *m_indexWatcher = nullptr;
     QFutureWatcher<DownloadPhaseResult>   *m_downloadWatcher = nullptr;
