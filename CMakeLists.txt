@@ -108,6 +108,7 @@ set(SOURCES
     src/instancemanager_modpack.cpp
     src/steamdiscovery.cpp
     src/iconutils.cpp
+    src/instanceiconmanager.cpp
     src/backgroundmanager.cpp
     src/ckanmanager.cpp
     src/processopt.cpp
@@ -137,6 +138,7 @@ set(HEADERS
     src/instancemanager_keymap.h
     src/steamdiscovery.h
     src/iconutils.h
+    src/instanceiconmanager.h
     src/backgroundmanager.h
     src/ckanmanager.h
     src/processopt.h
@@ -202,6 +204,10 @@ endif()
 # Copy translations (.qm files) to output directory
 file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
+# Copy instance list custom icons (RSS/RP-1 large images) next to the exe,
+# since they are too large to embed in the qrc/exe and are read at runtime.
+file(COPY ${CMAKE_SOURCE_DIR}/resources/instanceicons DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
+
 # Custom target to regenerate .qm files from .ts files
 add_custom_target(update_translations
     COMMAND Qt6::lrelease ${CMAKE_SOURCE_DIR}/translations/hello_ksp_launcher_zh_CN.ts
@@ -262,6 +268,7 @@ add_executable(test_launcher
     src/instancemanager.cpp
     src/processopt.cpp
     src/updatemanager.cpp
+    src/instanceiconmanager.cpp
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -269,7 +276,9 @@ target_include_directories(test_launcher PRIVATE
 )
 target_link_libraries(test_launcher PRIVATE
     Qt6::Core
+    Qt6::Gui
     Qt6::Network
+    Qt6::Concurrent
     Qt6::Test
 )
 add_test(NAME test_launcher COMMAND test_launcher)

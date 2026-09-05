@@ -6,6 +6,7 @@
 #include "steamdiscovery.h"
 #include "instancemanager.h"
 #include "updatemanager.h"
+#include "instanceiconmanager.h"
 
 // 启动器逻辑测试：Steam 库发现（仅与 src/steamdiscovery.cpp 相关，不依赖 libckan）。
 class TestSteamDiscovery : public QObject
@@ -206,6 +207,34 @@ void TestUpdaterManager::versionComparison()
     QVERIFY(!UpdaterManager::versionLess("1.1.2-beta", "1.1.2"));
 }
 
+// 实例列表图标的来源判定（按实例名后缀：RP-1 > RSS/Sol > exe）
+class TestInstanceIconSource : public QObject
+{
+    Q_OBJECT
+private slots:
+    void resolveSource();
+};
+
+void TestInstanceIconSource::resolveSource()
+{
+    using Src = InstanceIconManager::Source;
+    // 纯净/无后缀 → exe 图标
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5"))), Src::Exe);
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP"))), Src::Exe);
+    // RSS → RSS 图标
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 RSS"))), Src::Rss);
+    // Sol 是 RSS 的超级美化分支 → 同样使用 RSS 图标
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 Sol"))), Src::Rss);
+    // RP-1 → RP-1 图标，且优先级高于 RSS
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 RP-1"))), Src::Rp1);
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 RSS RP-1"))), Src::Rp1);
+    // RO / 其它后缀 → exe 图标（只有 RSS/Sol/RP-1 有专属图标）
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 RO"))), Src::Exe);
+    // 不区分大小写
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("ksp 1.12.5 rp-1"))), Src::Rp1);
+    QCOMPARE(Src(InstanceIconManager::resolveSource(QStringLiteral("KSP 1.12.5 rss"))), Src::Rss);
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -218,6 +247,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tLaunchOpts, argc, argv);
     TestUpdaterManager tUpdater;
     failures += QTest::qExec(&tUpdater, argc, argv);
+    TestInstanceIconSource tIconSrc;
+    failures += QTest::qExec(&tIconSrc, argc, argv);
     return failures;
 }
 

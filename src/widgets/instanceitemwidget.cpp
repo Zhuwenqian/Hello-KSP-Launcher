@@ -2,6 +2,9 @@
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QStyle>
+#include <QImage>
+#include <QPixmap>
+#include "../instanceiconmanager.h"
 
 InstanceItemWidget::InstanceItemWidget(const KSPInstance &instance, bool selected, QWidget *parent)
     : QWidget(parent), m_instance(instance), m_selected(selected)
@@ -18,6 +21,21 @@ InstanceItemWidget::InstanceItemWidget(const KSPInstance &instance, bool selecte
     m_checkbox->setObjectName("instanceCheckbox");
     m_checkbox->setChecked(m_selected);
     connect(m_checkbox, &QCheckBox::toggled, this, &InstanceItemWidget::onCheckboxToggled);
+
+    // 实例图标：位于选择框右侧、实例名左侧，固定 40x40。
+    m_iconLabel = new QLabel(this);
+    m_iconLabel->setObjectName("instanceIcon");
+    m_iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_iconLabel->setFixedSize(40, 40);
+    m_iconLabel->setAlignment(Qt::AlignCenter);
+
+    // 请求图标，并在异步提取完成后刷新本项。
+    connect(&InstanceIconManager::instance(), &InstanceIconManager::iconReady,
+            this, [this](const QString& id, const QImage& icon) {
+                if (id == m_instance.id)
+                    applyIcon(icon);
+            });
+    InstanceIconManager::instance().requestIcon(m_instance.id, m_instance.name, m_instance.exePath);
 
     QWidget* textWidget = new QWidget(this);
     textWidget->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -40,6 +58,7 @@ InstanceItemWidget::InstanceItemWidget(const KSPInstance &instance, bool selecte
     connect(m_menuButton, &QPushButton::clicked, this, &InstanceItemWidget::onMenuButtonClicked);
 
     layout->addWidget(m_checkbox);
+    layout->addWidget(m_iconLabel);
     layout->addWidget(textWidget, 1);
     layout->addWidget(m_menuButton);
 }
@@ -90,4 +109,19 @@ void InstanceItemWidget::onMenuButtonClicked()
 {
     QPoint pos = m_menuButton->mapToGlobal(m_menuButton->rect().bottomRight());
     emit menuRequested(m_instance.id, pos);
+}
+
+void InstanceItemWidget::applyIcon(const QImage& icon)
+{
+    if (icon.isNull()) {
+        // 无可用图标时留空
+        m_iconLabel->clear();
+        return;
+    }
+    const qreal dpr = devicePixelRatioF();
+    const int px = qRound(40 * dpr);
+    QPixmap pm = QPixmap::fromImage(icon);
+    QPixmap scaled = pm.scaled(px, px, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    scaled.setDevicePixelRatio(dpr);
+    m_iconLabel->setPixmap(scaled);
 }
