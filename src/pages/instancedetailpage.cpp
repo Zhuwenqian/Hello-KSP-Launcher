@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QIcon>
+#include <QTimer>
 
 InstanceDetailPage::InstanceDetailPage(QWidget *parent)
     : QWidget(parent)
@@ -171,6 +172,15 @@ void InstanceDetailPage::showSection(int detailIndex)
 
     m_modsTabActive = (detailIndex == 2);
     m_contentStack->setCurrentIndex(detailIndex);
+
+    // 注册表锁等待仅在该页前台时轮询：进入模组页则恢复轮询，离开则停止
+    if (detailIndex == 2) {
+        if (m_registryLockWaiting && m_registryLockPollTimer
+            && !m_registryLockPollTimer->isActive())
+            m_registryLockPollTimer->start();
+    } else if (m_registryLockWaiting && m_registryLockPollTimer) {
+        m_registryLockPollTimer->stop();
+    }
 
     if (detailIndex == 2) {
         // 数据未就绪时给出"加载中"提示（后台扫描/索引加载完成会自动填充）

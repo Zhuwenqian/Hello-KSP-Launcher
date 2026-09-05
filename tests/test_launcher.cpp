@@ -186,6 +186,7 @@ class TestUpdaterManager : public QObject
     Q_OBJECT
 private slots:
     void versionComparison();
+    void digestHex();
 };
 
 void TestUpdaterManager::versionComparison()
@@ -205,6 +206,43 @@ void TestUpdaterManager::versionComparison()
     QVERIFY(UpdaterManager::versionLess("1.9.9", "2.0.0"));
     // 非纯数字段（预发布）→ 字典序兜底，不崩溃
     QVERIFY(!UpdaterManager::versionLess("1.1.2-beta", "1.1.2"));
+}
+
+void TestUpdaterManager::digestHex()
+{
+    // 标准 "sha256:<64hex>" → 取小写 hex
+    QJsonArray arr;
+    {
+        QJsonObject a;
+        a.insert("name", "HKSPL-x86_64.zip");
+        a.insert("digest", "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08");
+        arr.append(a);
+    }
+    QCOMPARE(UpdaterManager::digestHexFromApi(arr, "HKSPL-x86_64.zip"),
+             QStringLiteral("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"));
+    // 同名但大小写不同也要匹配
+    QCOMPARE(UpdaterManager::digestHexFromApi(arr, "hkspl-x86_64.ZIP"),
+             QStringLiteral("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"));
+    // 名称不匹配 → 空
+    QVERIFY(UpdaterManager::digestHexFromApi(arr, "other.zip").isEmpty());
+    // 非 sha256: 前缀 → 拒绝
+    {
+        QJsonArray bad;
+        QJsonObject a;
+        a.insert("name", "HKSPL-x86_64.zip");
+        a.insert("digest", "md5:deadbeef");
+        bad.append(a);
+        QVERIFY(UpdaterManager::digestHexFromApi(bad, "HKSPL-x86_64.zip").isEmpty());
+    }
+    // 长度不足 64 / 含非 hex → 拒绝
+    {
+        QJsonArray bad;
+        QJsonObject a;
+        a.insert("name", "HKSPL-x86_64.zip");
+        a.insert("digest", "sha256:aabb");
+        bad.append(a);
+        QVERIFY(UpdaterManager::digestHexFromApi(bad, "HKSPL-x86_64.zip").isEmpty());
+    }
 }
 
 // 实例列表图标的来源判定（按实例名后缀：RP-1 > RSS/Sol > exe）

@@ -130,6 +130,11 @@ QString CKanManager::gameDir() const
     return m_ckan ? m_ckan->gameDir() : QString();
 }
 
+bool CKanManager::tryAcquireRegistryLock()
+{
+    return m_ckan && m_ckan->tryAcquireRegistryLock();
+}
+
 void CKanManager::reloadRegistry()
 {
     if (m_ckan)
@@ -200,7 +205,7 @@ int CKanManager::cleanDownloadCache()
 
 void CKanManager::refreshIndexAsync(bool force)
 {
-    if (!m_ckan) { emit indexRefreshed(false, tr("尚未绑定游戏实例")); return; }
+    if (!m_ckan) { emit indexRefreshed(IndexRefreshStatus::Failed, tr("尚未绑定游戏实例")); return; }
     // 防重入：索引刷新已在途时忽略本次请求（在途刷新完成后会照常发出 indexRefreshed），
     // 避免多个后台线程同时写 CKan::m_index 造成数据竞争。
     if (m_indexRefreshing.exchange(true))
@@ -223,8 +228,6 @@ void CKanManager::refreshIndexAsync(bool force)
                 emit downloadProgress(repoName, received, total, 0);
             },
             &m_indexCancelRequested);
-        if (!ok && m_indexCancelRequested.load())
-            err = QStringLiteral("已取消");
         return qMakePair(ok, err);
     });
     connect(watcher, &QFutureWatcher<QPair<bool, QString>>::finished, this, [this, watcher]() {
@@ -235,7 +238,11 @@ void CKanManager::refreshIndexAsync(bool force)
             return;
         }
         const QPair<bool, QString> r = watcher->result();
-        emit indexRefreshed(r.first, r.second);
+        // 用类型化状态取代 "已取消" 魔法串：取消与否看取消标志，错误文案按 status 分支消费。
+        const IndexRefreshStatus st = r.first ? IndexRefreshStatus::Success
+            : m_indexCancelRequested.load() ? IndexRefreshStatus::Cancelled
+            : IndexRefreshStatus::Failed;
+        emit indexRefreshed(st, r.second);
         watcher->deleteLater();
         if (m_indexWatcher == watcher) m_indexWatcher = nullptr;
         m_indexRefreshing.store(false);
@@ -394,10 +401,15 @@ void CKanManager::uninstallAsync(const QString &identifier)
         const ckan::InstallResult r = watcher->result();
         m_ckan->reloadRegistry();
         emit installedChanged();
-        const QString list = r.installedIdentifiers.join(QLatin1Char(','));
-        emit operationFinished(r.ok, r.ok ? tr("已卸载：%1").arg(list.isEmpty() ? QString() : list)
-                                          : r.error);
-        if (r.ok) writeHistorySnapshot();
+        if (r.cancelled) {
+            // 用户取消：事务已回滚到卸载前状态，按“成功”完成处理（刷新并提示已恢复）。
+            emit operationFinished(true, tr("已取消卸载，已恢复原状"));
+        } else {
+            const QString list = r.installedIdentifiers.join(QLatin1Char(','));
+            emit operationFinished(r.ok, r.ok ? tr("已卸载：%1").arg(list.isEmpty() ? QString() : list)
+                                              : r.error);
+            if (r.ok) writeHistorySnapshot();
+        }
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
     });
@@ -462,25 +474,28 @@ void CKanManager::uninstallBatchAsync(const QStringList &identifiers)
     auto watcher = new QFutureWatcher<ckan::InstallResult>(this);
     m_installWatcher = watcher;
     auto future = QtConcurrent::run([this, toRemove]() {
-        ckan::InstallResult r;
-        r.ok = true;
-        for (const QString &id : toRemove) {
-            const ckan::InstallResult rr = m_ckan->uninstall(id);
-            if (!rr.ok) { r.ok = false; r.error = rr.error; break; }
-        }
-        return r;
+        // 整批在一个事务内完成：任一失败或用户 cancel() 都整体回滚到卸载前状态。
+        return m_ckan->uninstallMany(toRemove);
     });
     connect(watcher, &QFutureWatcher<ckan::InstallResult>::finished, this, [this, watcher, toRemove]() {
         if (m_installWatcher != watcher) { watcher->deleteLater(); return; } // 已被新操作/切实例取代
         const ckan::InstallResult r = watcher->result();
         m_ckan->reloadRegistry();
         emit installedChanged();
-        emit operationFinished(r.ok, r.ok ? tr("批量卸载完成（%1 个）").arg(toRemove.size()) : r.error);
-        if (r.ok) writeHistorySnapshot();
+        const QString msg = r.cancelled ? tr("已取消卸载，已恢复原状")
+                          : (r.ok ? tr("批量卸载完成（%1 个）").arg(toRemove.size()) : r.error);
+        // 取消回滚视为“成功”完成以便刷新；仅真正卸载成功才写历史。
+        emit operationFinished(r.cancelled || r.ok, msg);
+        if (r.ok && !r.cancelled) writeHistorySnapshot();
         watcher->deleteLater();
         if (m_installWatcher == watcher) m_installWatcher = nullptr;
     });
     watcher->setFuture(future);
+}
+
+QStringList CKanManager::uninstallPlan(const QStringList &identifiers)
+{
+    return m_ckan ? m_ckan->uninstallPlan(identifiers) : QStringList();
 }
 
 void CKanManager::importAsync(const QString &path)
@@ -706,8 +721,8 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
             return;
         }
         // 阶段二前（UI 线程）：弹窗让用户选择冲突处理方式
-        const QStringList foldersToDelete = askFolderConflicts(r.conflicts);
-        if (foldersToDelete.size() == 1 && foldersToDelete.at(0) == QStringLiteral("__CANCEL__")) {
+        const FolderConflictChoice choice = askFolderConflicts(r.conflicts);
+        if (choice.action == FolderConflictAction::Cancel) {
             m_ckan->releaseInstaller();
             emit operationFinished(false, tr("已取消"));
             return;
@@ -726,16 +741,16 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
                 }
             }
         }
-        startInstallPhase(modules, foldersToDelete, doneMessage, preUninstall);
+        startInstallPhase(modules, choice.foldersToDelete, doneMessage, preUninstall);
     });
     watcher->setFuture(future);
 }
 
 // 冲突弹窗（3 选项）：全部覆盖 / 全部删除旧的保留新的 / 取消。
-// 返回待删除文件夹；用户取消返回占位 "__CANCEL__"；无冲突返回空。
-QStringList CKanManager::askFolderConflicts(const QStringList &conflicts)
+// 返回类型化决策（取代 "__CANCEL__" 占位串）；无冲突直接返回 OverwriteAll+空。
+CKanManager::FolderConflictChoice CKanManager::askFolderConflicts(const QStringList &conflicts)
 {
-    if (conflicts.isEmpty()) return QStringList();
+    if (conflicts.isEmpty()) return {};
 
     QString list;
     for (const QString &c : conflicts) list += QStringLiteral("GameData/") + c + QLatin1Char('\n');
@@ -747,9 +762,9 @@ QStringList CKanManager::askFolderConflicts(const QStringList &conflicts)
     QAbstractButton *cancel    = box.addButton(tr("取消"), QMessageBox::RejectRole);
     box.exec();
     QAbstractButton *clicked = box.clickedButton();
-    if (clicked == cancel)    return QStringList{QStringLiteral("__CANCEL__")};
-    if (clicked == allDelete) return conflicts; // 全部删除旧的保留新的
-    return QStringList();                       // 全部覆盖：不删除任何文件夹
+    if (clicked == cancel)    return { FolderConflictAction::Cancel, {} };
+    if (clicked == allDelete) return { FolderConflictAction::DeleteOld, conflicts }; // 全部删除旧的保留新的
+    return { FolderConflictAction::OverwriteAll, {} };                              // 全部覆盖：不删除任何文件夹
 }
 
 // 级联建议勾选弹窗：每个建议模组一个复选框（默认勾选）。

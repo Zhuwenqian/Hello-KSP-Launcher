@@ -26,6 +26,9 @@ class CKanManager : public QObject
 {
     Q_OBJECT
 public:
+    // 仓库索引刷新结果状态（取代用 "已取消" 魔法串判断取消的控制流）
+    enum class IndexRefreshStatus { Success, Failed, Cancelled };
+
     static CKanManager& instance();
 
     // ---- 实例绑定 ----
@@ -33,6 +36,10 @@ public:
     void closeInstance();
     bool hasInstance() const { return m_ckan != nullptr; }
     QString gameDir() const;
+    // 尝试获取当前实例注册表写锁（跨进程，registry.locked）。
+    // 返回 false 表示被其他进程（官方 CKAN / 另一启动器）占用；
+    // 供"模组管理"页在加载索引前门控：占用时弹窗 + 10s 轮询，释放后自动加载。
+    bool tryAcquireRegistryLock();
     // 当前实例实际检测到的 KSP 版本（检测失败返回无效版本）
     ckan::GameVersion detectedVersion() const
     {
@@ -101,6 +108,8 @@ public:
     void installBatchAsync(const QStringList &identifiers);
     void upgradeBatchAsync(const QStringList &identifiers);
     void uninstallBatchAsync(const QStringList &identifiers);
+    // 只读：一次性卸载 identifiers 的级联顺序（含目标，依赖者在前）；任一未安装返回空。
+    QStringList uninstallPlan(const QStringList &identifiers);
     // 导入单模组文件（.zip / .ckan）并安装（异步）。
     // 元包（仅 depends）→ 从仓库解析依赖安装；仓库存在同标识符 → 提示后安装仓库版本；
     // 仓库无此模组 → 复制导入文件到缓存后直接安装。
@@ -121,7 +130,7 @@ public:
     QString historyDir() const { return m_ckan ? m_ckan->historyDir() : QString(); }
 
 signals:
-    void indexRefreshed(bool ok, const QString &error);
+    void indexRefreshed(IndexRefreshStatus status, const QString &error);
     void installedChanged();
     void installProgress(const QString &identifier, int percent);
     // 下载字节进度：当前模组、已完成字节数、批量总字节数、实时速度(B/s)
@@ -141,8 +150,14 @@ private:
 
     void resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool autoRecommends,
                            const QString &doneMessage);
-    // 冲突弹窗（3 选项），返回待删除文件夹；用户取消返回占位 "__CANCEL__"
-    QStringList askFolderConflicts(const QStringList &conflicts);
+    // 冲突处理决策（取代用 "__CANCEL__" 占位串表达取消的控制流）
+    enum class FolderConflictAction { OverwriteAll, DeleteOld, Cancel };
+    struct FolderConflictChoice {
+        FolderConflictAction action = FolderConflictAction::OverwriteAll;
+        QStringList foldersToDelete; // 仅 action==DeleteOld 时有效
+    };
+    // 冲突弹窗（3 选项），返回决策与（删除旧保新时）待删除文件夹；无冲突返回 OverwriteAll+空
+    FolderConflictChoice askFolderConflicts(const QStringList &conflicts);
     // 级联建议勾选弹窗；cancelled 输出用户是否取消（区别于"全都不选"）
     QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests,
                                           bool *cancelled);

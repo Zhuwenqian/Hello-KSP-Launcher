@@ -23,6 +23,7 @@
 #include <QStringList>
 #include "../configmanager.h"
 #include "../instancemanager.h"
+#include "../ckanmanager.h"
 #include "modtablemodel.h"
 
 class QTimer;
@@ -73,8 +74,10 @@ private slots:
     void onUninstallModClicked();
     void onUpgradeModClicked();
     void onSelectAllClicked();
-    void onIndexRefreshed(bool ok, const QString &error);
+    void onIndexRefreshed(CKanManager::IndexRefreshStatus status, const QString &error);
     void onUnmanagedScanFinished();
+    // 后台线程构建完整个 mod 列表后回主线程填充模型
+    void onModsLoadFinished();
     void onModOperationFinished(bool ok, const QString &message);
     void onDownloadProgress(const QString &identifier, qint64 doneBytes,
                             qint64 totalBytes, qint64 speedBps);
@@ -105,6 +108,13 @@ private:
     // 非阻塞准备模组数据：绑定实例、后台 DLL 扫描、必要时异步加载索引；
     // 索引与扫描都就绪后自动填充模型（maybePopulateMods）。
     void prepareMods();
+    // 获取注册表锁后真正执行装载（加载索引 + DLL 扫描）。
+    void prepareModsLoading();
+    // 注册表写锁被其他进程占用时的门控：弹窗 + 清空表格 + 禁用按钮 + 10s 轮询。
+    void startRegistryLockWait();
+    // 取得锁后结束等待、恢复加载。
+    void stopRegistryLockWait();
+    void onRegistryLockPollTick();
     // 索引与 DLL 扫描均就绪时填充模组模型并刷新按钮；未就绪则清空并给出加载提示。
     void maybePopulateMods();
     void loadLaunchArgs();
@@ -128,6 +138,10 @@ private:
     void showVersionsTab(const ckan::CkanModule &mod);
     void showDownloadProgress();
     void hideDownloadProgress();
+    // 卸载时的进度呈现：不确定进度条 + 指定文案 + 可用取消按钮。
+    void showUninstallProgress(const QString &label);
+    // 依据与真实卸载相同的级联规则计算依赖数量，生成确认提示（无依赖返回空串）。
+    QString uninstallCascadeHint(const QStringList &identifiers);
 
     QList<GameSetting> m_currentSettings;
 
@@ -188,9 +202,14 @@ private:
     QTreeWidget* m_versionsTree;       // 版本历史 tab
     QPushButton* m_versionsInstallBtn;
     QFutureWatcher<QStringList>* m_reverseWatcher = nullptr; // 反向关系扫描在途
+    // 后台加载整个 mod 列表（search）的 watcher，避免大索引下主线程同步阻塞
+    QFutureWatcher<QVector<ckan::CkanModule>>* m_modsLoadWatcher = nullptr;
     QString m_currentModIdentifier;
     bool m_modsReady = false;   // 索引与 DLL 扫描均就绪，模组模型已填充
     bool m_modsTabActive = false; // 当前是否正显示"模组管理"tab（用于加载提示）
+    // 注册表写锁被其他进程占用 → 等待其释放（仅模组管理 tab 前台时轮询）
+    bool m_registryLockWaiting = false;
+    QTimer* m_registryLockPollTimer = nullptr;
     // 待安装的 .ckan 导入标识符（索引就绪后自动触发批量安装）
     QStringList m_pendingCkanIdentifiers;
     // 下载进度条与取消

@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QProcess>
 #include <QList>
+#include <QTimer>
 #include <QDateTime>
 #include <functional>
 #include "processopt.h"
@@ -116,6 +117,11 @@ signals:
     void gameFinished(int exitCode, QProcess::ExitStatus status);
     void gameError(QProcess::ProcessError error);
 
+private slots:
+    // 进程真正启动（已拿到有效 pid）后应用高优先级与内存限制。
+    // launchGame 中 start() 返回后 state()/processId() 未必有效，故推迟到 started 信号再读。
+    void applyGameOptions();
+
 private:
     explicit InstanceManager(QObject *parent = nullptr);
     ~InstanceManager();
@@ -123,6 +129,9 @@ private:
     InstanceManager& operator=(const InstanceManager&) = delete;
 
     QProcess* m_gameProcess;
+    QTimer* m_stopKillTimer = nullptr;   // 优雅终止超时后强制 kill（定期器回调，避免主线程阻塞等待）
+    bool m_pendingHighPriority = false;  // 待 started 后应用的高优先级标记
+    int  m_pendingMemoryLimitMB = 0;     // 待 started 后应用的内存限制（MB，0=不限）
 #if defined(_WIN32)
     void* m_memoryJob = nullptr; // 进程内存限制所用的 Job Object 句柄（须在游戏退出/析构时释放）
 #endif

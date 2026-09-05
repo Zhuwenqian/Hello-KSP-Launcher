@@ -11,6 +11,7 @@
 #include <QFileInfo>
 #include <QCoreApplication>
 #include <QProcess>
+#include <QCryptographicHash>
 #include <thread>
 #include <chrono>
 #include <cstdlib>
@@ -142,6 +143,10 @@ bool UpdaterManager::parseRelease(const QByteArray &json)
         m_lastError = tr("仓库中未找到 x86_64 发布包");
         return false;
     }
+    // GitHub 对每个 release 资产自动提供 SHA256 摘要（digest 字段，形如 "sha256:<64hex>"，
+    // 官网发布页的「复制 SHA256」即此值）。缺失/格式异常时校验阶段会明确报错中止，保证来源完整。
+    info.expectedDigest = digestHexFromApi(root.value("assets").toArray(),
+        info.assetName);
     info.hasUpdate = versionLess(currentVersion(), info.version);
     m_latest = info;
     return true;
@@ -187,14 +192,88 @@ void UpdaterManager::downloadRelease()
             m_file->deleteLater();
             m_file = nullptr;
         }
-        m_working = false;
         if (!ok) {
             m_lastError = tr("下载失败：%1").arg(err);
+            cleanupStagedZip();
+            m_working = false;
             emit updateError(m_lastError);
             return;
         }
-        emit downloadFinished(stagingZipPath());
+        // 校验已下载 zip 的 SHA256 与 GitHub 提供的 release 摘要；校验通过才放行。
+        verifyAndFinish(stagingZipPath());
     });
+}
+
+QString UpdaterManager::digestHexFromApi(const QJsonArray &assets,
+                                         const QString &assetName)
+{
+    for (const QJsonValue &v : assets) {
+        const QJsonObject a = v.toObject();
+        if (a.value("name").toString().compare(assetName, Qt::CaseInsensitive) != 0)
+            continue;
+        const QString digest = a.value("digest").toString().trimmed();
+        const QString prefix = QStringLiteral("sha256:");
+        if (!digest.startsWith(prefix, Qt::CaseInsensitive)) return QString();
+        const QString hex = digest.mid(prefix.size());
+        if (hex.size() != 64) return QString();
+        bool allHex = true;
+        for (const QChar &c : hex)
+            if (!c.isDigit() && !(c >= QLatin1Char('a') && c <= QLatin1Char('f'))
+                              && !(c >= QLatin1Char('A') && c <= QLatin1Char('F'))) { allHex = false; break; }
+        if (!allHex) return QString();
+        return hex.toLower();
+    }
+    return QString();
+}
+
+bool UpdaterManager::fileSha256(const QString &path, QString *hexOut)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    QByteArray buf;
+    while (!(buf = f.read(1 << 20)).isEmpty())
+        hash.addData(buf);
+    if (hexOut) *hexOut = QString::fromLatin1(hash.result().toHex());
+    return true;
+}
+
+void UpdaterManager::verifyAndFinish(const QString &zipPath)
+{
+    auto fail = [this, zipPath](const QString &msg) {
+        m_lastError = msg;
+        cleanupStagedZip();
+        m_working = false;
+        emit updateError(m_lastError);
+    };
+
+    // 摘要缺失：来源完整性无法验证，明确中止更新。
+    if (m_latest.expectedDigest.isEmpty()) {
+        fail(tr("GitHub 未提供该资产的 SHA256 摘要，已中止更新（来源完整性校验失败）"));
+        return;
+    }
+
+    QString actual;
+    if (!fileSha256(zipPath, &actual)) {
+        fail(tr("无法读取已下载的更新包计算 SHA256"));
+        return;
+    }
+    if (QString::compare(actual, m_latest.expectedDigest, Qt::CaseInsensitive) != 0) {
+        fail(tr("SHA256 校验失败：下载的更新包与 GitHub 提供的摘要不一致，更新已中止。"));
+        return;
+    }
+
+    // 校验通过：放行进入应用阶段
+    m_working = false;
+    emit downloadFinished(zipPath);
+}
+
+// 清理已下载但未通过校验的暂存 zip（尽力而为，忽略删除失败）。
+void UpdaterManager::cleanupStagedZip()
+{
+    const QString path = stagingZipPath();
+    if (QFileInfo::exists(path))
+        QFile::remove(path);
 }
 
 bool UpdaterManager::applyUpdate(const QString &zipPath)

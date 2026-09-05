@@ -8,6 +8,8 @@
 #include <QRegularExpression>
 #include <QHash>
 #include <QVector>
+#include <QMutex>
+#include <QSaveFile>
 #include <algorithm>
 
 namespace ckan {
@@ -284,6 +286,7 @@ QStringList GameInstance::manualGameDataFolders() const
         QStringLiteral("Squad"), QStringLiteral("SquadExpansion")
     };
     const Registry *reg = registry();
+    QMutexLocker locker(reg->mutex()); // 跨线程读 installedFiles，与扫描/安装写互斥
     const QStringList entries = d.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     for (const QString &folder : entries) {
         if (officialFolders.contains(folder)) continue;
@@ -425,12 +428,12 @@ void GameInstance::loadRegistry()
     QFile f(registryPath());
     if (f.exists() && f.open(QIODevice::ReadOnly)) {
         QString err;
-        m_registry = Registry::fromJson(f.readAll(), &err);
+        m_registry.loadFromJson(f.readAll(), &err);
         f.close();
     } else {
         // 注册表文件不存在（含被删除的整合包导入场景）：内存态必须重置为空，
         // 否则被清空的暂存数据仍滞留内存，导致后续安装与文件归属冲突判断失真。
-        m_registry = Registry();
+        m_registry.clear();
     }
     m_registryLoaded = true;
 }
@@ -442,22 +445,24 @@ bool GameInstance::saveRegistry() const
         return false;
 
     QDir().mkpath(ckanDir());
-    QFile f(registryPath());
-    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        f.write(m_registry.toJson());
-        f.close();
-        return true;
-    }
-    return false;
+    // 跨线程串行化：内存读取(toJson) + 落盘为一个原子区，避免扫描/安装并发写坏文件。
+    QMutexLocker locker(m_registry.mutex());
+    const QByteArray json = m_registry.toJson();
+    // QSaveFile 原子写：先写临时文件再 rename，崩溃/断电不破坏 registry.json。
+    QSaveFile f(registryPath());
+    if (!f.open(QIODevice::WriteOnly))
+        return false;
+    f.write(json);
+    return f.commit();
 }
 
 void GameInstance::restoreRegistrySnapshot(const QByteArray &json)
 {
     QString err;
     if (json.isEmpty())
-        m_registry = Registry();
+        m_registry.clear();
     else
-        m_registry = Registry::fromJson(json, &err);
+        m_registry.loadFromJson(json, &err);
     m_registryLoaded = true;
     saveRegistry(); // 同步写回磁盘，保证内存与 registry.json 一致（回滚场景拿不到锁时尽力而为）
 }

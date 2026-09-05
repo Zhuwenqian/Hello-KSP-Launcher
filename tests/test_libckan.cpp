@@ -1744,6 +1744,87 @@ private slots:
         QVERIFY(!gi.registry()->isInstalled(QStringLiteral("D")));
     }
 
+    // 回归：卸载取消 → 整体回滚，程序/文件/注册表都保持卸载前状态
+    void uninstallCancelledRestoresEverything()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        auto mkfile = [&](const QString &rel) {
+            const QString abs = dir.filePath(rel);
+            QDir().mkpath(QFileInfo(abs).absolutePath());
+            QFile f(abs);
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(rel));
+            f.write("x");
+            f.close();
+        };
+        auto registerMod = [&](const CkanModule &m) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(m.identifier)};
+            gi.registry()->registerModule(im);
+        };
+        // 依赖链：C 依赖 B，B 依赖 A
+        registerMod(makeModule(QStringLiteral("A"), QStringLiteral("1.0")));
+        registerMod(makeModule(QStringLiteral("B"), QStringLiteral("1.0"), {dep(QStringLiteral("A"))}));
+        registerMod(makeModule(QStringLiteral("C"), QStringLiteral("1.0"), {dep(QStringLiteral("B"))}));
+        mkfile(QStringLiteral("GameData/A/x.dll"));
+        mkfile(QStringLiteral("GameData/B/x.dll"));
+        mkfile(QStringLiteral("GameData/C/x.dll"));
+        QVERIFY(gi.saveRegistry());
+
+        ModuleInstaller installer(&gi);
+        installer.cancel(); // 卸载一开始即请求取消
+        const InstallResult r = installer.uninstallMany({QStringLiteral("A")});
+        QVERIFY(!r.ok);
+        QVERIFY(r.cancelled);
+        // 安装状态与文件均未被改动
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("A")));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("B")));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("C")));
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/A/x.dll"))));
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/B/x.dll"))));
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/C/x.dll"))));
+    }
+
+    // 回归：批量卸载计划与真实卸载顺序一致（共享事务、依赖者在前、整批原子）
+    void uninstallPlanMatchesBatch()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        auto registerMod = [&](const CkanModule &m) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.files = {QStringLiteral("GameData/%1/x.dll").arg(m.identifier)};
+            gi.registry()->registerModule(im);
+        };
+        registerMod(makeModule(QStringLiteral("A"), QStringLiteral("1.0")));
+        registerMod(makeModule(QStringLiteral("B"), QStringLiteral("1.0"), {dep(QStringLiteral("A"))}));
+        registerMod(makeModule(QStringLiteral("C"), QStringLiteral("1.0"), {dep(QStringLiteral("B"))}));
+        registerMod(makeModule(QStringLiteral("D"), QStringLiteral("1.0")));
+
+        ModuleInstaller installer(&gi);
+        // 只读计划：与真实级联一致，任一输入未安装返回空
+        QCOMPARE(installer.uninstallPlan({QStringLiteral("A"), QStringLiteral("D")}),
+                 QStringList({QStringLiteral("C"), QStringLiteral("B"), QStringLiteral("A"), QStringLiteral("D")}));
+        QVERIFY(installer.uninstallPlan({QStringLiteral("ZZZ")}).isEmpty());
+
+        // 真实整批原子卸载：全部移除，D 一并移除，无残留
+        const InstallResult r = installer.uninstallMany({QStringLiteral("A"), QStringLiteral("D")});
+        QVERIFY(r.ok);
+        QCOMPARE(r.installedIdentifiers,
+                 QStringList({QStringLiteral("C"), QStringLiteral("B"), QStringLiteral("A"), QStringLiteral("D")}));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("A")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("B")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("C")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("D")));
+    }
+
     void manualGameDataFoldersDetected()
     {
         QTemporaryDir dir;

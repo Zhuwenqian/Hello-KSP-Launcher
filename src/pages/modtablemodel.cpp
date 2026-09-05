@@ -25,25 +25,31 @@ void ModsTableModel::clear()
 
 ckan::CkanModule ModsTableModel::moduleAt(int row) const
 {
-    if (row < 0 || row >= m_modules.size()) return ckan::CkanModule();
-    return m_modules.at(row);
+    const ckan::CkanModule *mod = modulePtr(row);
+    return mod ? *mod : ckan::CkanModule();
+}
+
+const ckan::CkanModule *ModsTableModel::modulePtr(int row) const
+{
+    if (row < 0 || row >= m_modules.size()) return nullptr;
+    return &m_modules.at(row);
 }
 
 ModsTableModel::Status ModsTableModel::statusAt(int row) const
 {
-    const ckan::CkanModule mod = moduleAt(row);
-    if (!mod.isValid()) return NotInstalled;
+    const ckan::CkanModule *mod = modulePtr(row);
+    if (!mod) return NotInstalled;
     CKanManager &mgr = CKanManager::instance();
     // 模型中的模块即各标识符的仓库最新版（由 CKan::search 填充）。
     // 直接与已安装版本比较即可判断是否可升级，避免每行每次渲染都重复执行
     // latestOf -> versionsOf -> 全量版本排序 的昂贵计算（大列表卡顿的根因）。
-    const QString installed = mgr.installedVersion(mod.identifier);
+    const QString installed = mgr.installedVersion(mod->identifier);
     if (!installed.isEmpty()) {
-        if (ckan::ModuleVersion(mod.version) > ckan::ModuleVersion(installed))
+        if (ckan::ModuleVersion(mod->version) > ckan::ModuleVersion(installed))
             return Upgradable;
         return Installed;
     }
-    if (mgr.isAutoDetected(mod.identifier)) return AutoDetected;
+    if (mgr.isAutoDetected(mod->identifier)) return AutoDetected;
     return NotInstalled;
 }
 
@@ -112,32 +118,31 @@ int ModsTableModel::columnCount(const QModelIndex &parent) const
 QVariant ModsTableModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) return QVariant();
-    const int row = index.row();
-    const ckan::CkanModule mod = moduleAt(row);
-    if (!mod.isValid()) return QVariant();
+    const ckan::CkanModule *mod = modulePtr(index.row());
+    if (!mod) return QVariant();
 
     if (role == Qt::UserRole) {
-        return static_cast<int>(statusAt(row));
+        return static_cast<int>(statusAt(index.row()));
     }
 
     if (index.column() == ColCheck && role == Qt::CheckStateRole) {
         // AD（手动安装）模组不可勾选
-        if (statusAt(row) == AutoDetected) return QVariant();
-        return m_checked.contains(mod.identifier) ? Qt::Checked : Qt::Unchecked;
+        if (statusAt(index.row()) == AutoDetected) return QVariant();
+        return m_checked.contains(mod->identifier) ? Qt::Checked : Qt::Unchecked;
     }
 
     if (role == Qt::DisplayRole) {
         switch (index.column()) {
         case ColCheck: {
             // 手动安装模组：勾选列显示 AD 标记以替代复选框
-            if (statusAt(row) == AutoDetected) return QStringLiteral("AD");
+            if (statusAt(index.row()) == AutoDetected) return QStringLiteral("AD");
             return QVariant();
         }
-        case ColName:       return mod.name;
-        case ColIdentifier: return mod.identifier;
-        case ColVersion:    return mod.version;
+        case ColName:       return mod->name;
+        case ColIdentifier: return mod->identifier;
+        case ColVersion:    return mod->version;
         case ColStatus: {
-            switch (statusAt(row)) {
+            switch (statusAt(index.row())) {
             case Upgradable:  return tr("可升级");
             case Installed:   return tr("已安装");
             case AutoDetected: return tr("AD");
@@ -146,22 +151,22 @@ QVariant ModsTableModel::data(const QModelIndex &index, int role) const
             return QVariant();
         }
         case ColSize: {
-            const double mb = mod.downloadSize / 1024.0 / 1024.0;
+            const double mb = mod->downloadSize / 1024.0 / 1024.0;
             return mb >= 1.0 ? QString::number(mb, 'f', 1) + tr(" MB")
-                             : QString::number(mod.downloadSize / 1024.0, 'f', 0) + tr(" KB");
+                             : QString::number(mod->downloadSize / 1024.0, 'f', 0) + tr(" KB");
         }
         case ColDownloads: {
-            const int n = CKanManager::instance().downloadCount(mod.identifier);
+            const int n = CKanManager::instance().downloadCount(mod->identifier);
             return n >= 0 ? QString::number(n) : QStringLiteral("-");
         }
         case ColTags: {
-            return mod.tags.join(QStringLiteral(", "));
+            return mod->tags.join(QStringLiteral(", "));
         }
         }
     }
 
     if (role == Qt::ToolTipRole) {
-        return mod.abstract;
+        return mod->abstract;
     }
 
     return QVariant();
@@ -187,11 +192,11 @@ QVariant ModsTableModel::headerData(int section, Qt::Orientation orientation, in
 bool ModsTableModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
     if (index.column() == ColCheck && role == Qt::CheckStateRole) {
-        const ckan::CkanModule mod = moduleAt(index.row());
-        if (!mod.isValid()) return false;
+        const ckan::CkanModule *mod = modulePtr(index.row());
+        if (!mod) return false;
         // AD（手动安装）模组不可勾选
         if (statusAt(index.row()) == AutoDetected) return false;
-        setChecked(mod.identifier, value.toInt() == Qt::Checked);
+        setChecked(mod->identifier, value.toInt() == Qt::Checked);
         emit dataChanged(index, index, {Qt::CheckStateRole});
         return true;
     }
@@ -211,23 +216,23 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
 {
     const auto *src = static_cast<ModsTableModel *>(sourceModel());
     if (!src) return true;
-    const ckan::CkanModule mod = src->moduleAt(sourceRow);
-    if (!mod.isValid()) return false;
+    const ckan::CkanModule *mod = src->modulePtr(sourceRow);
+    if (!mod) return false;
 
     // 不兼容模组默认隐藏（除非开启显示）。
     // 兼容判定：兼容当前实例实际版本 或 兼容用户勾选的额外区间（任一满足即可）。
-    bool compatible = mod.isCompatible(m_gameVersion);
+    bool compatible = mod->isCompatible(m_gameVersion);
     if (!compatible && (m_compatRange.lowerSet() || m_compatRange.upperSet()))
-        compatible = mod.isCompatible(m_compatRange);
+        compatible = mod->isCompatible(m_compatRange);
     if (!m_showIncompatible && !compatible)
         return false;
 
-    if (!m_search.isEmpty() && !matchesSearch(mod))
+    if (!m_search.isEmpty() && !matchesSearch(*mod))
         return false;
     // 按 tag 过滤（空串不过滤）；大小写不敏感，模组含任一匹配 tag 即通过
     if (!m_tagFilter.isEmpty()) {
         bool matched = false;
-        for (const QString &t : mod.tags)
+        for (const QString &t : mod->tags)
             if (t.compare(m_tagFilter, Qt::CaseInsensitive) == 0) { matched = true; break; }
         if (!matched) return false;
     }

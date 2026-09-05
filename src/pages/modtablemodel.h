@@ -40,6 +40,9 @@ public:
     void setModules(const QVector<ckan::CkanModule> &modules);
     void clear();
     ckan::CkanModule moduleAt(int row) const;
+    // 热路径访问：返回行对应模块的指针，越界返回 nullptr，避免 data()/statusAt()/
+    // 过滤代理逐格整份深拷贝大对象 CkanModule。
+    const ckan::CkanModule *modulePtr(int row) const;
     Status statusAt(int row) const;
     // 安装/卸载后刷新状态列
     void refreshStatus();

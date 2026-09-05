@@ -367,6 +367,19 @@ void InstanceDetailPage::prepareMods()
     // 应用用户勾选的兼容版本区间（过滤代理 + 安装/依赖解析共用）
     applyCompatRange();
 
+    // 注册表写锁门控：被其他进程（官方 CKAN / 另一启动器）占用时不加载，等待其释放。
+    if (!mgr.tryAcquireRegistryLock()) {
+        startRegistryLockWait();
+        return;
+    }
+    stopRegistryLockWait();
+    prepareModsLoading();
+}
+
+// 已持有注册表写锁后的真正装载：加载/刷新索引 + DLL 扫描。
+void InstanceDetailPage::prepareModsLoading()
+{
+    CKanManager &mgr = CKanManager::instance();
     if (!mgr.indexReady()) {
         // 需要加载/刷新索引：加载索引的同时强制重扫一次 DLL，
         // 保持手动安装（AD）模组识别最新（新放入/移除的模组 DLL 即时反映）
@@ -384,15 +397,83 @@ void InstanceDetailPage::prepareMods()
     maybePopulateMods();
 }
 
-// 索引与 DLL 扫描均就绪时填充模组模型；否则保持清空并显示"加载中"提示。
+// 注册表写锁被其他进程占用：弹窗告知，清空表格、禁用模组按钮，启动 10s 轮询等待。
+void InstanceDetailPage::startRegistryLockWait()
+{
+    if (!m_registryLockPollTimer) {
+        m_registryLockPollTimer = new QTimer(this);
+        m_registryLockPollTimer->setInterval(10000);
+        connect(m_registryLockPollTimer, &QTimer::timeout,
+                this, &InstanceDetailPage::onRegistryLockPollTick);
+    }
+
+    if (m_registryLockWaiting) {
+        // 已在等待：仅维持等待态（不重复弹窗），确保禁用按钮并持续轮询
+        m_modsModel->clear();
+        setDetailNote(tr("等待其他程序释放注册表锁..."));
+        setModButtonsEnabled(false);
+        if (m_modsTabActive && !m_registryLockPollTimer->isActive())
+            m_registryLockPollTimer->start();
+        return;
+    }
+
+    m_registryLockWaiting = true;
+    // 首次进入：弹出说明，确认后开始轮询
+    QMessageBox::information(this, tr("注册表已锁定"),
+        tr("当前实例注册表已上锁，正在被其他程序（官方 CKAN 或另一个启动器）使用。\n\n"
+           "请您关闭其他启动器实例或官方 CKAN 后，本启动器会自动继续加载模组列表。"));
+    m_modsModel->clear();
+    setDetailNote(tr("等待其他程序释放注册表锁..."));
+    setModButtonsEnabled(false);
+    if (m_modsTabActive)
+        m_registryLockPollTimer->start();
+}
+
+void InstanceDetailPage::stopRegistryLockWait()
+{
+    if (m_registryLockPollTimer)
+        m_registryLockPollTimer->stop();
+    m_registryLockWaiting = false;
+}
+
+void InstanceDetailPage::onRegistryLockPollTick()
+{
+    // 决策：仅当"模组管理"tab 处于前台时才轮询，离开即停止
+    if (!m_modsTabActive) {
+        m_registryLockPollTimer->stop();
+        return;
+    }
+    CKanManager &mgr = CKanManager::instance();
+    if (!mgr.hasInstance()) {
+        m_registryLockPollTimer->stop();
+        m_registryLockWaiting = false;
+        return;
+    }
+    if (mgr.tryAcquireRegistryLock()) {
+        // 其他程序已释放锁且本进程取得锁：结束等待，恢复按钮并重新装载
+        stopRegistryLockWait();
+        setModButtonsEnabled(true);
+        prepareModsLoading();
+    }
+}
+
+// 索引与 DLL 扫描均就绪时异步填充模组模型；否则保持清空并显示"加载中"提示。
 void InstanceDetailPage::maybePopulateMods()
 {
     CKanManager &mgr = CKanManager::instance();
     m_modsReady = mgr.indexReady() && mgr.unmanagedScanDone();
     if (m_modsReady) {
-        m_modsModel->setModules(mgr.search(QString()));
-        rebuildTagFilter();
-        updateModActionButtons();
+        // 整张 mod 列表的构建（search：遍历索引、逐标识符求最新版）在大索引下较耗时。
+        // 放到后台线程执行，完成后由 onModsLoadFinished 在主线程填充模型，避免阻塞 UI。
+        if (!m_modsLoadWatcher) {
+            m_modsLoadWatcher = new QFutureWatcher<QVector<ckan::CkanModule>>(this);
+            connect(m_modsLoadWatcher, &QFutureWatcher<QVector<ckan::CkanModule>>::finished,
+                    this, &InstanceDetailPage::onModsLoadFinished);
+        }
+        // 连发多次时 setFuture 只保留最新一次；旧任务虽然继续跑，但其结果不再派发到这里
+        m_modsLoadWatcher->setFuture(QtConcurrent::run([&mgr]() {
+            return mgr.search(QString());
+        }));
         return;
     }
     // 数据尚未就绪：若用户已切到模组页，给出明确的"加载中"提示
@@ -403,6 +484,17 @@ void InstanceDetailPage::maybePopulateMods()
         else
             setDetailNote(tr("正在扫描已安装的 DLL，请稍候..."));
     }
+}
+
+// 后台 mod 列表构建完成，回主线程填充模型并重算依赖 UI。
+void InstanceDetailPage::onModsLoadFinished()
+{
+    if (!m_modsLoadWatcher || !m_modsReady) return;
+    m_modsModel->setModules(m_modsLoadWatcher->result());
+    rebuildTagFilter();
+    updateModActionButtons();
+    const int n = m_modsModel->rowCount();
+    setDetailNote(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
 }
 
 void InstanceDetailPage::onUnmanagedScanFinished()
@@ -557,26 +649,25 @@ void InstanceDetailPage::onRefreshModsClicked()
     CKanManager::instance().scanUnmanagedDllsAsync(true);
 }
 
-void InstanceDetailPage::onIndexRefreshed(bool ok, const QString &error)
+void InstanceDetailPage::onIndexRefreshed(CKanManager::IndexRefreshStatus status,
+                                          const QString &error)
 {
     hideDownloadProgress();
-    if (error == QStringLiteral("已取消")) {
+    // 取消：不当作失败处理，仅提示（用类型化状态取代 "已取消" 魔法串判断）
+    if (status == CKanManager::IndexRefreshStatus::Cancelled) {
         setDetailNote(tr("已取消仓库索引加载。"));
         return;
     }
-    if (!ok) {
+    if (status == CKanManager::IndexRefreshStatus::Failed) {
         m_modsModel->clear();
         setDetailNote(tr("仓库索引刷新失败：%1").arg(error));
         QMessageBox::warning(this, tr("刷新失败"), tr("无法获取仓库索引：\n%1").arg(error));
         return;
     }
     // 索引已就绪：若 DLL 扫描也完成则填充模型并显示数量；否则保留"加载中"提示，
-    // 待后台扫描完成（unmanagedScanFinished）后再填充。
+    // 待后台扫描完成（unmanagedScanFinished）后再填充。列表构建为后台线程，
+    // "共 N 个模组"数量提示在 onModsLoadFinished 中设置，避免此处同步读到 0。
     maybePopulateMods();
-    if (m_modsReady) {
-        const int n = m_modsModel->rowCount();
-        setDetailNote(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
-    }
     updateModActionButtons();
     // 索引就绪后，若存在 .ckan 导入待装清单，自动开始批量安装
     if (!m_pendingCkanIdentifiers.isEmpty()) {
@@ -1045,11 +1136,13 @@ void InstanceDetailPage::onUninstallModClicked()
     const QStringList ids = m_modsModel->checkedIdentifiers();
     if (ids.size() >= 2) {
         if (QMessageBox::question(this, tr("确认批量卸载"),
-                tr("确定要卸载已勾选的 %1 个模组吗？").arg(ids.size()),
+                tr("确定要卸载已勾选的 %1 个模组吗？").arg(ids.size())
+                    + uninstallCascadeHint(ids),
                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
             return;
         }
         setModButtonsEnabled(false);
+        showUninstallProgress(tr("正在卸载 %1 个模组...").arg(ids.size()));
         CKanManager::instance().uninstallBatchAsync(ids);
         return;
     }
@@ -1065,7 +1158,8 @@ void InstanceDetailPage::onUninstallModClicked()
         if (mod.isValid() && mod.identifier == target) { name = mod.name; break; }
     }
     if (QMessageBox::question(this, tr("确认卸载"),
-            tr("确定要卸载模组 %1 吗？").arg(name.isEmpty() ? target : name),
+            tr("确定要卸载模组 %1 吗？").arg(name.isEmpty() ? target : name)
+                + uninstallCascadeHint({target}),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
@@ -1073,6 +1167,7 @@ void InstanceDetailPage::onUninstallModClicked()
     m_installModBtn->setEnabled(false);
     m_uninstallModBtn->setEnabled(false);
     m_upgradeModBtn->setEnabled(false);
+    showUninstallProgress(tr("正在卸载：%1").arg(name.isEmpty() ? target : name));
     CKanManager::instance().uninstallAsync(target);
 }
 
@@ -1162,6 +1257,22 @@ void InstanceDetailPage::showDownloadProgress()
     m_modProgressLabel->setText(tr("准备下载..."));
     m_cancelDownloadBtn->setEnabled(true);
     m_modProgressWidget->setVisible(true);
+}
+
+void InstanceDetailPage::showUninstallProgress(const QString &label)
+{
+    m_modProgressBar->setRange(0, 0); // 卸载是本地删文件，无字节可计，用不确定进度条
+    m_modProgressLabel->setText(label);
+    m_cancelDownloadBtn->setEnabled(true);
+    m_modProgressWidget->setVisible(true);
+}
+
+QString InstanceDetailPage::uninstallCascadeHint(const QStringList &identifiers)
+{
+    const QStringList plan = CKanManager::instance().uninstallPlan(identifiers);
+    const int dependents = plan.isEmpty() ? 0 : qMax(0, plan.size() - identifiers.size());
+    if (dependents <= 0) return QString();
+    return tr("\n\n将连同 %1 个依赖模组一并卸载；取消时这些依赖与目标一起恢复。").arg(dependents);
 }
 
 void InstanceDetailPage::hideDownloadProgress()
