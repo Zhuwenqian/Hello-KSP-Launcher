@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="homepageEnglish.png" alt="Hello KSP Launcher — English UI" width="80%">
+</p>
+
 # Hello KSP Launcher
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
@@ -133,6 +137,10 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 ---
 
 ---
+
+<p align="center">
+  <img src="homepageSChinese.png" alt="Hello KSP Launcher — 中文界面" width="80%">
+</p>
 
 # Hello KSP Launcher 中文
 
