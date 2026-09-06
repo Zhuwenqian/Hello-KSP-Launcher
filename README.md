@@ -26,6 +26,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Mod Management (CKAN)** — Install, upgrade, and uninstall mods from the CKAN repository with automatic dependency resolution (depends/recommends/suggests), strict KSP version compatibility checks based on your actual game version, and SHA256 integrity verification for every download.
 - **Parallel Downloads** — Modules download concurrently (configurable up to 8 at a time) with a unified progress view and cancel button.
 - **Mod Suggestions** — During installation, optional suggested mods (from the "suggests" field) are shown in a checkbox dialog; selected suggestions and their dependencies are resolved and installed automatically. Can be toggled in settings.
+- **Mod Recommendations** — When a module recommends others (the "recommends" field), a checkbox dialog (all selected by default) lets you pick which recommended mods and their dependencies to install, instead of silently auto-installing. Can be toggled in settings.
 - **Flexible Sources & Cache** — Switch between official and mirror download sources, configure the index refresh interval, and manage the download cache folder (precise cleanup and cache migration).
 - **Atomic Transactions** — Install, uninstall, and upgrade run as atomic transactions with automatic rollback on failure or cancellation, so no files are left behind and the registry is restored to its pre-operation state.
 - **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
@@ -37,6 +38,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Custom Title Bar** — A frameless, semi-transparent theme-colored title bar with custom minimize/maximize(restore)/close buttons, drag-to-move, double-click maximize, Aero snap, and edge resizing (Windows).
 - **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. Optional auto-check on startup plus a manual "Check for Updates" button.
 - **About Page Release Link** — The version entry in the About page opens its corresponding GitHub Release.
+- **Debug Logging** — A "debug mode" switch (from the next launch) writes run logs with timestamps, levels, and thread ids to `HKSPL.log` next to the launcher for troubleshooting.
 - **Windows Only** — Built with Qt 6 and CMake, targeting Windows (x64).
 
 ---
@@ -92,9 +94,13 @@ Settings are persisted in `HKSPL.json` next to the executable, including:
 - Mod index refresh interval and download source (official / mirror)
 - Download concurrency (1–8)
 - Show suggested mods during installation
+- Show recommended mods during installation (checkbox dialog, default all selected)
+- Debug log mode (off by default; when on, writes `HKSPL.log` next to the exe from the next launch)
 - Download cache folder
 - Per-instance launch profile (memory limit, process priority)
 - Auto-check for updates on startup
+
+> **Language:** With no existing `HKSPL.json`, the interface defaults to English on first launch.
 
 ---
 
@@ -163,6 +169,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **高级搜索 / 筛选** — 搜索框除匹配名称/标识符/摘要的关键词外，支持 `@字段:值` 专有字段语法（作者 `@author`、描述 `@desc/@description`、许可证 `@license`、依赖 `@depend(s)`、虚拟包 `@provides`、标签 `@tag(s)`；大小写不敏感，多个词空格分隔按 AND 过滤）。另可按状态（已安装/可升级/未安装）、仓库自带标签下拉叠加筛选。
 - **并行下载** — 模组并发下载（并发数可配，最高 8），统一进度显示与取消按钮。
 - **模组建议** — 安装过程中弹窗显示可选建议模组（源自 "suggests" 字段），勾选后连同其依赖自动解析安装；可在设置中关闭。
+- **模组推荐** — 当安装的模组推荐其他模组（"recommends" 字段）时，弹窗勾选（默认全选）决定安装哪些推荐模组及其依赖，而不再静默自动安装；可在设置中关闭，关闭后回到自动安装推荐。
 - **灵活的下载源与缓存** — 官方/镜像下载源可切换，索引刷新间隔可配置，支持下载缓存文件夹管理（精确清理与缓存迁移）。
 - **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
 - **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑小绿人属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
@@ -174,6 +181,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **自绘标题栏** — 无边框、半透明主题色标题栏，含自定义最小化/最大化→还原/关闭按钮，支持拖动、双击最大化、Aero 贴靠与边缘缩放（Windows）。
 - **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；可选启动时自动检查，另设手动「检查更新」按钮。
 - **关于页 Release 链接** — 关于页版本首条可点击，跳转对应 GitHub Release。
+- **调试日志** — 设置中的「调试模式」开关（下次启动生效）会把带时间戳/级别/线程号的运行日志写入启动器目录下的 `HKSPL.log`，便于排障。
 - **仅支持 Windows** — 基于 Qt 6 和 CMake 构建，面向 Windows（x64）平台。
 
 ---
@@ -223,12 +231,14 @@ cmake --build .
 
 - 当前实例
 - 主题（深色/浅色）
-- 语言（zh_CN / en_US）
+- 语言（zh_CN / en_US；无配置首次启动默认英文）
 - 启动后行为（保持打开 / 最小化 / 关闭）
 - 背景图片路径
 - 模组索引刷新间隔与下载源（官方 / 镜像）
 - 下载并发数（1–8）
 - 安装时是否显示建议模组
+- 安装时是否显示推荐模组（勾选弹窗，默认全选；关闭则自动安装推荐）
+- 调试模式（默认关；开启后从下次启动起写入 `HKSPL.log`）
 - 下载缓存文件夹
 - 每实例启动配置（内存上限、进程优先级）
 - 启动时是否自动检查更新

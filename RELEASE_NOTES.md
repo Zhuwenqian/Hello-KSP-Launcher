@@ -1,92 +1,76 @@
 # Release Notes
 
-> **重要提示 / Important Note:** 本 Release 含有更新器（`updater.exe`）的更新。如果您正在使用早期的 v1.2.0 版本，由于其自带的老版更新器无法获取到自身的新二进制，自动更新可能无法替换本组件——届时请手动替换 `updater.exe`。
->
-> This release ships an updated built-in updater (`updater.exe`). If you are still on the older v1.2.0, its built-in updater cannot fetch its own new binary, so the auto-update may fail to replace this component — please replace `updater.exe` manually in that case.
+## v1.2.2 — Smaller Exe, Faster Mod List & Better Mod Install UX (2026-09-06)
 
-## v1.2.1 — Instance Icons, Stability & Architecture Refactor (2026-09-05)
+A polish-and-triage release focused on cold-start speed, search/filter performance, mod-installation decision dialogs, and cleanup of several niggling warnings. Default background and large instance icons leave the executable, the mod table gets row-level caching with debounced search, recommended mods now pop up for selection, a debug-log mode writes `HKSPL.log`, uninstall removes leftover folders, and a handful of false-conflict/icon/shutdown warnings are fixed. First-run language now defaults to English.
 
-A maintenance-and-polish release focused on robustness and a large internal refactor: per-instance themed icons and Beyond Home auto-naming, guarded cross-process registry access with atomic persistence, SHA256 verifiable self-updates straight from GitHub's API, cancellable batch uninstalls with atomic rollback, and a six-step architecture refactor that cleanly splits the monolith without any UI or behavior change.
+### Leaner Executable for Faster Cold Start
 
-### Instance List Icons & Beyond Home Auto-Naming
+- **qrc slim-down** (`resources/resources.qrc`) — the default background `backgrounds/default.png` and the three large instance icons (`instanceicons/BeyondHome.png`, `RP-1.png`, `RSS.png`) are no longer compiled into the exe; only small SVG icons, QSS, and the .ico stay in. Roughly 2.7 MB of images leave the binary, dropping `HelloKSPLauncher.exe` to ~2.32 MB and lightening the qrc parse/decompress load at startup.
 
-- **Per-instance icon** (`instanceitemwidget.cpp`, `instanceiconmanager.cpp`) — each instance now shows a fixed 40×40 icon to the left of its name, next to the selection checkbox.
+- **External-first loading** (`backgroundmanager.cpp`) — the default background is resolved in order: `resources/backgrounds/` next to the exe → `backgrounds/` → the source directory → qrc as a final fallback.
 
-- **Source resolution by name suffix** (case-insensitive `resolveSource`): names containing `RP-1` use `resources/instanceicons/RP-1.png` (highest priority); names containing `RSS` or `Sol` (Sol being RSS's super-beautified fork) use `RSS.png`; everything else (vanilla, RO, etc.) reads the icon embedded in the KSP executable.
+- **Instance icons** (`instanceiconmanager.cpp`) — candidate icon paths are expanded with exe-adjacent `resources/instanceicons/` and `instanceicons/`, again with qrc as fallback.
 
-- **Executable icon extraction** (Windows only) — `SHGetFileInfo` + `SHGetImageList` take the largest available frame (256 → 48 → 32 via `SHIL_JUMBO/EXTRALARGE/LARGE`), painted to a DIB and turned into a `QImage`. Non-Windows or extraction failure leaves the slot blank.
+- **Publish copying** (`CMakeLists.txt`) — `file(COPY)` copies `resources/backgrounds` and `resources/instanceicons` into `dist/resources/`, so the shipped layout is unchanged.
 
-- **Performance** — large bitmaps (RSS ≈ 10 MB, RP-1 ≈ 700 KB) and exe icons are loaded/extracted on background threads (`QtConcurrent`) and cached, so the list never stutters on refresh; loaded images are scaled to ~80 px.
+### Faster Mod List Search & Filtering
 
-- **Fixes** — exe extraction failed on config forward-slash paths (now normalized via `QDir::toNativeSeparators`), and parallel extractions only let the first succeed (the Shell image list is not thread-safe; `QMutex` now serializes Shell calls). RSS/RP-1/BeyondHome icons are compiled into the exe through `resources/resources.qrc`.
+Searches/filters/status checks on large indexes were a main-thread stall hotspot: `filterAcceptsRow`/`data()` re-did lowercase conversion, version-range parsing, and installed-status queries per row, per cell. This round trades precomputation for lookups, keeping behavior identical (with regression tests).
 
-- **Beyond Home auto-naming** (`gameinstance.cpp` `detectInstallKindTags`) — detecting a `GameData/BeyondHome` folder (case-insensitive; a planet pack like RSS/Sol, not coexisting with them) appends a `Beyond Home` tag to the suggested instance name (e.g. `KSP 1.12.5 Beyond Home`), shared by manual add and Steam discovery; only affects newly added instances.
+- **Per-row precomputed cache** (`modtablemodel.{h,cpp}`) — a new `RowCache` caches the merged lowercase searchable string, `compatibleCurrent`, `compatibleRange`, and `status`. `setModules` rebuilds the static cache in one pass; `refreshStatus` (after install/uninstall) and `setCompatibilityContext` (game version / extra range changes) rebuild only the affected fields. `statusAt`/rendering now use O(1) cache reads, dropping the costly `installedVersion`-plus-version-sort recomputation per cell.
 
-### Registry Thread-Safety & Cross-Process Locking
+- **Pre-parsed search tokens** (`ModsFilterProxyModel`) — `parseSearchTokens` turns the search text into a `SearchToken` list (plain keywords + `@author/@desc/@license/@depend/@provides/@tag`) once per `setSearchText`, reused across rows instead of re-splitting/re-lowercasing every keyword per row.
 
-- **Thread-safe registry** (`registry.{h,cpp}`) — a `QRecursiveMutex` (shared_ptr-shared, copy-safe) guards all in-memory access (`loadFromJson`/`toJson`/`clear`/`registerModule`/`unregisterModule` and every direct reader in `gameinstance`/`ckan`/`moduleinstaller`/`relationshipresolver`/`manualGameDataFolders`), so concurrent scans and installs can no longer race.
+- **Filter reads the cache** — compatibility/status checks in `filterAcceptsRow` read `RowCache`; plain keywords hit the merged lowercase string with a single `contains`.
 
-- **Atomic persistence** (`gameinstance.cpp` `saveRegistry`) — `registry.json` is written atomically with `QSaveFile` (temp file + rename), so a crash/power loss cannot corrupt it; serialization under lock and disk write happen inside one critical section.
+- **Input debounce** (`modstabpage.{h,cpp}`) — a non-empty search kicks a 150 ms single-shot timer; rapid typing collapses into one filter pass, refresh fires on pause, clearing restores the full list immediately.
 
-- **Cross-process lock** (`engageRegistryLock`/`acquireRegistryLock`, `FileLock` on `registry.locked`) — when another process (official CKAN or a second launcher) holds the lock, this process refuses writes and returns false, preventing concurrent corruption of `registry.json`.
+- **Regression tests** — `test_launcher` gains `TestModsTableFilter` (4 cases: plain search, field search, cached status filter, compatibility cache rebuilt on context change); both `ctest` suites pass.
 
-- **UI gating** (mods page) — the mods page acquires the lock before loading the index; if the lock is held it shows a "registry is locked, please close other launcher instances or official CKAN" dialog, clears the table and disables the mod/refresh buttons, then polls `registry.locked` every 10 s and auto-recovers with the index once the lock is released. Polling runs only while the mods page is active.
+### Recommend-Module Selection Dialog (Aligned with Official CKAN)
 
-### Update Integrity via GitHub SHA256 Digest
+Installing a module that recommends others no longer auto-installs them silently; a checkbox dialog now lets you pick (all selected by default, individually or fully deselected), matching the official CKAN install dialog.
 
-- **Direct authoritative digest** (`updatemanager.cpp`) — since GitHub exposes a SHA256 digest for every release asset (`assets[].digest`, i.e. `sha256:<64hex>` — the same value as the "Copy SHA256" button on the release page), `parseRelease` extracts it per asset name via `digestHexFromApi`. No need for the publisher to upload a `.sha256` file.
+- **Resolver collection** (`relationshipresolver.{h,cpp}`) — `resolve()` gains a `collectRecommends` flag (default off, unchanged behavior). When on, recommends are no longer auto-installed but collected into `ResolutionResult.recommendedModules` (cascading, deduped, cycle-guarded, skipping already-installed/selected/conflicting entries). The shared candidate lookup is factored into a `candidatesForRel` lambda reused by both `processRel` (auto-install) and the collection path, removing duplication.
 
-- **Verify-on-download** (`verifyAndFinish`) — the local SHA256 is computed right after the ZIP download and compared against the digest before finishing; this drops the extra network request for a separate checksum file. Missing/malformed digests or hash mismatches clean up the temp pack and abort with an `updateError`.
+- **Facade pass-through** (`ckan.{h,cpp}`) — `resolveInstallMany` passes `collectRecommends` through to the resolver.
 
-- **Removal** — `.sha256` asset handling (`checksumUrl`, `fetchChecksumAndVerify`, `parseSha256FromChecksum`) and its tests were deleted.
+- **Decision hooks** (`moddecision.{h,cpp}`) — the `Hooks` set gains `recommends` (sharing the same `OptionalModulesHandler` signature as Suggests); `askSuggests` is generalized to `askOptionalModules`, and a new `askRecommends` shows a "recommended modules" title defaulting to all-selected.
 
-### Cancellable Batch Uninstall with Atomic Rollback
+- **Install flow** (`installservice.{h,cpp}`) — `resolveInstallSet` gains `showRecommends`. When on, resolution runs in collect mode, the chosen recommends are merged back into the install set and re-resolved (their dependencies too), processed before the cascading Suggests popup so suggestions from the updated set surface together. When off, the official default (auto-install recommends) is kept.
 
-- **Root-cause fix** — a temporary `ModuleInstaller` in `CKan::uninstall` couldn't be reached by `cancelInstall()`, and the uninstall loop never checked the cancel flag, so uninstall couldn't be cancelled. Operations now share a single installer (`ensureInstaller()`), and `CKan::uninstallMany` resets the cancel flag at entry so cancel truly aborts in-flight uninstalls.
+- **Setting switch** (`configmanager`, `settingspage`) — new "show recommended modules during install" switch (`installRecommends`, default on); tooltip notes that off auto-installs them.
 
-- **Batch atomicity** (`ModuleInstaller::uninstallMany`) — all targets share one transaction and one uninstall order (dependencies released outside-in); any failure or cancellation rolls back the transaction and restores the registry snapshot (recovering deleted files), and `saveRegistry` + `commit` happen once only on full success. Single-module uninstall reuses this path.
+- **Tests** — `test_libckan` adds 6 cases (collection on/off, cascading collection, already-installed exclusion, cycle termination, conflict skip); both suites pass.
 
-- **Cancel restores everything** — each uninstall loop iteration adds a cancel checkpoint; on cancel the whole program/files/registry state rolls back to pre-uninstall, returning `InstallResult.cancelled=true`, with the UI showing "已取消卸载，已恢复原状" (treated as success and refreshed, no install-history write).
+### Uninstall Now Removes Leftover Folders
 
-- **UI** (mods page) — an indeterminate progress bar with "正在卸载：{mod}（共 N 个）" plus a cancel button during uninstall; the confirmation dialog shows the cascade-dependency count derived from `CKan::uninstallPlan` (shared read-only logic with the real uninstall), so what's promised matches what happens.
+- **Root cause** (`moduleinstaller.cpp` `uninstallMany`) — uninstall only walked registry entries, deleting files and `unregisterModule`-ing, never cleaning up mod-owned top-level GameData folders, leaving empty directories behind.
 
-- **Upgrade path unaffected** — `installFromCache` still calls single-module uninstall inside an external transaction, with rollback handled by the caller; the cancel flag is reset during the download phase.
+- **Fix** — during uninstall the top-level GameData folders written by the batch are collected; after files are deleted they are cleaned up transactionally — deleted only when no longer used by any other registered mod **and** the disk folder holds no remaining files (only empty sub-dirs). Shared folders and folders with manual/unregistered content are preserved; cleanup shares the same transaction so the whole batch rolls back together.
 
-### Performance Optimizations
+- **Test** — `test_libckan` adds `uninstallRemovesEmptyFolder` (exclusive empty folder deleted, shared folder kept, folder with manual files kept, shared dir emptied when the last owner is uninstalled); `ctest` passes both suites.
 
-- **No per-cell deep copies** (`modtablemodel`) — `data()`/`statusAt()`/`filterAcceptsRow()` previously deep-copied a whole `CkanModule` per cell/role; a non-copying `modulePtr(row)` now returns a reference pointer on all hot paths (the `moduleAt` value API is kept for external callers).
+### Debug Mode — Optional Run Log to HKSPL.log
 
-- **Faster search** (`CKan::search`) — instead of copying and sorting the full version table per identifier, `latestFor`→`versionsFor` became a single linear scan for the latest version, skipping deep copies and sorting, with `reserve` to cut reallocation.
+A "debug mode" switch in the settings-general group (`ConfigManager.debugMode`, default off). When enabled, from the **next launch** run logs are written to `HKSPL.log` next to the launcher; disabling stops new writes without deleting existing logs.
 
-- **Async table population** — `maybePopulateMods` moved to the background via `QtConcurrent::run` + `QFutureWatcher<QVector<CkanModule>>`, completing with `onModsLoadFinished` back on the main thread; consecutive reloads keep only the latest load, and the refresh-count hint is set after completion.
+- **Log module** (`debuglogger.{h,cpp}`) — a `DebugLogger` singleton. `main.cpp` decides once at startup from the persisted `debugMode` (so toggling on applies on the second launch onward); when on, `qInstallMessageHandler` installs a global handler routing all `qInfo/qDebug/qWarning/qCritical` into `HKSPL.log`. Each startup clears and rewrites the file; every line is flushed immediately in the format `timestamp [level] [thread id]` (thread id = last 16 hex digits of the thread id), guarded by a thread-safe mutex.
 
-### Launch / Stop Stability Fixes
+- **Config** (`configmanager.{h,cpp}`) — adds `debugMode` getter/setter (default `false`) persisted in `HKSPL.json`; falls back to `false` when absent.
 
-- **Non-blocking stop** (`instancemanager.cpp`) — `waitForFinished(3000)` after `terminate()` froze the UI for up to 3 s; a single-shot `QTimer` now hard-`kill`s on timeout, with memory-job release and UI reset driven by the `finished` signal. A normal exit stops the timer so there's no mis-kill.
+- **Instrumentation** — download start/retry/success-failure (byte counts) in `downloader.cpp`; recommended/suggested counts, install-decision counts, and pre-install-uninstall counts in `installservice.cpp`/`moddecision.cpp`; launch args/memory/priority and game stop in `instancemanager.cpp`; Steam-detected KSP paths in `steamdiscovery.cpp`.
 
-- **Deferred pid read** (`launchGame`/`applyGameOptions`) — `state()`/`processId()` may not be valid right after `start()`, so previously a pid of 0 silently skipped priority/memory limits. Target options are staged now and applied on `QProcess::started`, once the pid is real.
+### Bug Fixes & Cleanup
 
-### Control-Flow Type-Safety
+- **False "folder conflict" on every install** (`ckanmanager.cpp`) — the conflict dialog was called unconditionally after download even when `r.conflicts` was empty, popping an empty dialog. It now opens only when there are real manually-occupied conflicting folders; genuine conflicts still list each `GameData/...` folder.
 
-- **Index refresh status** — the `"已取消"` magic string was replaced by a typed `enum class IndexRefreshStatus { Success, Failed, Cancelled }`, and the `indexRefreshed` signal signature became `(IndexRefreshStatus, QString error)`; cancellation is decided by the `m_indexCancelRequested` flag, never by string comparison.
+- **Warnings removed** —
+  - **Missing icons** (`modstabpage.cpp`, `resources/icons/download.svg`, `resources/resources.qrc`) — `x.svg` and `download.svg` never existed. The cancel button now reuses the existing `window-close.svg` (itself a double-line X), and the two "download package" buttons' `download.svg` was recreated in the lucide style (download arrow + container tray) and registered in the qrc. Result: no more `[WARN]` about unresolvable `:/icons/...` on the mods page.
+  - **Shutdown `applicationDirPath` warning** (`configmanager.{h,cpp}`) — `ConfigManager` is a function-local static singleton whose destructor outlives `QApplication`; its destructor called `save()`→`getConfigPath()`→`applicationDirPath()` while `qApp` was null. Every write path (setters, `addInstance`, ...) already calls `save()` immediately, so that destructor flush was a redundant safety net — it was removed. `getConfigPath()` still calls `applicationDirPath()` live, so read/write behavior is unchanged and no longer depends on construction order.
 
-- **Folder-conflict choice** — the `{"__CANCEL__"}` placeholder sentinel became a typed `FolderConflictChoice` (`action ∈ {OverwriteAll, DeleteOld, Cancel}` + `foldersToDelete`), eliminating sentinel-string control flow.
-
-### Internal Architecture Refactor (Six Steps, Behavior-Preserving)
-
-- **Dialogs out of the business layer** (`src/moddecision.{h,cpp}`) — the conflict/suggestion/provider/disk-space/confirm dialogs once embedded in `ckanmanager.cpp` are now an injectable `moddecision::Hooks` callback set; `CKanManager` injects the real Qt implementation by default and exposes `setModDecisions()` for tests or `ModsController`. `resolveAndInstall`/`importAsync` only call the hooks — the business layer no longer depends on widgets.
-
-- **Read-only service layer** (`src/services/`) — `IndexService` (index queries) and `ScanService` (unmanaged DLL scans) were split out; then `CacheService` (cache dir + precise cleanup + pure `knownCacheFileNames`), `ModpackService` (CKAN export + install-history snapshot), `UninstallService` (cascade plan + installed-filter), and `InstallService` (the synchronous pre-install decisions) were added. All services are injected with an instance pointer via `setCkan`, bound/unbound together with `openInstance`/`closeInstance`.
-
-- **UI orchestration split** — a thin `ModsController` (holding the real Qt `moddecision::Hooks`, injected at construction) sits behind the brand-new `ModsTabPage` (search/status/tag filters, mod table, detail tabs, progress bars, action buttons, single-module import, install history). `GameSettingsTabPage`, `DlcTabPage`, `AdvancedTabPage` and a `ModpackController` (export/import flows) took over the remaining `InstanceDetailPage` tabs, reducing it to a shell of sidebar navigation, content assembly, entry points and signal wiring.
-
-- **Facade slimming & dead-code removal** — four zero-reference facade passthroughs were deleted (`hasInstance`, `isInstalling`, `allIdentifiers`, `indexSize`); instance binding, index queries, and install/uninstall/upgrade operations remain. External behavior and signal semantics are unchanged; both test suites and the full build pass.
-
-### Build & Tooling
-
-- **Version** — bumped from 1.2.0 to 1.2.1 via `sync_version.py` (CMake `project(... VERSION ...)` and `src/appversion.h`).
-
-- **Tests** — `test_launcher` gained `TestInstanceIconSource` (suffix resolution, RP-1 over RSS, Sol → RSS, case-insensitivity, RO → exe fallback), `TestUpdaterManager::digestHex`, `TestCacheService.knownCacheFileNames`, `TestInstallService.nullInstanceFails` and `TestIndexService.isNewerVersion`; `test_libckan` gained `uninstallCancelledRestoresEverything` and `uninstallPlanMatchesBatch`. All suites pass.
+- **Default language** (`configmanager.cpp` `loadDefaults`) — with no `HKSPL.json`, `language` now defaults to `en_US` (first launch is English, for a global audience); the fallback for an existing config missing the `language` key is `en_US` too.
 
 ### Tech Stack
 
