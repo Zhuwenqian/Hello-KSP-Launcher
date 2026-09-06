@@ -167,6 +167,8 @@ void SaveDetailPage::setupUI()
 void SaveDetailPage::setupSaveInfoTab()
 {
     QWidget* tab = new QWidget(m_contentStack);
+    tab->setObjectName("saveDetailTab");
+    tab->setAttribute(Qt::WA_StyledBackground, true); // 普通 QWidget 需此属性才按 QSS 绘制半透明背板
     QVBoxLayout* layout = new QVBoxLayout(tab);
     layout->setContentsMargins(15, 10, 15, 15);
 
@@ -190,6 +192,8 @@ void SaveDetailPage::setupSaveInfoTab()
 void SaveDetailPage::setupKerbalsTab()
 {
     QWidget* tab = new QWidget(m_contentStack);
+    tab->setObjectName("saveDetailTab");
+    tab->setAttribute(Qt::WA_StyledBackground, true); // 普通 QWidget 需此属性才按 QSS 绘制半透明背板
     QVBoxLayout* layout = new QVBoxLayout(tab);
     layout->setContentsMargins(0, 0, 0, 0);
 
@@ -264,6 +268,8 @@ void SaveDetailPage::setupKerbalsTab()
 void SaveDetailPage::setupBackupsTab()
 {
     m_backupsTab = new QWidget(m_contentStack);
+    m_backupsTab->setObjectName("saveDetailTab");
+    m_backupsTab->setAttribute(Qt::WA_StyledBackground, true); // 普通 QWidget 需此属性才按 QSS 绘制半透明背板
     QVBoxLayout* layout = new QVBoxLayout(m_backupsTab);
     layout->setContentsMargins(0, 0, 0, 0);
 

@@ -453,6 +453,12 @@ QTableView::item:hover {
     border-radius: 8px;
 }
 
+/* 存档详情页二级 tab（存档信息/小绿人/备份）：半透明背板，风格与实例详情一致 */
+QWidget#saveDetailTab {
+    background-color: rgba(243, 243, 243, 204);
+    border-radius: 8px;
+}
+
 /* Menu for instance actions */
 QMenu {
     background-color: #ffffff;
