@@ -65,6 +65,7 @@ private:
     QLineEdit* m_rateLimitEdit; // 下载限速（MB/秒，每链接）
     QLabel* m_cacheDirLabel;
     ToggleSwitch* m_installSuggestsToggle;
+    ToggleSwitch* m_installRecommendsToggle;
     ToggleSwitch* m_diskSpaceCheckToggle;
 
     // 仓库列表相关

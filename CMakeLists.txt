@@ -224,6 +224,11 @@ endif()
 # Copy translations (.qm files) to output directory
 file(COPY ${CMAKE_SOURCE_DIR}/translations DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
+# 大图资源（默认背景、实例图标）不再编译进 qrc，改为复制到发布目录，
+# 运行时从 exe 旁的外部文件加载，减小 exe 体积、加快冷启动。
+file(COPY ${CMAKE_SOURCE_DIR}/resources/backgrounds DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
+file(COPY ${CMAKE_SOURCE_DIR}/resources/instanceicons DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
+
 # Custom target to regenerate .qm files from .ts files
 add_custom_target(update_translations
     COMMAND Qt6::lrelease ${CMAKE_SOURCE_DIR}/translations/hello_ksp_launcher_zh_CN.ts
@@ -288,6 +293,8 @@ add_executable(test_launcher
     src/services/indexservice.cpp
     src/services/cacheservice.cpp
     src/services/installservice.cpp
+    src/pages/modtablemodel.cpp
+    src/ckanmanager.cpp
     src/configmanager.cpp
 )
 target_include_directories(test_launcher PRIVATE

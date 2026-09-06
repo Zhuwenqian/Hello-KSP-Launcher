@@ -60,6 +60,11 @@ ModsTabPage::ModsTabPage(QWidget *parent)
     : QWidget(parent)
 {
     setupUi();
+    // 搜索输入防抖：连续输入只触发一次过滤，避免每键全量重算大索引
+    m_searchDebounceTimer = new QTimer(this);
+    m_searchDebounceTimer->setSingleShot(true);
+    m_searchDebounceTimer->setInterval(150);
+    connect(m_searchDebounceTimer, &QTimer::timeout, this, &ModsTabPage::onSearchDebounceTimeout);
     setTabActive(false);
 }
 
@@ -553,7 +558,20 @@ void ModsTabPage::onUnmanagedScanFinished()
 
 void ModsTabPage::onModSearchChanged(const QString &text)
 {
-    if (m_modsProxy) m_modsProxy->setSearchText(text);
+    if (!m_modsProxy) return;
+    // 清空搜索立即恢复全量列表；非空输入防抖 150ms，合并连续输入为一次过滤
+    if (text.trimmed().isEmpty()) {
+        m_searchDebounceTimer->stop();
+        m_modsProxy->setSearchText(text);
+    } else {
+        m_searchDebounceTimer->start();
+    }
+}
+
+void ModsTabPage::onSearchDebounceTimeout()
+{
+    if (m_modsProxy)
+        m_modsProxy->setSearchText(m_modSearchEdit->text());
 }
 
 void ModsTabPage::onModFilterChanged(int index)

@@ -981,6 +981,116 @@ private slots:
         for (const CkanModule &m : r.modulesToInstall) ids.insert(m.identifier);
         QVERIFY(!ids.contains(QStringLiteral("R")));
     }
+    void recommendsCollectedWhenEnabled()
+    {
+        // A 推荐 R：collectRecommends=true 时 R 出现在 recommendedModules，但不自动安装
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R"))});
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, R});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, true, false, GameVersion(),
+                                                    GameVersionRange(), true);
+        QVERIFY(!r.missing);
+        QVERIFY(!r.conflicted);
+        QSet<QString> inst;
+        for (const CkanModule &m : r.modulesToInstall) inst.insert(m.identifier);
+        QVERIFY(inst.contains(QStringLiteral("A")));
+        QVERIFY(!inst.contains(QStringLiteral("R"))); // 推荐不自动进入安装集
+        QSet<QString> recSet;
+        for (const CkanModule &m : r.recommendedModules) recSet.insert(m.identifier);
+        QVERIFY(recSet.contains(QStringLiteral("R")));
+    }
+    void recommendsNotCollectedWhenDisabled()
+    {
+        // collectRecommends=false 时不收集推荐（autoInstallRecommends=false 时也不自动装）
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R"))});
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, R});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, false);
+        QVERIFY(r.recommendedModules.isEmpty());
+    }
+    void recommendsCascadeCollected()
+    {
+        // A 推荐 B，B 推荐 C：级联收集 B 和 C
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("C"))});
+        const CkanModule C = makeModule(QStringLiteral("C"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B, C});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, true, false, GameVersion(),
+                                                    GameVersionRange(), true);
+        QSet<QString> recSet;
+        for (const CkanModule &m : r.recommendedModules) recSet.insert(m.identifier);
+        QVERIFY(recSet.contains(QStringLiteral("B")));
+        QVERIFY(recSet.contains(QStringLiteral("C")));
+    }
+    void recommendsExcludeInstalled()
+    {
+        // A 推荐 R，但 R 已安装：不再出现在推荐中
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R"))});
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, R});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("R");
+        im.module = R;
+        reg.installedModules[QStringLiteral("R")] = im;
+        const ResolutionResult r = resolver.resolve({A}, reg, true, false, GameVersion(),
+                                                    GameVersionRange(), true);
+        QVERIFY(r.recommendedModules.isEmpty());
+    }
+    void recommendsCycleTerminates()
+    {
+        // A 推荐 B，B 推荐 A：级联去重，不成环不重复
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("A"))});
+        const auto idx = makeIndex({A, B});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const ResolutionResult r = resolver.resolve({A}, reg, true, false, GameVersion(),
+                                                    GameVersionRange(), true);
+        QSet<QString> recSet;
+        for (const CkanModule &m : r.recommendedModules) recSet.insert(m.identifier);
+        QVERIFY(recSet.contains(QStringLiteral("B")));
+        QVERIFY(!recSet.contains(QStringLiteral("A"))); // A 在安装集，不作为推荐
+    }
+    void recommendsConflictSkipped()
+    {
+        // A 推荐 R，但 R 与已装模块 C 冲突：R 被静默跳过，不进推荐列表
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("R"))});
+        const CkanModule R = makeModule(QStringLiteral("R"), QStringLiteral("1.0"));
+        const CkanModule C = makeModule(QStringLiteral("C"), QStringLiteral("1.0"));
+        QMap<QString, QVector<CkanModule>> idx;
+        idx[QStringLiteral("A")] = {A};
+        idx[QStringLiteral("R")] = {R};
+        idx[QStringLiteral("C")] = {C};
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        InstalledModule im;
+        im.identifier = QStringLiteral("C");
+        im.module = C;
+        reg.installedModules[QStringLiteral("C")] = im;
+        CkanModule rWithConflict = R;
+        rWithConflict.conflicts = {dep(QStringLiteral("C"))};
+        idx[QStringLiteral("R")] = {rWithConflict};
+        RelationshipResolver resolver2(idx);
+        const ResolutionResult r = resolver2.resolve({A}, reg, true, false, GameVersion(),
+                                                     GameVersionRange(), true);
+        QVERIFY(r.recommendedModules.isEmpty()); // 冲突的推荐被跳过
+    }
     void versionConstraintPicksBest()
     {
         const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
@@ -1823,6 +1933,71 @@ private slots:
         QVERIFY(!gi.registry()->isInstalled(QStringLiteral("B")));
         QVERIFY(!gi.registry()->isInstalled(QStringLiteral("C")));
         QVERIFY(!gi.registry()->isInstalled(QStringLiteral("D")));
+    }
+
+    // 回归：卸载模组后应删除遗留的空顶层 GameData 文件夹；
+    // 共享文件夹（仍被其他已注册模组占用）或含手动文件的文件夹应被保留。
+    void uninstallRemovesEmptyFolder()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        GameInstance gi(dir.path(), QStringLiteral("test"));
+
+        auto mkfile = [&](const QString &rel) {
+            const QString abs = dir.filePath(rel);
+            QDir().mkpath(QFileInfo(abs).absolutePath());
+            QFile f(abs);
+            QVERIFY2(f.open(QIODevice::WriteOnly), qPrintable(rel));
+            f.write("x");
+            f.close();
+        };
+        auto registerMod = [&](const CkanModule &m, const QStringList &files) {
+            InstalledModule im;
+            im.identifier = m.identifier;
+            im.module = m;
+            im.files = files;
+            gi.registry()->registerModule(im);
+        };
+
+        // 独占文件夹：卸载后应删除 GameData/Excl
+        registerMod(makeModule(QStringLiteral("Excl"), QStringLiteral("1.0")),
+                    {QStringLiteral("GameData/Excl/sub/x.dll")});
+        mkfile(QStringLiteral("GameData/Excl/sub/x.dll"));
+        // 共享文件夹：Bat 与 Bat2 都写 GameData/Shared
+        registerMod(makeModule(QStringLiteral("Bat"), QStringLiteral("1.0")),
+                    {QStringLiteral("GameData/Shared/a.dll")});
+        registerMod(makeModule(QStringLiteral("Bat2"), QStringLiteral("1.0")),
+                    {QStringLiteral("GameData/Shared/b.dll")});
+        mkfile(QStringLiteral("GameData/Shared/a.dll"));
+        mkfile(QStringLiteral("GameData/Shared/b.dll"));
+        // 含手动未登记文件的文件夹：卸载 Dedown 后仍保留该文件夹
+        registerMod(makeModule(QStringLiteral("Dedown"), QStringLiteral("1.0")),
+                    {QStringLiteral("GameData/Manual/c.dll")});
+        mkfile(QStringLiteral("GameData/Manual/c.dll"));
+        mkfile(QStringLiteral("GameData/Manual/user.cfg"));
+        QVERIFY(gi.saveRegistry());
+
+        ModuleInstaller installer(&gi);
+        // 整批卸载 Excl、Bat、Dedown（Bat2 保留，仍占用 GameData/Shared）
+        const InstallResult r = installer.uninstallMany(
+            {QStringLiteral("Excl"), QStringLiteral("Bat"), QStringLiteral("Dedown")});
+        QVERIFY(r.ok);
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("Excl")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("Bat")));
+        QVERIFY(!gi.registry()->isInstalled(QStringLiteral("Dedown")));
+        QVERIFY(gi.registry()->isInstalled(QStringLiteral("Bat2")));
+
+        // 独占的空文件夹已被删除
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("GameData/Excl"))));
+        // 共享文件夹保留（Bat2 仍占用）
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/Shared/b.dll"))));
+        // 含手动文件的文件夹保留
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("GameData/Manual/user.cfg"))));
+
+        // 移除最后一个占用者 Bat2 后，共享文件夹也应被清空删除
+        const InstallResult r2 = installer.uninstallMany({QStringLiteral("Bat2")});
+        QVERIFY(r2.ok);
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("GameData/Shared"))));
     }
 
     void manualGameDataFoldersDetected()

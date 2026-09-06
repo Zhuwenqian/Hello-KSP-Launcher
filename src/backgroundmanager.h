@@ -6,7 +6,7 @@
 #include <QString>
 
 // BackgroundManager: 单例，负责管理启动器背景图片
-// - 默认背景打包在资源中(:/backgrounds/default.png)
+// - 默认背景优先从 exe 旁的外部文件加载（减小 exe 体积），找不到再回退 qrc 资源
 // - 用户自定义背景被复制到 <appDir>/backgrounds/user_bg_<uuid>.<ext>
 // - 提供 backgroundChanged 信号通知 UI 更新
 class BackgroundManager : public QObject

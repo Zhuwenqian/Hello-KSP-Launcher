@@ -47,27 +47,28 @@ moddecision::ConflictChoice askConflict(const QStringList &conflicts)
     return { moddecision::ConflictAction::OverwriteAll, {} };        // 全部覆盖：不删除任何文件夹
 }
 
-// 级联建议勾选弹窗：每个建议模组一个复选框（默认勾选）。
+// 可选模组勾选弹窗（Recommends / Suggests 共用）：每个模组一个复选框（默认勾选）。
 // cancelled 输出用户是否取消（区别于"全都不选"）。
-QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests, bool *cancelled)
+QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString &info,
+                                             const QVector<ckan::CkanModule> &modules, bool *cancelled)
 {
     *cancelled = false;
-    if (suggests.isEmpty()) return {};
+    if (modules.isEmpty()) return {};
 
     QDialog dlg;
-    dlg.setWindowTitle(QObject::tr("建议安装的模组"));
+    dlg.setWindowTitle(title);
     dlg.setMinimumWidth(560);
     QVBoxLayout *lay = new QVBoxLayout(&dlg);
-    QLabel *info = new QLabel(QObject::tr("以下模组为可选建议（Suggests），可按需勾选："), &dlg);
-    info->setWordWrap(true);
-    lay->addWidget(info);
+    QLabel *infoLabel = new QLabel(info, &dlg);
+    infoLabel->setWordWrap(true);
+    lay->addWidget(infoLabel);
 
     QScrollArea *scroll = new QScrollArea(&dlg);
     scroll->setWidgetResizable(true);
     QWidget *listHost = new QWidget(scroll);
     QVBoxLayout *listLay = new QVBoxLayout(listHost);
     QVector<QCheckBox*> boxes;
-    for (const ckan::CkanModule &m : suggests) {
+    for (const ckan::CkanModule &m : modules) {
         QString text = m.name + QStringLiteral("  (") + m.identifier
                      + QStringLiteral(" ") + m.version + QStringLiteral(")");
         if (!m.abstract.isEmpty()) text += QStringLiteral("\n    ") + m.abstract;
@@ -93,8 +94,24 @@ QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests,
     }
     QVector<ckan::CkanModule> sel;
     for (int i = 0; i < boxes.size(); ++i)
-        if (boxes.at(i)->isChecked()) sel.append(suggests.at(i));
+        if (boxes.at(i)->isChecked()) sel.append(modules.at(i));
     return sel;
+}
+
+// 推荐安装模组勾选弹窗（Recommends）：默认全选，用户可按需取消个别或全部。
+QVector<ckan::CkanModule> askRecommends(const QVector<ckan::CkanModule> &recommends, bool *cancelled)
+{
+    return askOptionalModules(QObject::tr("推荐安装的模组"),
+                              QObject::tr("以下模组为该模组推荐安装（Recommends），默认全部勾选，可按需取消："),
+                              recommends, cancelled);
+}
+
+// 建议安装模组勾选弹窗（Suggests）：默认全选，用户可按需取消个别或全部。
+QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests, bool *cancelled)
+{
+    return askOptionalModules(QObject::tr("建议安装的模组"),
+                              QObject::tr("以下模组为可选建议（Suggests），默认全部勾选，可按需取消："),
+                              suggests, cancelled);
 }
 
 // 多提供者选择弹窗：每个虚拟包一行，用下拉框从候选提供者中选一个。
@@ -194,6 +211,7 @@ Hooks makeDefaultModDecisions()
 {
     Hooks h;
     h.conflict = &askConflict;
+    h.recommends = &askRecommends;
     h.suggests = &askSuggests;
     h.providers = &askProviders;
     h.diskSpace = &askDiskSpaceWarning;

@@ -48,10 +48,21 @@ void BackgroundManager::loadFromSource(const QString& path)
 {
     QPixmap pix;
     if (path.isEmpty()) {
-        // 加载资源中默认背景
-        pix.load(QStringLiteral(":/backgrounds/default.png"));
+        // 默认背景优先从 exe 旁的外部文件加载（大图不再编译进 qrc，减小 exe 体积、加快冷启动），
+        // 找不到再回退 qrc 资源兜底。
+        const QStringList candidates = {
+            QCoreApplication::applicationDirPath() + QLatin1String("/resources/backgrounds/default.png"),
+            QCoreApplication::applicationDirPath() + QLatin1String("/backgrounds/default.png"),
+            QStringLiteral("e:/Projects/Hello KSP Launcher/resources/backgrounds/default.png"),
+            QStringLiteral(":/backgrounds/default.png"),
+        };
+        for (const QString &c : candidates) {
+            pix.load(c);
+            if (!pix.isNull())
+                break;
+        }
         if (pix.isNull()) {
-            qWarning() << "[BackgroundManager] failed to load default background from resources";
+            qWarning() << "[BackgroundManager] failed to load default background";
         }
     } else {
         if (!QFile::exists(path)) {

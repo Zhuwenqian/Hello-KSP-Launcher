@@ -10,6 +10,20 @@
 #include "services/indexservice.h"
 #include "services/cacheservice.h"
 #include "services/installservice.h"
+#include "pages/modtablemodel.h"
+
+// 构造一个仅填关键字段的 CkanModule（identifier/name/version 必有，其余可空）
+static ckan::CkanModule makeMod(const QString &identifier, const QString &name, const QString &version,
+                                const QStringList &tags = {}, const QString &abstract = {})
+{
+    ckan::CkanModule m;
+    m.identifier = identifier;
+    m.name = name;
+    m.version = version;
+    m.tags = tags;
+    m.abstract = abstract;
+    return m;
+}
 
 // 启动器逻辑测试：Steam 库发现（仅与 src/steamdiscovery.cpp 相关，不依赖 libckan）。
 class TestSteamDiscovery : public QObject
@@ -333,14 +347,122 @@ private slots:
     void nullInstanceFails()
     {
         services::InstallService svc; // 未 setCkan
-        const auto res = svc.resolveInstallSet({}, true, false);
+        const auto res = svc.resolveInstallSet({}, true, false, false);
         QVERIFY(!res.ok);
         QVERIFY(!res.cancelled);
         QVERIFY(!res.nothingToDo);
         QVERIFY(!res.error.isEmpty());
 
         const services::InstallService svc2; // 未 setCkan
-        QVERIFY(!svc2.resolveInstallSet({ ckan::CkanModule{} }, true, false).ok);
+        QVERIFY(!svc2.resolveInstallSet({ ckan::CkanModule{} }, true, false, false).ok);
+    }
+};
+
+// 模组表过滤与行级缓存：预计算缓存/预解析搜索词后，过滤行为与原逐行实时计算语义一致
+// （回归：缓存路径不得改变搜索结果）。
+class TestModsTableFilter : public QObject
+{
+    Q_OBJECT
+private slots:
+    void generalSearchHitsNameIdentifierAndAbstract()
+    {
+        ModsTableModel model;
+        model.setModules({
+            makeMod(QStringLiteral("ModA"), QStringLiteral("Kerbal Flight"), QStringLiteral("1.0")),
+            makeMod(QStringLiteral("ksp-mod"), QStringLiteral("KSP Mod Helper"), QStringLiteral("2.0")),
+            makeMod(QStringLiteral("ModC"), QStringLiteral("Realism Overhaul"), QStringLiteral("3.0"),
+                    {}, QStringLiteral("adds ksp realism")),
+        });
+        ModsFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+        QCOMPARE(proxy.rowCount(), 3);
+
+        proxy.setSearchText(QStringLiteral("ksp"));
+        QCOMPARE(proxy.rowCount(), 2); // ksp-mod(标识符) + ModC(摘要)
+        proxy.setSearchText(QStringLiteral("kerbal"));
+        QCOMPARE(proxy.rowCount(), 1); // 仅 ModA(名称)
+        proxy.setSearchText(QStringLiteral("realism"));
+        QCOMPARE(proxy.rowCount(), 1); // 仅 ModC(摘要)
+        proxy.setSearchText(QStringLiteral("  ")); // 空白视为清空
+        QCOMPARE(proxy.rowCount(), 3);
+    }
+
+    void fieldSearchAuthorTagAndDepends()
+    {
+        ckan::CkanModule m = makeMod(QStringLiteral("FieldMod"), QStringLiteral("Field Mod"),
+                                     QStringLiteral("1.0"));
+        m.author = { QStringLiteral("NecroBones"), QStringLiteral("linuxgurugamer") };
+        m.tags = { QStringLiteral("physics"), QStringLiteral("science") };
+        ckan::Relationship rel;
+        rel.name = QStringLiteral("ModuleManager");
+        m.depends = { rel };
+
+        ModsTableModel model;
+        model.setModules({ m });
+        ModsFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+
+        proxy.setSearchText(QStringLiteral("@author:necro"));
+        QCOMPARE(proxy.rowCount(), 1);
+        proxy.setSearchText(QStringLiteral("@tag:SCIENCE"));
+        QCOMPARE(proxy.rowCount(), 1); // 大小写不敏感
+        proxy.setSearchText(QStringLiteral("@tag:zzz"));
+        QCOMPARE(proxy.rowCount(), 0);
+        proxy.setSearchText(QStringLiteral("@depend:modulemanager"));
+        QCOMPARE(proxy.rowCount(), 1);
+        proxy.setSearchText(QStringLiteral("@unknown:x"));
+        QCOMPARE(proxy.rowCount(), 1); // 未知字段不否决
+        proxy.setSearchText(QStringLiteral("ksp @author:none"));
+        QCOMPARE(proxy.rowCount(), 0); // AND 关系：任一 token 不命中即否决
+    }
+
+    void statusFilterUsesPrecomputedCache()
+    {
+        ModsTableModel model;
+        model.setModules({
+            makeMod(QStringLiteral("ModA"), QStringLiteral("Alpha"), QStringLiteral("1.0")),
+            makeMod(QStringLiteral("ModB"), QStringLiteral("Beta"), QStringLiteral("1.0")),
+        });
+        ModsFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+        // 测试环境无已安装状态 → 全部 NotInstalled（缓存路径）
+        proxy.setStatusFilter(static_cast<int>(ModsTableModel::NotInstalled));
+        QCOMPARE(proxy.rowCount(), 2);
+        proxy.setStatusFilter(static_cast<int>(ModsTableModel::Installed));
+        QCOMPARE(proxy.rowCount(), 0);
+        proxy.setStatusFilter(-1);
+        QCOMPARE(proxy.rowCount(), 2);
+
+        // refreshStatus 重建缓存不破坏行数与状态语义
+        model.refreshStatus();
+        QCOMPARE(model.statusAt(0), ModsTableModel::NotInstalled);
+        QCOMPARE(proxy.rowCount(), 2);
+    }
+
+    void compatibilityFilterWithGameVersionAndRange()
+    {
+        ckan::CkanModule a = makeMod(QStringLiteral("A"), QStringLiteral("A Mod"), QStringLiteral("1.0"));
+        a.kspVersionMin = QStringLiteral("1.12");
+        a.kspVersionMax = QStringLiteral("1.12");
+        const ckan::CkanModule b = makeMod(QStringLiteral("B"), QStringLiteral("B Mod"), QStringLiteral("1.0"));
+
+        ModsTableModel model;
+        model.setModules({ a, b });
+        ModsFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+        // 未设置游戏版本 → 无效版本按兼容处理，全部显示
+        QCOMPARE(proxy.rowCount(), 2);
+        // 设置 1.8：A(1.12 限定) 不兼容默认隐藏，仅 B
+        proxy.setGameVersion(ckan::GameVersion(1, 8, 0));
+        QCOMPARE(proxy.rowCount(), 1);
+        // 显示不兼容 → A 恢复
+        proxy.setShowIncompatible(true);
+        QCOMPARE(proxy.rowCount(), 2);
+        proxy.setShowIncompatible(false);
+        // 勾选覆盖 1.12 的额外区间 → A 经区间判定恢复显示（兼容缓存随上下文重建）
+        proxy.setCompatRange(ckan::GameVersionRange(ckan::GameVersion(1, 12, 0), true,
+                                                    ckan::GameVersion(1, 12, 0), true));
+        QCOMPARE(proxy.rowCount(), 2);
     }
 };
 
@@ -360,6 +482,12 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tIconSrc, argc, argv);
     TestIndexService tIndex;
     failures += QTest::qExec(&tIndex, argc, argv);
+    TestCacheService tCache;
+    failures += QTest::qExec(&tCache, argc, argv);
+    TestInstallService tInstall;
+    failures += QTest::qExec(&tInstall, argc, argv);
+    TestModsTableFilter tModsFilter;
+    failures += QTest::qExec(&tModsFilter, argc, argv);
     return failures;
 }
 

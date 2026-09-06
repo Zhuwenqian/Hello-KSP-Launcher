@@ -143,7 +143,7 @@ bool ConfigManager::save()
 
 QString ConfigManager::language() const
 {
-    return m_config["language"].toString("zh_CN");
+    return m_config["language"].toString("en_US");
 }
 
 void ConfigManager::setLanguage(const QString &lang)
@@ -269,6 +269,20 @@ void ConfigManager::setInstallSuggests(bool enable)
 {
     if (installSuggests() != enable) {
         m_config["installSuggests"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+bool ConfigManager::installRecommends() const
+{
+    return m_config["installRecommends"].toBool(true);
+}
+
+void ConfigManager::setInstallRecommends(bool enable)
+{
+    if (installRecommends() != enable) {
+        m_config["installRecommends"] = enable;
         save();
         emit configChanged();
     }

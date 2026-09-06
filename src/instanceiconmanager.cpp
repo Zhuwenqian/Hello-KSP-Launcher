@@ -32,7 +32,8 @@ InstanceIconManager::InstanceIconManager(QObject *parent)
 {
 }
 
-// 静态图标来源：优先使用编译进 exe 的 qrc 资源，其次 exe 旁的 instanceicons/ 与源码目录。
+// 静态图标来源：实例图标大图已移出 qrc（减小 exe 体积），
+// 依次尝试 exe 旁的 resources/instanceicons/、instanceicons/ 与源码目录，qrc 兜底。
 static QString iconFilePath(const QString& fileName)
 {
     const QStringList candidates = {

@@ -75,6 +75,8 @@ private slots:
                             qint64 totalBytes, qint64 speedBps);
     // 后台构建完整个 mod 列表后回主线程填充模型
     void onModsLoadFinished();
+    // 搜索输入防抖：连续输入只触发一次过滤（150ms）
+    void onSearchDebounceTimeout();
     // 模组详情四 tab
     void onSingleDownloadFinished(bool ok, const QString &identifier, const QString &error);
     void onContentsDownloadClicked();
@@ -157,6 +159,8 @@ private:
     QTimer* m_registryLockPollTimer = nullptr;
     // 待安装的 .ckan 导入标识符（索引就绪后自动触发批量安装）
     QStringList m_pendingCkanIdentifiers;
+    // 搜索输入防抖定时器（150ms，singleShot）
+    QTimer* m_searchDebounceTimer = nullptr;
     // 模组列表列宽持久化：拖动后防抖落盘
     QTimer* m_colWidthSaveTimer = nullptr;
 };

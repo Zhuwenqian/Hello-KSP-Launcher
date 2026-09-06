@@ -5,7 +5,8 @@
 namespace services {
 
 InstallService::ResolveResult InstallService::resolveInstallSet(
-    const QVector<ckan::CkanModule> &mods, bool autoRecommends, bool showSuggests) const
+    const QVector<ckan::CkanModule> &mods, bool autoRecommends, bool showSuggests,
+    bool showRecommends) const
 {
     ResolveResult rr;
     if (!m_ckan || mods.isEmpty()) {
@@ -14,8 +15,12 @@ InstallService::ResolveResult InstallService::resolveInstallSet(
         return rr;
     }
 
-    ckan::ResolutionResult res = m_ckan->resolveInstallMany(mods, autoRecommends, showSuggests,
-                                                            m_compatRange);
+    // 需要弹窗勾选 recommends → 解析时只收集（不自动安装），供下方弹窗后按勾选结果重新解析
+    const bool collectRecommends = showRecommends;
+    const bool autoRec = collectRecommends ? false : autoRecommends;
+
+    ckan::ResolutionResult res = m_ckan->resolveInstallMany(mods, autoRec, showSuggests,
+                                                            m_compatRange, collectRecommends);
 
     // 多提供者选择：同一虚拟包被多个模组提供 → 弹窗让用户决定安装哪个。
     // 选择结果并入安装集后重新解析（循环直至无多提供者待选；guard 防死循环）。
@@ -28,7 +33,8 @@ InstallService::ResolveResult InstallService::resolveInstallSet(
         selectedProviders += picked;
         QVector<ckan::CkanModule> combined = mods;
         combined += selectedProviders;
-        res = m_ckan->resolveInstallMany(combined, autoRecommends, showSuggests, m_compatRange);
+        res = m_ckan->resolveInstallMany(combined, autoRec, showSuggests, m_compatRange,
+                                         collectRecommends);
         if (res.conflicted) { rr.error = res.conflicts.join(QLatin1Char('\n')); return rr; }
         if (res.missing) {
             rr.error = QObject::tr("缺少依赖：%1").arg(res.notFound.join(QLatin1Char(',')));
@@ -39,6 +45,26 @@ InstallService::ResolveResult InstallService::resolveInstallSet(
     if (res.missing) {
         rr.error = QObject::tr("缺少依赖：%1").arg(res.notFound.join(QLatin1Char(',')));
         return rr;
+    }
+
+    // 推荐模组（Recommends）弹窗：让用户勾选要安装的推荐（默认全选）。
+    // 勾选结果并入安装集重新解析（连其依赖一起）；在级联建议弹窗之前处理，
+    // 使基于最新安装集收集的建议也能一并展示。
+    if (showRecommends && !res.recommendedModules.isEmpty()) {
+        bool cancelled = false;
+        const QVector<ckan::CkanModule> selected = m_decisions.recommends(res.recommendedModules, &cancelled);
+        if (cancelled) { rr.cancelled = true; return rr; }
+        if (!selected.isEmpty()) {
+            QVector<ckan::CkanModule> combined = mods;
+            combined += selected;
+            // 二次解析：勾选的推荐已作为显式请求进入安装集，不再收集/自动装 recommends
+            res = m_ckan->resolveInstallMany(combined, false, showSuggests, m_compatRange);
+            if (res.conflicted) { rr.error = res.conflicts.join(QLatin1Char('\n')); return rr; }
+            if (res.missing) {
+                rr.error = QObject::tr("缺少依赖：%1").arg(res.notFound.join(QLatin1Char(',')));
+                return rr;
+            }
+        }
     }
 
     QVector<ckan::CkanModule> modules = res.modulesToInstall;

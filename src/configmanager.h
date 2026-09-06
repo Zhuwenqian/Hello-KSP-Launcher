@@ -77,6 +77,11 @@ public:
     bool installSuggests() const;
     void setInstallSuggests(bool enable);
 
+    // 安装时是否显示推荐安装模组（Recommends）的勾选弹窗（默认开启）。
+    // 开启：收集推荐模组后弹窗勾选（默认全选）；关闭：推荐模组自动安装（对齐官方默认行为）。
+    bool installRecommends() const;
+    void setInstallRecommends(bool enable);
+
     // 下载/安装前是否做磁盘空间预检（默认开启）；不足时弹窗，用户可选择忽略继续或取消
     bool diskSpaceCheck() const;
     void setDiskSpaceCheck(bool enable);

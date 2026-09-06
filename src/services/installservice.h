@@ -31,10 +31,13 @@ public:
         QStringList preUninstall; // 已装旧版、须先卸载的标识符
     };
 
-    // 解析安装集：内部处理多提供者选择循环、级联建议勾选与预卸载计算。
+    // 解析安装集：内部处理多提供者选择循环、推荐模组（Recommends）与级联建议（Suggests）
+    // 勾选弹窗（showRecommends / showSuggests 控制是否弹窗）与预卸载计算。
     // 未绑定实例或 mods 为空 → 返回失败（error 描述原因）。
+    // showRecommends=true 时 recommends 不再自动安装，改为收集后弹窗勾选（默认全选）。
     ResolveResult resolveInstallSet(const QVector<ckan::CkanModule> &mods,
-                                    bool autoRecommends, bool showSuggests) const;
+                                    bool autoRecommends, bool showSuggests,
+                                    bool showRecommends) const;
 
 private:
     ckan::CKan *m_ckan = nullptr;

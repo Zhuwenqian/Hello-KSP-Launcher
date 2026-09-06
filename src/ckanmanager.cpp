@@ -560,7 +560,8 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
     // 门面只负责异步下载/安装编排与信号发布。
     m_install.setCompatRange(m_compatRange);
     const services::InstallService::ResolveResult res = m_install.resolveInstallSet(
-        mods, autoRecommends, ConfigManager::instance().installSuggests());
+        mods, autoRecommends, ConfigManager::instance().installSuggests(),
+        ConfigManager::instance().installRecommends());
     if (!res.ok) {
         emit operationFinished(false, res.cancelled ? tr("已取消") : res.error);
         return;
@@ -616,12 +617,16 @@ void CKanManager::resolveAndInstall(const QVector<ckan::CkanModule> &mods, bool 
             emit operationFinished(false, r.error);
             return;
         }
-        // 阶段二前（UI 线程）：弹窗让用户选择冲突处理方式
-        const moddecision::ConflictChoice choice = m_decisions.conflict(r.conflicts);
-        if (choice.action == moddecision::ConflictAction::Cancel) {
-            m_ckan->releaseInstaller();
-            emit operationFinished(false, tr("已取消"));
-            return;
+        // 阶段二前（UI 线程）：存在真实文件夹冲突时才弹窗让用户选择如何处理；
+        // 无冲突时直接跳过，避免误弹空列表提示。
+        moddecision::ConflictChoice choice;
+        if (!r.conflicts.isEmpty()) {
+            choice = m_decisions.conflict(r.conflicts);
+            if (choice.action == moddecision::ConflictAction::Cancel) {
+                m_ckan->releaseInstaller();
+                emit operationFinished(false, tr("已取消"));
+                return;
+            }
         }
         // 磁盘空间预检（游戏盘）：下载完成后、安装写入前检查
         if (ConfigManager::instance().diskSpaceCheck() && !modules.isEmpty()) {

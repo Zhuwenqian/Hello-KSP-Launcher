@@ -34,6 +34,7 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_rateLimitEdit(nullptr),
       m_cacheDirLabel(nullptr),
       m_installSuggestsToggle(nullptr),
+      m_installRecommendsToggle(nullptr),
       m_diskSpaceCheckToggle(nullptr),
       m_autoUpdateToggle(nullptr)
 {
@@ -248,6 +249,15 @@ void SettingsPage::setupUI()
     rateLabel->setObjectName("settingLabel");
     modLayout->addRow(rateLabel, m_rateLimitEdit);
 
+    // 安装时显示推荐模组（Recommends）
+    m_installRecommendsToggle = new ToggleSwitch(modGroup);
+    m_installRecommendsToggle->setToolTip(tr("安装模组时，如果它还有推荐安装的模组（Recommends），弹窗勾选（默认全选）；关闭后推荐模组自动安装"));
+    connect(m_installRecommendsToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setInstallRecommends(checked); });
+    QLabel* recommendLabel = new QLabel(tr("安装时显示推荐模组："), modGroup);
+    recommendLabel->setObjectName("settingLabel");
+    modLayout->addRow(recommendLabel, m_installRecommendsToggle);
+
     // 安装时显示建议模组
     m_installSuggestsToggle = new ToggleSwitch(modGroup);
     m_installSuggestsToggle->setToolTip(tr("安装模组时，如果它还有建议安装的可选模组，弹窗勾选"));
@@ -365,6 +375,7 @@ void SettingsPage::loadSettings()
     m_moduleSourceCombo->blockSignals(true);
     m_concurrencyCombo->blockSignals(true);
     m_installSuggestsToggle->blockSignals(true);
+    m_installRecommendsToggle->blockSignals(true);
     m_diskSpaceCheckToggle->blockSignals(true);
     m_autoUpdateToggle->blockSignals(true);
 
@@ -404,6 +415,7 @@ void SettingsPage::loadSettings()
     m_cacheDirLabel->setText(CKanManager::instance().downloadDir());
 
     m_installSuggestsToggle->setChecked(ConfigManager::instance().installSuggests());
+    m_installRecommendsToggle->setChecked(ConfigManager::instance().installRecommends());
     m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
     m_autoUpdateToggle->setChecked(ConfigManager::instance().autoCheckUpdate());
 
@@ -417,6 +429,7 @@ void SettingsPage::loadSettings()
     m_moduleSourceCombo->blockSignals(false);
     m_concurrencyCombo->blockSignals(false);
     m_installSuggestsToggle->blockSignals(false);
+    m_installRecommendsToggle->blockSignals(false);
     m_diskSpaceCheckToggle->blockSignals(false);
     m_autoUpdateToggle->blockSignals(false);
 }

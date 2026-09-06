@@ -13,6 +13,7 @@ void ModsTableModel::setModules(const QVector<ckan::CkanModule> &modules)
 {
     beginResetModel();
     m_modules = modules;
+    rebuildStaticCache();
     endResetModel();
 }
 
@@ -20,6 +21,7 @@ void ModsTableModel::clear()
 {
     beginResetModel();
     m_modules.clear();
+    m_rowCache.clear();
     endResetModel();
 }
 
@@ -35,29 +37,76 @@ const ckan::CkanModule *ModsTableModel::modulePtr(int row) const
     return &m_modules.at(row);
 }
 
+const ModsTableModel::RowCache *ModsTableModel::rowCacheAt(int row) const
+{
+    if (row < 0 || row >= m_rowCache.size()) return nullptr;
+    return &m_rowCache.at(row);
+}
+
+// 行级预计算：合并小写搜索串 + 兼容判定 + 安装状态，一次构建、热路径查表。
+// 在索引就绪/状态变化时调用；兼容字段依赖 m_gameVersion/m_compatRange（当前上下文）。
+void ModsTableModel::rebuildStaticCache()
+{
+    const int n = m_modules.size();
+    m_rowCache.resize(n);
+    CKanManager &mgr = CKanManager::instance();
+    for (int i = 0; i < n; ++i) {
+        const ckan::CkanModule &mod = m_modules.at(i);
+        RowCache &c = m_rowCache[i];
+        // 普通关键词一次 contains 命中 name/identifier/abstract 任一字段
+        c.lowerSearch = (mod.name + QLatin1Char('|') + mod.identifier + QLatin1Char('|') + mod.abstract)
+                            .toLower();
+        c.compatibleCurrent = mod.isCompatible(m_gameVersion);
+        c.compatibleRange = (m_compatRange.lowerSet() || m_compatRange.upperSet())
+                                ? mod.isCompatible(m_compatRange) : false;
+        // 模型中的模块即各标识符的仓库最新版（由 CKan::search 填充）。
+        // 直接与已安装版本比较即可判断是否可升级，避免每行每次渲染都重复执行
+        // latestOf -> versionsOf -> 全量版本排序 的昂贵计算（大列表卡顿的根因）。
+        const QString installed = mgr.installedVersion(mod.identifier);
+        if (!installed.isEmpty()) {
+            c.status = (ckan::ModuleVersion(mod.version) > ckan::ModuleVersion(installed))
+                           ? Upgradable : Installed;
+        } else {
+            c.status = mgr.isAutoDetected(mod.identifier) ? AutoDetected : NotInstalled;
+        }
+    }
+}
+
+void ModsTableModel::rebuildCompatibilityCache()
+{
+    const int n = m_rowCache.size();
+    if (n != m_modules.size()) {
+        rebuildStaticCache();
+        return;
+    }
+    for (int i = 0; i < n; ++i) {
+        const ckan::CkanModule &mod = m_modules.at(i);
+        RowCache &c = m_rowCache[i];
+        c.compatibleCurrent = mod.isCompatible(m_gameVersion);
+        c.compatibleRange = (m_compatRange.lowerSet() || m_compatRange.upperSet())
+                                ? mod.isCompatible(m_compatRange) : false;
+    }
+}
+
+void ModsTableModel::setCompatibilityContext(const ckan::GameVersion &v, const ckan::GameVersionRange &r)
+{
+    m_gameVersion = v;
+    m_compatRange = r;
+    rebuildCompatibilityCache();
+}
+
 ModsTableModel::Status ModsTableModel::statusAt(int row) const
 {
-    const ckan::CkanModule *mod = modulePtr(row);
-    if (!mod) return NotInstalled;
-    CKanManager &mgr = CKanManager::instance();
-    // 模型中的模块即各标识符的仓库最新版（由 CKan::search 填充）。
-    // 直接与已安装版本比较即可判断是否可升级，避免每行每次渲染都重复执行
-    // latestOf -> versionsOf -> 全量版本排序 的昂贵计算（大列表卡顿的根因）。
-    const QString installed = mgr.installedVersion(mod->identifier);
-    if (!installed.isEmpty()) {
-        if (ckan::ModuleVersion(mod->version) > ckan::ModuleVersion(installed))
-            return Upgradable;
-        return Installed;
-    }
-    if (mgr.isAutoDetected(mod->identifier)) return AutoDetected;
-    return NotInstalled;
+    const RowCache *c = rowCacheAt(row);
+    if (!c) return NotInstalled;
+    return c->status;
 }
 
 void ModsTableModel::refreshStatus()
 {
-    const int n = m_modules.size();
-    if (n == 0) return;
-    emit dataChanged(index(0, 0), index(n - 1, ColumnCount - 1));
+    if (m_modules.isEmpty()) return;
+    rebuildStaticCache(); // 安装/卸载后状态可能变化，重建缓存（含已安装版本比较）
+    emit dataChanged(index(0, 0), index(m_modules.size() - 1, ColumnCount - 1));
 }
 
 bool ModsTableModel::isChecked(const QString &identifier) const
@@ -217,17 +266,19 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     const auto *src = static_cast<ModsTableModel *>(sourceModel());
     if (!src) return true;
     const ckan::CkanModule *mod = src->modulePtr(sourceRow);
-    if (!mod) return false;
+    const ModsTableModel::RowCache *cache = src->rowCacheAt(sourceRow);
+    if (!mod || !cache) return false;
 
     // 不兼容模组默认隐藏（除非开启显示）。
     // 兼容判定：兼容当前实例实际版本 或 兼容用户勾选的额外区间（任一满足即可）。
-    bool compatible = mod->isCompatible(m_gameVersion);
+    // 兼容结果已在模型预计算，此处 O(1) 查表。
+    bool compatible = cache->compatibleCurrent;
     if (!compatible && (m_compatRange.lowerSet() || m_compatRange.upperSet()))
-        compatible = mod->isCompatible(m_compatRange);
+        compatible = cache->compatibleRange;
     if (!m_showIncompatible && !compatible)
         return false;
 
-    if (!m_search.isEmpty() && !matchesSearch(*mod))
+    if (!m_searchTokens.isEmpty() && !matchesSearch(*cache, *mod))
         return false;
     // 按 tag 过滤（空串不过滤）；大小写不敏感，模组含任一匹配 tag 即通过
     if (!m_tagFilter.isEmpty()) {
@@ -237,7 +288,7 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
         if (!matched) return false;
     }
     if (m_statusFilter >= 0) {
-        const ModsTableModel::Status s = src->statusAt(sourceRow);
+        const ModsTableModel::Status s = cache->status;
         // AD（手动安装）模组归入「已安装」分类
         if (s == ModsTableModel::AutoDetected) {
             if (m_statusFilter != static_cast<int>(ModsTableModel::Installed)) return false;
@@ -248,20 +299,14 @@ bool ModsFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &so
     return true;
 }
 
-bool ModsFilterProxyModel::matchesSearch(const ckan::CkanModule &mod) const
+QVector<ModsFilterProxyModel::SearchToken> ModsFilterProxyModel::parseSearchTokens(const QString &text)
 {
-    // 任意一个字段值（大小写不敏感）包含目标串即命中。
-    const auto anyContains = [](const QStringList &values, const QString &needle) {
-        for (const QString &v : values)
-            if (v.toLower().contains(needle)) return true;
-        return false;
-    };
-
-    const QStringList tokens = m_search.split(
+    QVector<SearchToken> tokens;
+    const QStringList rawTokens = text.split(
         QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
-    for (const QString &raw : tokens) {
+    for (const QString &raw : rawTokens) {
         const QString tok = raw.toLower();
-        bool ok;
+        SearchToken t;
         if (tok.startsWith(QLatin1Char('@'))) {
             const int colon = tok.indexOf(QLatin1Char(':'));
             // 无 `:` 的字段 token（或空值）忽略，不算命中/否决。
@@ -271,27 +316,70 @@ bool ModsFilterProxyModel::matchesSearch(const ckan::CkanModule &mod) const
             if (val.isEmpty()) continue;
 
             if (field == QLatin1String("author")) {
-                ok = anyContains(mod.author, val);
+                t.field = FieldAuthor;
             } else if (field == QLatin1String("desc") || field == QLatin1String("description")) {
-                ok = mod.description.toLower().contains(val);
+                t.field = FieldDesc;
             } else if (field == QLatin1String("license")) {
-                ok = anyContains(mod.license, val);
+                t.field = FieldLicense;
             } else if (field == QLatin1String("depend") || field == QLatin1String("depends")) {
-                ok = false;
-                for (const ckan::Relationship &rel : mod.depends)
-                    if (rel.name.toLower().contains(val)) { ok = true; break; }
+                t.field = FieldDepends;
             } else if (field == QLatin1String("provides")) {
-                ok = anyContains(mod.providesList(), val);
+                t.field = FieldProvides;
             } else if (field == QLatin1String("tag") || field == QLatin1String("tags")) {
-                ok = anyContains(mod.tags, val);
+                t.field = FieldTag;
             } else {
-                ok = true; // 未知字段忽略，不否决
+                continue; // 未知字段忽略该 token，不否决任何行
             }
+            t.value = val;
         } else {
-            // 普通关键词：匹配名称 / 标识符 / 摘要。
-            ok = mod.name.toLower().contains(tok)
-                 || mod.identifier.toLower().contains(tok)
-                 || mod.abstract.toLower().contains(tok);
+            t.field = FieldGeneral;
+            t.value = tok;
+        }
+        tokens.append(t);
+    }
+    return tokens;
+}
+
+bool ModsFilterProxyModel::matchesSearch(const ModsTableModel::RowCache &cache,
+                                         const ckan::CkanModule &mod) const
+{
+    // 任意一个字段值（大小写不敏感）包含目标串即命中。
+    const auto anyContains = [](const QStringList &values, const QString &needle) {
+        for (const QString &v : values)
+            if (v.toLower().contains(needle)) return true;
+        return false;
+    };
+
+    for (const SearchToken &t : m_searchTokens) {
+        bool ok;
+        switch (t.field) {
+        case FieldGeneral:
+            // 普通关键词：命中名称/标识符/摘要（合并小写串一次 contains）
+            ok = cache.lowerSearch.contains(t.value);
+            break;
+        case FieldAuthor:
+            ok = anyContains(mod.author, t.value);
+            break;
+        case FieldDesc:
+            ok = mod.description.toLower().contains(t.value);
+            break;
+        case FieldLicense:
+            ok = anyContains(mod.license, t.value);
+            break;
+        case FieldDepends:
+            ok = false;
+            for (const ckan::Relationship &rel : mod.depends)
+                if (rel.name.toLower().contains(t.value)) { ok = true; break; }
+            break;
+        case FieldProvides:
+            ok = anyContains(mod.providesList(), t.value);
+            break;
+        case FieldTag:
+            ok = anyContains(mod.tags, t.value);
+            break;
+        default:
+            ok = true; // 未知字段忽略，不否决
+            break;
         }
         if (!ok) return false;
     }
