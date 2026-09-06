@@ -146,6 +146,8 @@ QStringList SteamDiscovery::discoverKSPDirs()
         }
     }
 #endif
+    if (!result.isEmpty())
+        qInfo() << "[instance] Steam 库中发现 KSP 路径：" << result;
     return result;
 }
 

@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QObject>
 #include <QDir>
+#include <QDebug>
 
 namespace {
 // 字节数格式化为可读字符串（B/KB/MB/GB）
@@ -95,6 +96,8 @@ QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString
     QVector<ckan::CkanModule> sel;
     for (int i = 0; i < boxes.size(); ++i)
         if (boxes.at(i)->isChecked()) sel.append(modules.at(i));
+    qInfo() << "[decide] 可选模组弹窗" << title << "：共" << boxes.size()
+            << "个，用户选择" << sel.size() << "个";
     return sel;
 }
 

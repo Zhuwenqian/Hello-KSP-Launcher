@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include "mainwindow.h"
 #include "configmanager.h"
+#include "debuglogger.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,6 +16,10 @@ int main(int argc, char *argv[])
     a.setOrganizationName("HelloKSP");
     // 应用图标：覆盖窗口左上角与任务栏图标
     a.setWindowIcon(QIcon(QStringLiteral(":/appicon.ico")));
+
+    // 按已持久化配置启用调试日志：是否写入由启动时的设置决定，
+    // 因此“开启”的本会话不写、从下次启动起把日志写入 HKSPL.log。
+    DebugLogger::instance().start();
 
     // Load translation based on saved language setting
     QTranslator translator;

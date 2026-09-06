@@ -199,7 +199,7 @@ void ModsTabPage::setupUi()
     m_modProgressBar->setTextVisible(false);
     m_modProgressLabel = new QLabel(tr("就绪"), m_modProgressWidget);
     m_modProgressLabel->setMinimumWidth(220);
-    m_cancelDownloadBtn = new QPushButton(IconUtils::tintedIcon(":/icons/x.svg", "#ffffff"),
+    m_cancelDownloadBtn = new QPushButton(IconUtils::tintedIcon(":/icons/window-close.svg", "#ffffff"),
                                           tr(" 取消"), m_modProgressWidget);
     m_cancelDownloadBtn->setObjectName("dangerButton");
     connect(m_cancelDownloadBtn, &QPushButton::clicked, this, &ModsTabPage::onCancelDownloadClicked);

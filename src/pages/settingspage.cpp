@@ -36,7 +36,8 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_installSuggestsToggle(nullptr),
       m_installRecommendsToggle(nullptr),
       m_diskSpaceCheckToggle(nullptr),
-      m_autoUpdateToggle(nullptr)
+      m_autoUpdateToggle(nullptr),
+      m_debugModeToggle(nullptr)
 {
     setupUI();
     loadSettings();
@@ -126,6 +127,15 @@ void SettingsPage::setupUI()
     updRow->addWidget(checkUpdBtn);
     updRow->addStretch();
     generalLayout->addRow(QString(), updRow);
+
+    // 调试模式
+    m_debugModeToggle = new ToggleSwitch(generalGroup);
+    m_debugModeToggle->setToolTip(tr("开启后从下次启动起，把运行日志写入启动器目录下的 HKSPL.log（每次启动清空重写），便于排查问题；关闭则不再写入日志"));
+    connect(m_debugModeToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setDebugMode(checked); });
+    QLabel* debugModeLabel = new QLabel(tr("调试模式（下次启动生效）："), generalGroup);
+    debugModeLabel->setObjectName("settingLabel");
+    generalLayout->addRow(debugModeLabel, m_debugModeToggle);
 
     mainLayout->addWidget(generalGroup);
 
@@ -378,6 +388,7 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->blockSignals(true);
     m_diskSpaceCheckToggle->blockSignals(true);
     m_autoUpdateToggle->blockSignals(true);
+    m_debugModeToggle->blockSignals(true);
 
     QString lang = ConfigManager::instance().language();
     int langIdx = m_languageCombo->findData(lang);
@@ -418,6 +429,7 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->setChecked(ConfigManager::instance().installRecommends());
     m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
     m_autoUpdateToggle->setChecked(ConfigManager::instance().autoCheckUpdate());
+    m_debugModeToggle->setChecked(ConfigManager::instance().debugMode());
 
     loadRepoList();
 
@@ -432,6 +444,7 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->blockSignals(false);
     m_diskSpaceCheckToggle->blockSignals(false);
     m_autoUpdateToggle->blockSignals(false);
+    m_debugModeToggle->blockSignals(false);
 }
 
 void SettingsPage::refreshBackgroundPreview()

@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#include <QDebug>
 
 InstanceManager& InstanceManager::instance()
 {
@@ -78,6 +79,10 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args,
     m_pendingHighPriority = highPriority;
     m_pendingMemoryLimitMB = memoryLimitMB;
 
+    qInfo() << "[instance] 启动游戏：" << exePath
+            << (args.isEmpty() ? QString() : QStringLiteral(" 参数=%1").arg(args))
+            << "内存限制=" << (memoryLimitMB > 0 ? QStringLiteral("%1MB").arg(memoryLimitMB) : QStringLiteral("不限"))
+            << "高优先级=" << (highPriority ? "是" : QStringLiteral("否"));
     m_gameProcess->start(exePath, argList);
     return true;
 }
@@ -118,6 +123,7 @@ void InstanceManager::stopGame()
     // 超时强 kill 由定时器回调执行、内存 Job 释放与 UI 状态复位由 finished 信号完成，
     // 不再在主线程 waitForFinished 阻塞等待（避免停止游戏时冻结界面）。
     m_gameProcess->terminate();
+    qInfo() << "[instance] 停止游戏进程";
     if (!m_stopKillTimer) {
         m_stopKillTimer = new QTimer(this);
         m_stopKillTimer->setSingleShot(true);

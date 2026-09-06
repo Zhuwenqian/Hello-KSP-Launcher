@@ -1,6 +1,7 @@
 #include "installservice.h"
 
 #include <QObject>
+#include <QDebug>
 
 namespace services {
 
@@ -21,6 +22,9 @@ InstallService::ResolveResult InstallService::resolveInstallSet(
 
     ckan::ResolutionResult res = m_ckan->resolveInstallMany(mods, autoRec, showSuggests,
                                                             m_compatRange, collectRecommends);
+    if (collectRecommends && !res.recommendedModules.isEmpty())
+        qInfo() << "[install] 待安装模组解析完成，收集到推荐模组" << res.recommendedModules.size()
+                << "个，建议模组" << res.suggestedModules.size() << "个";
 
     // 多提供者选择：同一虚拟包被多个模组提供 → 弹窗让用户决定安装哪个。
     // 选择结果并入安装集后重新解析（循环直至无多提供者待选；guard 防死循环）。
@@ -96,6 +100,8 @@ InstallService::ResolveResult InstallService::resolveInstallSet(
         if (m_ckan->isInstalled(m.identifier))
             preUninstall.append(m.identifier);
 
+    qInfo() << "[install] 安装决策完成：本次安装" << modules.size()
+            << "个模组，需先卸载旧版本" << preUninstall.size() << "个";
     rr.ok = true;
     rr.modulesToInstall = modules;
     rr.preUninstall = preUninstall;

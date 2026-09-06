@@ -98,6 +98,7 @@ endif()
 
 set(SOURCES
     src/main.cpp
+    src/debuglogger.cpp
     src/mainwindow.cpp
     src/configmanager.cpp
     src/instancemanager.cpp
@@ -140,6 +141,7 @@ set(SOURCES
 
 set(HEADERS
     src/mainwindow.h
+    src/debuglogger.h
     src/configmanager.h
     src/instancemanager.h
     src/instancemanager_keymap.h

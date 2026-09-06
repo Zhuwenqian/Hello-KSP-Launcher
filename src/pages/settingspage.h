@@ -73,6 +73,8 @@ private:
 
     // 更新相关
     ToggleSwitch* m_autoUpdateToggle;
+    // 调试相关
+    ToggleSwitch* m_debugModeToggle;
 
     QScrollArea* m_scrollArea;
 };

@@ -19,9 +19,12 @@ ConfigManager::ConfigManager(QObject *parent)
     load();
 }
 
+// 不做析构落盘：所有写入口（各 setter / addInstance 等）都已即时调用 save()，
+// 配置始终处于已持久化状态，无需在析构兜底。之前析构里调用 save() 会在程序
+// 退出时（QApplication 栈对象已销毁、qApp 为空）触发 applicationDirPath() 的
+// "Please instantiate the QApplication object first" 警告。
 ConfigManager::~ConfigManager()
 {
-    save();
 }
 
 QString ConfigManager::getConfigPath() const
@@ -42,6 +45,7 @@ void ConfigManager::loadDefaults()
     m_config["downloadConcurrency"] = 3;
     m_config["diskSpaceCheck"] = true;
     m_config["autoCheckUpdate"] = true;
+    m_config["debugMode"] = false;
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -74,6 +78,9 @@ bool ConfigManager::load()
     }
     if (!m_config.contains("autoCheckUpdate")) {
         m_config["autoCheckUpdate"] = true;
+    }
+    if (!m_config.contains("debugMode")) {
+        m_config["debugMode"] = false;
     }
 
     m_instances.clear();
@@ -311,6 +318,20 @@ void ConfigManager::setAutoCheckUpdate(bool enable)
 {
     if (autoCheckUpdate() != enable) {
         m_config["autoCheckUpdate"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+bool ConfigManager::debugMode() const
+{
+    return m_config["debugMode"].toBool(false);
+}
+
+void ConfigManager::setDebugMode(bool enable)
+{
+    if (debugMode() != enable) {
+        m_config["debugMode"] = enable;
         save();
         emit configChanged();
     }
