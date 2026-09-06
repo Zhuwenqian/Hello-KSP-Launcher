@@ -1,6 +1,7 @@
 // 实例管理器 - 整合包导出（GameData 打包为 ZIP）
 #include "instancemanager.h"
 #include "miniz.h"
+#include "ckan/modpackio.h"
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -135,6 +136,7 @@ void ensureExportDirs(mz_zip_archive& zip, const QString& dirZipPath, QSet<QStri
 } // namespace
 
 bool InstanceManager::exportModpack(const QString &gamePath, const QString &zipFilePath,
+                                     const QByteArray &packageMetaJson,
                                      std::function<void(int progress)> progressCallback,
                                      std::function<bool()> shouldCancel) const
 {
@@ -196,6 +198,20 @@ bool InstanceManager::exportModpack(const QString &gamePath, const QString &zipF
                    << "error:" << mz_zip_get_last_error(&zip);
         zipFile.close();
         return false;
+    }
+
+    // 整合包元数据作为额外条目写入 zip 根目录（与 GameData 同层），供导入时展示与版本校验。
+    if (!packageMetaJson.isEmpty()) {
+        if (!mz_zip_writer_add_mem(&zip, ckan::kModpackMetaFileName,
+                                   packageMetaJson.constData(),
+                                   static_cast<size_t>(packageMetaJson.size()), 2)) {
+            qWarning() << "Failed to add package metadata:" << zipFilePath
+                       << "error:" << mz_zip_get_last_error(&zip);
+            mz_zip_writer_end(&zip);
+            zipFile.close();
+            QFile::remove(zipFilePath);
+            return false;
+        }
     }
 
     // 第二遍：逐条写入。通用内容始终流式读取；小文件读入受限缓冲后一次写入（KSP 大量小文件）。

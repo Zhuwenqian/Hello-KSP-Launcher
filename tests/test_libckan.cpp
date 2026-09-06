@@ -3298,6 +3298,67 @@ private slots:
         // 整体拒绝：合法条目也不得被部分导入
         QVERIFY(!QFileInfo::exists(dir.path() + QStringLiteral("/GameData/ModA/a.dll")));
     }
+
+    void readPackageMetaOk()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray meta = R"({"launcherVersion":"1.2.2","name":"MyPack",)"
+            R"("gameVersion":"1.12.5","description":"test pack"})";
+        const QByteArray zip = makeZip({
+            {QStringLiteral("hkspl_package.json"), meta},
+            {QStringLiteral("GameData/ModA/a.dll"), QByteArray("A")},
+        });
+        QFile f(dir.filePath(QStringLiteral("p.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        QString error;
+        QByteArray out;
+        QCOMPARE(ckan::modpackReadPackageMeta(f.fileName(), &out, &error),
+                 ckan::ModpackMetaStatus::Ok);
+        QCOMPARE(QString::fromUtf8(out), QString::fromUtf8(meta));
+    }
+
+    void readPackageMetaNotFound()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray zip = makeZip({
+            {QStringLiteral("GameData/ModA/a.dll"), QByteArray("A")},
+        });
+        QFile f(dir.filePath(QStringLiteral("p.zip")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(zip);
+        f.close();
+
+        QByteArray out;
+        QCOMPARE(ckan::modpackReadPackageMeta(f.fileName(), &out, nullptr),
+                 ckan::ModpackMetaStatus::NotFound);
+        QVERIFY(out.isEmpty());
+    }
+
+    void versionCompatibleCheck()
+    {
+        // 同 major+minor（patch 可不同）视为兼容
+        QVERIFY(ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("1.12.5")), GameVersion(QStringLiteral("1.12.3"))));
+        // build 仅做区分，不影响 minor 兼容判定
+        QVERIFY(ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("1.12.5.3190")), GameVersion(QStringLiteral("1.12.3.3187"))));
+        // minor 不同（1.11 vs 1.12）视为不兼容
+        QVERIFY(!ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("1.11.5")), GameVersion(QStringLiteral("1.12.3"))));
+        // major 不同视为不兼容
+        QVERIFY(!ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("2.0.0")), GameVersion(QStringLiteral("1.12.3"))));
+        // 任一侧版本无效即不兼容
+        QVERIFY(!ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("bad")), GameVersion(QStringLiteral("1.12.3"))));
+        QVERIFY(!ckan::modpackVersionCompatible(
+            GameVersion(QStringLiteral("1.12.5")), GameVersion()));
+    }
 };
 
 class TestCkanHistoryImport : public QObject

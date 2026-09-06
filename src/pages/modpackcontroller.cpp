@@ -4,10 +4,22 @@
 #include "../instancemanager.h"
 #include "../configmanager.h"
 #include "ckan/modpackio.h"
+#include "appversion.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QCoreApplication>
+#include <QDialog>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QLabel>
+#include <QPushButton>
+#include <QDialogButtonBox>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -39,17 +51,67 @@ void ModpackController::exportAsZip()
         return;
     }
 
-    // 默认文件名：实例名.zip，保存在启动器根目录
+    // 自定义导出对话框：文件名 + 描述 + 保存路径（可浏览选择）
     const QString appDir = QCoreApplication::applicationDirPath();
-    const QString defaultFileName = m_instance.name + ".zip";
-    const QString defaultFilePath = QDir(appDir).filePath(defaultFileName);
+    QDialog dlg(m_dialogParent);
+    dlg.setWindowTitle(tr("导出整合包"));
+    dlg.setModal(true);
 
-    QString zipFilePath = QFileDialog::getSaveFileName(
-        m_dialogParent, tr("导出整合包 - 选择保存位置"), defaultFilePath, tr("ZIP 文件 (*.zip)"));
-    if (zipFilePath.isEmpty())
+    QFormLayout *form = new QFormLayout;
+    QLineEdit *nameEdit = new QLineEdit(m_instance.name);
+    QLineEdit *descEdit = new QLineEdit;
+    QLineEdit *dirEdit = new QLineEdit(QDir::toNativeSeparators(appDir));
+    QPushButton *browseBtn = new QPushButton(tr("浏览..."));
+    connect(browseBtn, &QPushButton::clicked, this, [dirEdit, this]() {
+        const QString dir = QFileDialog::getExistingDirectory(
+            m_dialogParent, tr("选择导出保存目录"), dirEdit->text());
+        if (!dir.isEmpty())
+            dirEdit->setText(QDir::toNativeSeparators(dir));
+    });
+    QHBoxLayout *dirRow = new QHBoxLayout;
+    dirRow->addWidget(dirEdit, 1);
+    dirRow->addWidget(browseBtn);
+
+    form->addRow(tr("文件名(&N):"), nameEdit);
+    form->addRow(tr("描述(&D):"), descEdit);
+    form->addRow(tr("保存路径(&P):"), dirRow);
+
+    QDialogButtonBox *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    buttons->button(QDialogButtonBox::Ok)->setText(tr("导出"));
+    buttons->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+    connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    auto *root = new QVBoxLayout(&dlg);
+    root->addLayout(form);
+    root->addWidget(buttons);
+
+    if (dlg.exec() != QDialog::Accepted)
         return; // 用户取消
-    if (!zipFilePath.endsWith(".zip", Qt::CaseInsensitive))
-        zipFilePath += ".zip";
+
+    const QString packageName = nameEdit->text().trimmed();
+    if (packageName.isEmpty()) {
+        QMessageBox::warning(m_dialogParent, tr("导出失败"), tr("整合包名称不能为空。"));
+        return;
+    }
+    // 名称可能自带 .zip 后缀，规范化后拼接保存路径
+    const QString base = packageName.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive)
+                             ? packageName.left(packageName.size() - 4)
+                             : packageName;
+    const QString dirText = dirEdit->text().trimmed();
+    const QString zipFilePath =
+        QDir(dirText.isEmpty() ? appDir : dirText).filePath(base + QStringLiteral(".zip"));
+
+    // 构造整合包元数据（zip 根目录 hkspl_package.json）
+    const ckan::GameVersion gv = CKanManager::instance().detectedVersion();
+    QJsonObject meta;
+    meta.insert(QStringLiteral("launcherVersion"), QStringLiteral(HKSPL_APP_VERSION));
+    meta.insert(QStringLiteral("name"), base);
+    meta.insert(QStringLiteral("gameVersion"),
+                gv.isValid() ? gv.withoutBuild().toString() : QString());
+    meta.insert(QStringLiteral("description"), descEdit->text().trimmed());
+    const QByteArray metaJson = QJsonDocument(meta).toJson(QJsonDocument::Compact);
 
     emit showSettingsRequested();
 
@@ -64,7 +126,7 @@ void ModpackController::exportAsZip()
 
     bool cancelled = false;
     const bool success = InstanceManager::instance().exportModpack(
-        m_instance.path, zipFilePath,
+        m_instance.path, zipFilePath, metaJson,
         [&](int progress) {
             if (cancelled || progressDialog.wasCanceled()) {
                 cancelled = true;
@@ -152,14 +214,77 @@ void ModpackController::importFromZip()
         return;
     }
 
-    // 清空提示：删除 GameData 下除 Squad/SquadExpansion 外的所有内容
-    const QMessageBox::StandardButton confirm = QMessageBox::warning(
-        m_dialogParent, tr("导入整合包"),
-        tr("导入将删除当前实例 GameData 中除 Squad、SquadExpansion 外的所有模组，\n"
-           "并用 ZIP 中的模组替换。是否继续？"),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-    if (confirm != QMessageBox::Yes)
+    // 读取并校验整合包元数据（hkspl_package.json）；缺失/损坏时直接拒绝。
+    QByteArray metaJson;
+    const ckan::ModpackMetaStatus metaStatus =
+        ckan::modpackReadPackageMeta(zipFilePath, &metaJson, &error);
+    if (metaStatus == ckan::ModpackMetaStatus::NotFound) {
+        QMessageBox::warning(m_dialogParent, tr("导入失败"),
+            tr("所选文件不是有效的整合包（缺少 %1 元数据文件）。").arg(
+                QString::fromLatin1(ckan::kModpackMetaFileName)));
         return;
+    }
+    if (metaStatus == ckan::ModpackMetaStatus::ReadError) {
+        QMessageBox::warning(m_dialogParent, tr("导入失败"),
+            error.isEmpty() ? tr("读取整合包元数据失败。") : error);
+        return;
+    }
+    QJsonParseError pe;
+    const QJsonDocument metaDoc = QJsonDocument::fromJson(metaJson, &pe);
+    if (pe.error != QJsonParseError::NoError || !metaDoc.isObject()) {
+        QMessageBox::warning(m_dialogParent, tr("导入失败"), tr("整合包元数据已损坏，无法导入。"));
+        return;
+    }
+    const QJsonObject meta = metaDoc.object();
+    const QString pkgVersionStr = meta.value(QStringLiteral("gameVersion")).toString();
+    const ckan::GameVersion pkgVersion(pkgVersionStr);
+    if (pkgVersionStr.isEmpty() || !pkgVersion.isValid()) {
+        QMessageBox::warning(m_dialogParent, tr("导入失败"),
+            tr("整合包缺少有效的游戏版本信息，无法导入。"));
+        return;
+    }
+
+    // 版本校验：整合包与当前实例的 major+minor 必须相同，否则拒绝（拒绝后不再弹信息弹窗）。
+    const ckan::GameVersion currentVersion = CKanManager::instance().detectedVersion();
+    if (currentVersion.isValid() && !ckan::modpackVersionCompatible(pkgVersion, currentVersion)) {
+        QMessageBox::warning(m_dialogParent, tr("导入失败"),
+            tr("整合包游戏版本为 %1，与当前实例版本 %2 不兼容，已拒绝导入。")
+                .arg(pkgVersion.withoutBuild().toString(),
+                     currentVersion.withoutBuild().toString()));
+        return;
+    }
+
+    // 元数据信息弹窗（替代原清空确认）：展示整合包信息并请用户确认开始安装。
+    QDialog info(m_dialogParent);
+    info.setWindowTitle(tr("导入整合包"));
+    info.setModal(true);
+    QFormLayout *infoForm = new QFormLayout;
+    infoForm->addRow(tr("整合包名称:"),
+        new QLabel(meta.value(QStringLiteral("name")).toString().isEmpty()
+                       ? QFileInfo(zipFilePath).completeBaseName()
+                       : meta.value(QStringLiteral("name")).toString()));
+    infoForm->addRow(tr("游戏版本:"), new QLabel(pkgVersion.withoutBuild().toString()));
+    const QString launcherVer = meta.value(QStringLiteral("launcherVersion")).toString();
+    infoForm->addRow(tr("启动器版本:"),
+        new QLabel(launcherVer.isEmpty() ? tr("未知") : launcherVer));
+    infoForm->addRow(tr("描述:"),
+        new QLabel(meta.value(QStringLiteral("description")).toString()));
+    QLabel *warn = new QLabel(
+        tr("导入将删除当前实例 GameData 中除 Squad、SquadExpansion 外的所有模组，\n"
+           "并用整合包中的模组替换。是否继续？"));
+    warn->setWordWrap(true);
+    QDialogButtonBox *infoButtons =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    infoButtons->button(QDialogButtonBox::Ok)->setText(tr("确定安装"));
+    infoButtons->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+    connect(infoButtons, &QDialogButtonBox::accepted, &info, &QDialog::accept);
+    connect(infoButtons, &QDialogButtonBox::rejected, &info, &QDialog::reject);
+    auto *infoRoot = new QVBoxLayout(&info);
+    infoRoot->addLayout(infoForm);
+    infoRoot->addWidget(warn);
+    infoRoot->addWidget(infoButtons);
+    if (info.exec() != QDialog::Accepted)
+        return; // 用户取消
 
     emit showSettingsRequested();
 
