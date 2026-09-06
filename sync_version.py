@@ -9,7 +9,7 @@ Hello KSP Launcher 版本号同步脚本。
 所有版本号均以 1.1.1 之类 X.Y.Z 形式给出。脚本会同步三处：
   1. CMakeLists.txt           project(HelloKSPLauncher VERSION x.y.z ...)
   2. src/appversion.h         #define HKSPL_APP_VERSION "x.y.z"
-  3. README/功能更新.md        最新一条 "## 日期：标题" 记录补上 v 版本号
+  3. docs/功能更新.md        最新一条 "## 日期：标题" 记录补上 v 版本号
 
 脚本把 功能更新.md 当作变更记录参照：每次发版升号时，把当前(最新)一条更新
 记录统一标注上本次版本号，与记忆库中沉淀的功能更新版本号保持一致。
@@ -22,7 +22,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CMAKE = os.path.join(ROOT, "CMakeLists.txt")
 APPVER = os.path.join(ROOT, "src", "appversion.h")
-CHANGELOG = os.path.join(ROOT, "README", "功能更新.md")
+CHANGELOG = os.path.join(ROOT, "docs", "功能更新.md")
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
