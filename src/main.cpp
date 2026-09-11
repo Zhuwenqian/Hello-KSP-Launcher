@@ -8,6 +8,7 @@
 #include "mainwindow.h"
 #include "configmanager.h"
 #include "debuglogger.h"
+#include "ckanmanager.h"
 
 int main(int argc, char *argv[])
 {
@@ -41,6 +42,14 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     w.show();
+
+    // 退出清理：aboutToQuit（QApplication 仍存活、事件循环已收尾）时取消并等待全部
+    // 在途后台任务（索引下载/模组下载/安装/卸载/DLL 扫描），并释放当前实例的注册表锁。
+    // 不能依赖 ~CKanManager 的静态析构做这件事：全局线程池的 waitForDone() 可能先于
+    // 其执行，取消标志无人置位，下载线程会一直跑到自然结束——窗口关闭后进程长时间
+    // 残留，且 registry.locked 锁文件随残留进程存活，新开的启动器进模组管理会被判占用。
+    QObject::connect(&a, &QCoreApplication::aboutToQuit,
+                     []() { CKanManager::instance().closeInstance(); });
 
     return a.exec();
 }

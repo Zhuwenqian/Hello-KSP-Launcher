@@ -302,6 +302,12 @@ void ModpackController::importFromZip()
     auto cancelRequested = std::make_shared<std::atomic_bool>(false);
     const QString gameDir = m_instance.path;
 
+    // 进度对话框销毁（关闭窗口/退出应用）视为取消：立即置取消标志，让后台解压线程
+    // 尽快中止（modpackImportGameData 周期轮询该标志）。否则窗口关闭后该任务不受
+    // CKanManager 退出清理管辖，进程会为等待这段磁盘长操作而长时间残留。
+    QObject::connect(progressDialog, &QObject::destroyed,
+                     [cancelRequested]() { cancelRequested->store(true); });
+
     auto watcher = new QFutureWatcher<QPair<bool, QString>>(this);
     auto future = QtConcurrent::run(
         [zipFilePath, gameDir, cancelRequested, progressDialog]() -> QPair<bool, QString> {

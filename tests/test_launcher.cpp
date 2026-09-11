@@ -7,6 +7,7 @@
 #include "instancemanager.h"
 #include "updatemanager.h"
 #include "instanceiconmanager.h"
+#include "ckanmanager.h"
 #include "services/indexservice.h"
 #include "services/cacheservice.h"
 #include "services/installservice.h"
@@ -564,6 +565,48 @@ private slots:
     }
 };
 
+// CKanManager 退出清理（回归：关闭启动器后进程残留、registry.locked 被残留进程
+// 占用，导致重开启动器进模组管理一直提示被锁）。closeInstance() 在后台扫描在途时
+// 调用必须能取消等待并释放注册表锁，且幂等、未绑定实例时安全。
+class TestShutdownCleanup : public QObject
+{
+    Q_OBJECT
+private slots:
+    void closeInstanceCancelsScanAndReleasesLock()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("GameData"))));
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("CKAN"))));
+        QFile exe(dir.filePath(QStringLiteral("KSP_x64.exe")));
+        QVERIFY(exe.open(QIODevice::WriteOnly));
+        exe.close();
+
+        CKanManager &mgr = CKanManager::instance();
+        mgr.openInstance(dir.path(), QStringLiteral("shutdown-test"));
+        const QString lockPath = dir.filePath(QStringLiteral("CKAN/registry.locked"));
+        QVERIFY(mgr.tryAcquireRegistryLock());  // 本进程持有注册表锁
+        QVERIFY(QFile::exists(lockPath));
+
+        mgr.scanUnmanagedDllsAsync(true);       // 后台扫描在途
+        mgr.closeInstance();                    // 取消并等待 + 释放锁（不得卡死）
+
+        QVERIFY(!QFile::exists(lockPath));     // 锁已随实例释放
+        mgr.closeInstance();                    // 幂等：再次调用安全
+
+        // 重新打开后可再次取锁（前一次已彻底释放，无残留占用）
+        mgr.openInstance(dir.path(), QStringLiteral("shutdown-test2"));
+        QVERIFY(mgr.tryAcquireRegistryLock());
+        mgr.closeInstance();
+        QVERIFY(!QFile::exists(lockPath));
+    }
+
+    void closeInstanceWithoutInstanceIsSafe()
+    {
+        CKanManager::instance().closeInstance(); // 未绑定实例：无操作、不崩溃
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -588,6 +631,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tModsFilter, argc, argv);
     TestPlayerLogAnalyzer tPlayerLog;
     failures += QTest::qExec(&tPlayerLog, argc, argv);
+    TestShutdownCleanup tShutdown;
+    failures += QTest::qExec(&tShutdown, argc, argv);
     return failures;
 }
 

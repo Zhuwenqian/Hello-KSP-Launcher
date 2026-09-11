@@ -25,6 +25,16 @@ Exporting a modpack now writes `hkspl_package.json` at the zip root (same level 
 - **Import flow** (`modpackcontroller.cpp` `importFromZip`) — pick zip → validate GameData → read metadata; missing/corrupt/no-valid-`gameVersion` is rejected outright; a valid current instance version that differs in major or minor is rejected (hint only, no info dialog); on pass, a metadata info dialog (name / game version / launcher version / description + a clear-GameData warning) replaces the former confirmation, and "install" starts the import. Launcher version is shown but never validated.
 - **Tests** — `test_libckan` adds `readPackageMetaOk`, `readPackageMetaNotFound`, and `versionCompatibleCheck`. Both `ctest` suites pass.
 
+### Shutdown Cleanup: No More Orphan Processes or Stuck Registry Locks
+
+Fixed a bug where closing the launcher while the index was downloading (e.g. right after entering Mod Management) left a background process running: the window closed but the process kept downloading, and because `CKAN/registry.locked` held a live PID, reopening the launcher and entering Mod Management kept reporting the instance as locked with a 10 s poll loop.
+
+- **Root cause** — nobody cancelled in-flight background tasks on exit. `~CKanManager()` (the only place that sets the cancel flag and waits on the watchers) is a static destructor, and its order relative to the global `QThreadPool` destructor's `waitForDone()` (which waits indefinitely for in-flight `QtConcurrent` tasks) was not guaranteed; in practice the pool waited first → the cancel flag was never set → index downloads ran to completion (mirror × resume-retry could drag on) → the process lingered and the lock was never released.
+- **Fix (`main.cpp`)** — connect `QCoreApplication::aboutToQuit` (while `QApplication` is still alive) → `CKanManager::instance().closeInstance()`: set the cancel flag + `cancelInstall()` + `waitForFinished()` for all background tasks (downloads poll for cancellation every 200 ms) + close the current instance and release the registry lock. Cleanup can no longer be left to static destruction.
+- **Fix (`modpackcontroller.cpp` `importFromZip`)** — the modpack import task is not managed by `CKanManager` (its watcher is owned by the controller) and was only cancellable via the progress dialog's `wasCanceled`; once the dialog was destroyed with the window, nobody cancelled it. Now the dialog's `destroyed` signal sets `cancelRequested` (polled by `modpackImportGameData`), so the background extraction aborts promptly.
+- **Exit-safety audit of remaining async operations** (unchanged): mod search / reverse relationships (in-memory index traversal, bounded CPU, sub-second), backup/restore (slot-level synchronous `waitForFinished`, naturally safe at exit), icon loading (fast, bounded), version check/update (main-thread `QNetworkAccessManager`, aborted automatically when `QApplication` is destroyed).
+- **Tests** — `test_launcher` adds `TestShutdownCleanup`: `closeInstance()` while a background scan is in flight does not hang and releases `registry.locked`; it is idempotent; safe with no bound instance. Verified live: after closing the window the process exits cleanly within 3 s (ExitCode=0). Both `ctest` suites pass.
+
 ### Tech Stack
 
 - **Framework**: Qt 6 (Widgets, Svg, Network, Concurrent)
