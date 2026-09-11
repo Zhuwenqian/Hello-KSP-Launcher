@@ -95,6 +95,11 @@ public:
     bool debugMode() const;
     void setDebugMode(bool enable);
 
+    // 游戏崩溃日志分析（默认开启）。游戏异常退出（非用户主动停止、非0退出码）时，
+    // 读取 KSP 的 Player.log 尾部并分析是否有硬崩溃 / 内存溢出，若有则弹窗提示用户。
+    bool crashLogAnalysis() const;
+    void setCrashLogAnalysis(bool enable);
+
     // ---- 模组管理设置 ----
     // 下载源偏好：官方优先（默认）或镜像优先
     enum DownloadSource { OfficialFirst, MirrorFirst };

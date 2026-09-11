@@ -107,6 +107,7 @@ set(SOURCES
     src/instancemanager_saves.cpp
     src/instancemanager_backup.cpp
     src/instancemanager_modpack.cpp
+    src/playerloganalyzer.cpp
     src/steamdiscovery.cpp
     src/iconutils.cpp
     src/instanceiconmanager.cpp
@@ -146,6 +147,7 @@ set(HEADERS
     src/instancemanager.h
     src/instancemanager_keymap.h
     src/steamdiscovery.h
+    src/playerloganalyzer.h
     src/iconutils.h
     src/instanceiconmanager.h
     src/backgroundmanager.h
@@ -292,6 +294,7 @@ add_executable(test_launcher
     src/processopt.cpp
     src/updatemanager.cpp
     src/instanceiconmanager.cpp
+    src/playerloganalyzer.cpp
     src/services/indexservice.cpp
     src/services/cacheservice.cpp
     src/services/installservice.cpp

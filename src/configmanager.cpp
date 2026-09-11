@@ -46,6 +46,7 @@ void ConfigManager::loadDefaults()
     m_config["diskSpaceCheck"] = true;
     m_config["autoCheckUpdate"] = true;
     m_config["debugMode"] = false;
+    m_config["crashLogAnalysis"] = true;
     m_instances.clear();
     m_currentInstanceId.clear();
 }
@@ -81,6 +82,9 @@ bool ConfigManager::load()
     }
     if (!m_config.contains("debugMode")) {
         m_config["debugMode"] = false;
+    }
+    if (!m_config.contains("crashLogAnalysis")) {
+        m_config["crashLogAnalysis"] = true;
     }
 
     m_instances.clear();
@@ -332,6 +336,20 @@ void ConfigManager::setDebugMode(bool enable)
 {
     if (debugMode() != enable) {
         m_config["debugMode"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+bool ConfigManager::crashLogAnalysis() const
+{
+    return m_config["crashLogAnalysis"].toBool(true);
+}
+
+void ConfigManager::setCrashLogAnalysis(bool enable)
+{
+    if (crashLogAnalysis() != enable) {
+        m_config["crashLogAnalysis"] = enable;
         save();
         emit configChanged();
     }

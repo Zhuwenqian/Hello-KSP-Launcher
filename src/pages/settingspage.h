@@ -75,6 +75,7 @@ private:
     ToggleSwitch* m_autoUpdateToggle;
     // 调试相关
     ToggleSwitch* m_debugModeToggle;
+    ToggleSwitch* m_crashAnalysisToggle;
 
     QScrollArea* m_scrollArea;
 };

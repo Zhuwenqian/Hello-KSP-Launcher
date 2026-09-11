@@ -9,7 +9,10 @@
 #include <QPalette>
 #include <QResizeEvent>
 #include <QTimer>
+#include <QDesktopServices>
+#include <QUrl>
 #include "instancemanager.h"
+#include "playerloganalyzer.h"
 #include "iconutils.h"
 #include "backgroundmanager.h"
 #include "steamdiscovery.h"
@@ -829,14 +832,67 @@ void MainWindow::resetLaunchButton()
 
 void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
 {
-    Q_UNUSED(exitCode);
-    Q_UNUSED(status);
     bool wasStoppedByButton = m_stoppingGame;
     resetLaunchButton();
     // 按钮触发的终止保持窗口状态；游戏自行退出且启动器被最小化时恢复正常窗口
     if (!wasStoppedByButton && ConfigManager::instance().launchBehavior() == ConfigManager::Minimize) {
         showNormal();
         activateWindow();
+    }
+
+    // 游戏非正常退出（闪退/崩溃通常对应非0退出码）且开启了崩溃日志分析时，读取 Player.log
+    // 尾部分析是否有硬崩溃或内存溢出，有则弹窗给出原因与建议。用户主动点"停止"不算异常退出。
+    if (!wasStoppedByButton
+        && exitCode != 0
+        && ConfigManager::instance().crashLogAnalysis()) {
+        maybeShowCrashAnalysis();
+    }
+}
+
+// 读取 KSP 的 Player.log 尾部，若检测到硬崩溃（Caught fatal signal）或内存溢出则弹窗提示，
+// 并提供"打开日志文件"入口方便用户把日志报告给模组作者。未崩溃/日志缺失/平台不支持时静默返回。
+void MainWindow::maybeShowCrashAnalysis()
+{
+    const QString logPath = playerlog::defaultKspPlayerLogPath();
+    if (logPath.isEmpty())
+        return;
+
+    playerlog::PlayerLogAnalysis result;
+    if (QFileInfo::exists(logPath)) {
+        result = playerlog::analyzePlayerLogFile(logPath);
+    } else {
+        result.kind = playerlog::PlayerLogAnalysis::LogMissing;
+    }
+
+    QString title;
+    QString text;
+    if (result.kind == playerlog::PlayerLogAnalysis::OutOfMemory) {
+        title = tr("游戏因内存不足而崩溃");
+        text = tr("检测到游戏因内存溢出（Out of Memory）而崩溃。\n\n建议尝试：\n"
+                  "· 减少已安装的模组数量\n"
+                  "· 在实例设置中调高启动器的内存限制\n"
+                  "· 降低游戏纹理质量\n"
+                  "· 关闭不必要的后台应用\n"
+                  "· 换用分辨率更低的星球包贴图");
+    } else if (result.kind == playerlog::PlayerLogAnalysis::HardCrash) {
+        title = tr("游戏发生硬崩溃（Hard Crash）");
+        text = tr("%1\n\n建议：\n"
+                  "· 检查近期添加的模组是否有冲突或损坏\n"
+                  "· 更新显卡驱动、验证游戏文件完整性\n"
+                  "· 减少模组数量，必要时重装可疑模组")
+                   .arg(playerlog::describeSigno(result.signo));
+    } else {
+        // 日志缺失、无崩溃痕迹、或平台不支持日志路径：均无需打扰用户
+        return;
+    }
+
+    qInfo() << "[crash] 检测到游戏异常退出崩溃：" << title;
+
+    QMessageBox box(QMessageBox::Warning, title, text, QMessageBox::Ok, this);
+    QPushButton *openLogBtn = box.addButton(tr("打开日志文件"), QMessageBox::HelpRole);
+    box.exec();
+    if (box.clickedButton() == openLogBtn) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(logPath).absolutePath()));
     }
 }
 

@@ -72,6 +72,8 @@ private:
     void toggleMaximize();
     void updateWindowButtons();
     void applyWindowCornerPreference();
+    // 游戏异常退出后读取 Player.log 尾部分析崩溃原因并弹窗（见 onGameFinished）
+    void maybeShowCrashAnalysis();
     
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();

@@ -137,6 +137,15 @@ void SettingsPage::setupUI()
     debugModeLabel->setObjectName("settingLabel");
     generalLayout->addRow(debugModeLabel, m_debugModeToggle);
 
+    // 游戏崩溃日志分析：游戏异常退出后读取 Player.log 尾部，检测硬崩溃/内存溢出并弹窗
+    m_crashAnalysisToggle = new ToggleSwitch(generalGroup);
+    m_crashAnalysisToggle->setToolTip(tr("游戏异常退出时，分析 KSP 的 Player.log 末尾是否发生硬崩溃（Caught fatal signal）或内存溢出（OutOfMemoryException），有则弹窗给出原因与建议"));
+    connect(m_crashAnalysisToggle, &ToggleSwitch::toggled, this,
+            [](bool checked) { ConfigManager::instance().setCrashLogAnalysis(checked); });
+    QLabel* crashAnalysisLabel = new QLabel(tr("游戏崩溃日志分析："), generalGroup);
+    crashAnalysisLabel->setObjectName("settingLabel");
+    generalLayout->addRow(crashAnalysisLabel, m_crashAnalysisToggle);
+
     mainLayout->addWidget(generalGroup);
 
     // ---- 背景图片设置 ----
@@ -389,6 +398,7 @@ void SettingsPage::loadSettings()
     m_diskSpaceCheckToggle->blockSignals(true);
     m_autoUpdateToggle->blockSignals(true);
     m_debugModeToggle->blockSignals(true);
+    m_crashAnalysisToggle->blockSignals(true);
 
     QString lang = ConfigManager::instance().language();
     int langIdx = m_languageCombo->findData(lang);
@@ -430,6 +440,7 @@ void SettingsPage::loadSettings()
     m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
     m_autoUpdateToggle->setChecked(ConfigManager::instance().autoCheckUpdate());
     m_debugModeToggle->setChecked(ConfigManager::instance().debugMode());
+    m_crashAnalysisToggle->setChecked(ConfigManager::instance().crashLogAnalysis());
 
     loadRepoList();
 
@@ -445,6 +456,7 @@ void SettingsPage::loadSettings()
     m_diskSpaceCheckToggle->blockSignals(false);
     m_autoUpdateToggle->blockSignals(false);
     m_debugModeToggle->blockSignals(false);
+    m_crashAnalysisToggle->blockSignals(false);
 }
 
 void SettingsPage::refreshBackgroundPreview()

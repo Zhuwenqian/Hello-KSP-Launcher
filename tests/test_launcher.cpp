@@ -11,6 +11,7 @@
 #include "services/cacheservice.h"
 #include "services/installservice.h"
 #include "pages/modtablemodel.h"
+#include "playerloganalyzer.h"
 
 // 构造一个仅填关键字段的 CkanModule（identifier/name/version 必有，其余可空）
 static ckan::CkanModule makeMod(const QString &identifier, const QString &name, const QString &version,
@@ -466,6 +467,103 @@ private slots:
     }
 };
 
+// KSP 崩溃日志分析：尾部解析判定硬崩溃/OOM（纯逻辑，一 feature 一测试）
+class TestPlayerLogAnalyzer : public QObject
+{
+    Q_OBJECT
+private slots:
+    void noCrashReturnsNoCrash()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 正常日志尾部不应出现崩溃痕迹
+        const PlayerLogAnalysis r =
+            playerlog::analyzePlayerLog(QStringLiteral("Loading texture...\nDone loading.\nShutting down."));
+        QCOMPARE(r.kind, PlayerLogAnalysis::NoCrash);
+        QCOMPARE(r.signo, -1);
+    }
+
+    void emptyContentIsNoCrash()
+    {
+        using playerlog::PlayerLogAnalysis;
+        QCOMPARE(playerlog::analyzePlayerLog(QString()).kind, PlayerLogAnalysis::NoCrash);
+    }
+
+    void segfaultSigno11Detected()
+    {
+        using playerlog::PlayerLogAnalysis;
+        const QString tail = QStringLiteral(
+            "Something happened.\n"
+            "Caught fatal signal - signo:11 code:1 errno:0 addr:0xf0\n"
+            "Obtained 15 stack frames.");
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(tail);
+        QCOMPARE(r.kind, PlayerLogAnalysis::HardCrash);
+        QCOMPARE(r.signo, 11);
+    }
+
+    void abortSigno6Detected()
+    {
+        using playerlog::PlayerLogAnalysis;
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(
+            QStringLiteral("Assertion failed...\nCaught fatal signal - signo:6 code:0"));
+        QCOMPARE(r.kind, PlayerLogAnalysis::HardCrash);
+        QCOMPARE(r.signo, 6);
+    }
+
+    void outOfMemoryExceptionDetected()
+    {
+        using playerlog::PlayerLogAnalysis;
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(
+            QStringLiteral("OutOfMemoryException: Out of memory trying to allocate 4096 bytes"));
+        QCOMPARE(r.kind, PlayerLogAnalysis::OutOfMemory);
+        // OOM 优先于信号，即使同段出现 signo 也判为内存溢出
+    }
+
+    void outOfMemoryPrioritizedOverSignal()
+    {
+        using playerlog::PlayerLogAnalysis;
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(
+            QStringLiteral("OutOfMemoryException: Out of memory\nCaught fatal signal - signo:11"));
+        QCOMPARE(r.kind, PlayerLogAnalysis::OutOfMemory);
+    }
+
+    void missingFileReturnsLogMissing()
+    {
+        using playerlog::PlayerLogAnalysis;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 不存在的文件
+        QCOMPARE(playerlog::analyzePlayerLogFile(dir.filePath(QStringLiteral("nope.log"))).kind,
+                 PlayerLogAnalysis::LogMissing);
+    }
+
+    void fileTailReadDetectsCrashAtEnd()
+    {
+        using playerlog::PlayerLogAnalysis;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("Player.log"));
+        // 前面填充大量无意义内容，崩溃痕迹在文件末尾
+        QString content = QString(100000, QLatin1Char('x'));
+        content += QStringLiteral("\nCaught fatal signal - signo:8 code:1");
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(content.toUtf8());
+        f.close();
+
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLogFile(path); // 默认只读尾部 512KB
+        QCOMPARE(r.kind, PlayerLogAnalysis::HardCrash);
+        QCOMPARE(r.signo, 8);
+    }
+
+    void describeSignoHasChineseMeaning()
+    {
+        // 常见崩溃信号应有中文释义；未知信号给出通用提示
+        QVERIFY(playerlog::describeSigno(11).contains(QStringLiteral("段错误")));
+        QVERIFY(playerlog::describeSigno(6).contains(QStringLiteral("异常终止")));
+        QVERIFY(playerlog::describeSigno(999).contains(QStringLiteral("signo:999")));
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -488,6 +586,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tInstall, argc, argv);
     TestModsTableFilter tModsFilter;
     failures += QTest::qExec(&tModsFilter, argc, argv);
+    TestPlayerLogAnalyzer tPlayerLog;
+    failures += QTest::qExec(&tPlayerLog, argc, argv);
     return failures;
 }
 
