@@ -25,6 +25,13 @@
 #include <QShowEvent>
 #include <QWindow>
 #include <QApplication>
+#include <QLabel>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QPainter>
+#include <QPaintEvent>
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -43,6 +50,27 @@ enum DWM_WINDOW_CORNER_PREFERENCE {
 };
 #endif
 #endif
+#endif
+
+#if defined(_WIN32)
+namespace {
+// 最小化动效用的快照浮层：随窗口几何缩小，把快照按当前 rect() 拉伸绘制，
+// 保证截图内容每一帧都跟着窗口一起缩小(而非被裁剪)。
+class MinGhostWidget : public QWidget {
+public:
+    using QWidget::QWidget;
+    void setSnapshot(const QPixmap &pm) { m_snapshot = pm; update(); }
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        if (!m_snapshot.isNull())
+            p.drawPixmap(rect(), m_snapshot);
+    }
+private:
+    QPixmap m_snapshot;
+};
+}
 #endif
 
 MainWindow::MainWindow(QWidget *parent)
@@ -280,6 +308,51 @@ void MainWindow::setupTitleBar()
 
 void MainWindow::onWindowMinClicked()
 {
+#if defined(_WIN32)
+    // 自绘最小化动效：先截图，再立即显示 ghost 浮层盖住原窗口，延迟一帧(等 ghost 完成首帧
+    // 绘制)后才最小化主窗口并播放动画，避免"先最小化再显示浮层"造成的闪一下。
+    if (windowHandle() && !isMinimized() && !isFullScreen()) {
+        const QRect start = geometry();          // 先取原始几何
+        const QPixmap shot = grab();             // 同步截图当前内容
+
+        QWidget* ghost = new MinGhostWidget;
+        ghost->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
+        ghost->setAttribute(Qt::WA_TranslucentBackground);
+        static_cast<MinGhostWidget*>(ghost)->setSnapshot(shot);
+        ghost->setGeometry(start);
+        ghost->show();
+        ghost->raise();
+
+        // 目标点：原窗口所在屏幕底部中心，贴近任务栏
+        const QScreen* screen = QGuiApplication::screenAt(start.center());
+        if (!screen) screen = ghost->screen();
+        const QRect avail = screen->availableGeometry();
+        const QPoint bottomCenter(avail.center().x(), avail.bottom() - 4);
+
+        // 等 ghost 绘制一帧后再最小化并启动动画，保证画面无缝衔接
+        QTimer::singleShot(0, this, [this, ghost, start, bottomCenter]() {
+            showMinimized(); // 此刻 ghost 已覆盖原位置，再最小化不会露出空隙
+
+            QPropertyAnimation* geom = new QPropertyAnimation(ghost, "geometry", ghost);
+            geom->setStartValue(start);
+            geom->setEndValue(QRect(bottomCenter, QSize(2, 2)));
+            geom->setDuration(280);
+            geom->setEasingCurve(QEasingCurve::InCubic);
+
+            QGraphicsOpacityEffect* eff = new QGraphicsOpacityEffect(ghost);
+            eff->setOpacity(1.0);
+            ghost->setGraphicsEffect(eff);
+            QPropertyAnimation* fade = new QPropertyAnimation(eff, "opacity", ghost);
+            fade->setStartValue(1.0);
+            fade->setEndValue(0.0);
+            fade->setDuration(280);
+            connect(fade, &QPropertyAnimation::finished, ghost, &QObject::deleteLater);
+            geom->start();
+            fade->start();
+        });
+        return;
+    }
+#endif
     showMinimized();
 }
 
