@@ -1,39 +1,57 @@
 # Release Notes
 
-## v1.2.3 — KSP Crash Log Analysis & Modpack Metadata Validation (2026-09-11)
+## v1.3.0 — Save Management Rework, Updater Self-Update & UI Polish (2026-09-12)
 
-This release hardens two workflows around failure detection and shareability. When the game exits abnormally (a hard crash, not a user-initiated stop), the launcher now automatically reads the tail of KSP's `Player.log`, detects hard crashes or out-of-memory conditions, and explains what happened with targeted advice. Exporting a modpack now writes a `hkspl_package.json` metadata file so imports can be validated up front; mismatched or damaged metadata is rejected gracefully instead of being silently accepted.
+This release refactors save management into a sub-tab of the instance detail page, upgrades the backup directory scheme to avoid collisions, lets the built-in updater update itself, and polishes the custom title bar and About page.
 
-### Game Crash Log Analysis
+### Save Management Now Lives Inside the Instance Detail Page
 
-When a game **exits abnormally** (not a user "stop", non-zero exit code), the launcher reads the tail of KSP's `Player.log` and detects a hard crash or an `OutOfMemoryException`; on a match it pops up the reason with suggestions.
+"Save Management" was previously a standalone full-screen page (`SavesListPage`) that duplicated the instance-detail sidebar and had to route export/import/browse **back** through the mod-management tab. It is now a second-level tab of the instance detail page, consistent with Game Settings and Mod Management.
 
-- **Analysis module** (`playerloganalyzer.{h,cpp}`) — `analyzePlayerLog` (pure string parsing, unit-testable), `analyzePlayerLogFile` (reads only the last 512 KB of the file to avoid stalling on logs that can grow to hundreds of MB ~ GB over time), `defaultKspPlayerLogPath` (Windows: `%USERPROFILE%/AppData/LocalLow/Squad/Kerbal Space Program/Player.log`), and `describeSigno`.
-  - Detection priority: `OutOfMemoryException` / `Out of memory` first; otherwise the native crash block is matched via `Caught fatal signal[^\r\n]*signo:(\d+)`.
-  - Full Chinese signo mapping: 11=SIGSEGV segment violation, 6=SIGABRT abnormal termination, 4=SIGILL, 5=SIGTRAP, 7=SIGBUS, 8=SIGFPE; unknown signals get a generic hint.
-- **Trigger & dialog** (`mainwindow.cpp` `onGameFinished` / `maybeShowCrashAnalysis`) — on abnormal exit with analysis enabled, shows a `QMessageBox` whose title distinguishes OOM from hard crash; the body includes the signal explanation and targeted advice (for OOM: trim mods, raise memory limit, lower texture quality, close background apps, use lower-resolution planet-pack textures). A "open log file" button opens the folder containing `Player.log`. Missing log / no crash / unsupported platform stay silent.
-- **Setting** (`configmanager.{h,cpp}`, `settingspage.{h,cpp}`) — a "game crash log analysis" switch (default on) in the general group, persisted as `crashLogAnalysis` in `HKSPL.json`; missing key falls back to on.
-- **Tests** — `test_launcher` adds `TestPlayerLogAnalyzer`: clean/empty log → NoCrash, signo 11/6/8 → HardCrash, OOM → OutOfMemory (and wins over signal), missing file → LogMissing, tail-of-large-file hit on end-of-log crash, and signo descriptions containing key Chinese. Both `ctest` suites pass.
+- **New `savestabpage.{h,cpp}`** — contains only the save list (`loadSaves`, double-click `saveSelected`). Object name `savesTabPage`.
+- **`instancedetailpage.{h,cpp}`** — adds a 4th tab (Save Management) to its `QStackedWidget`; the sidebar "Save Management" button now calls `showSection(4)`; `showSection` gained idx=4 selection and `loadSaves`; new `saveSelected` signal; removed the `savesManageRequested` signal.
+- **`mainwindow.{h,cpp}`** — dropped `SavesListPage` and the `onSavesManageRequested` / `onSavesNavToDetail` / `onSavesModpackAction` / `onBackFromSavesList` routing; `InstanceDetailPage::saveSelected` connects straight to `onSaveSelected`; `onBackFromSaveDetail` returns to the instance detail page and stays on the save tab.
+- **Export/import/browse** — triggered in place from within the save tab, reusing the instance detail sidebar's ZIP/CKAN and browse menus (same `ModpackController`), no tab hopping.
+- **Removed** `saveslistpage.{h,cpp}`; `CMakeLists.txt` and `dark/light.qss` `savesListPage` rules cleaned up accordingly.
+- **Tests** — both suites build; the UI was verified manually: save management never navigates away, export/import opens in place, and returning from save detail lands back on the save tab.
 
-### Modpack Import/Export Metadata Validation
+### Backup Directory Upgrade (Collision-Proof)
 
-Exporting a modpack now writes `hkspl_package.json` at the zip root (same level as `GameData`) recording launcher version, game version (precision down to Patch, e.g. `1.12.5`), modpack name, and description. Imports read and validate it first, pop up the info for confirmation, and reject at version mismatch.
+Backups previously lived in `backups/{instanceName}/{saveName}/*.zip`; two similarly named instances with the same save name could overwrite each other's backups. The first level now appends the first 8 characters of the instance id (the first UUID segment, e.g. `550e8400`): `backups/{instanceName-idPrefix}/{saveName}/*.zip`. Instance ids are globally unique and unchanged by renaming, so backups stay locatable even after any explicit rename.
 
-- **Export dialog** (`modpackcontroller.cpp` `exportAsZip`) — the `QFileDialog::getSaveFileName` becomes a custom `QDialog` with "file name", "description", and "save path + browse" (via `QFileDialog::getExistingDirectory`). A name ending in `.zip` has its suffix de-duplicated.
-- **Metadata write** (`instancemanager_modpack.cpp` `exportModpack`) — signature gains `packageMetaJson` (defaults empty for compatibility); when non-empty it is written to the zip root first using `ckan::kModpackMetaFileName`.
-- **Metadata read & validate** (`modpackio.{h,cpp}`) — `modpackReadPackageMeta` returns `NotFound/ReadError/Ok`; `modpackVersionCompatible` treats equal major+minor as compatible (patch irrelevant). `kModpackMetaFileName` is the single constant for both export and import file names.
-- **Import flow** (`modpackcontroller.cpp` `importFromZip`) — pick zip → validate GameData → read metadata; missing/corrupt/no-valid-`gameVersion` is rejected outright; a valid current instance version that differs in major or minor is rejected (hint only, no info dialog); on pass, a metadata info dialog (name / game version / launcher version / description + a clear-GameData warning) replaces the former confirmation, and "install" starts the import. Launcher version is shown but never validated.
-- **Tests** — `test_libckan` adds `readPackageMetaOk`, `readPackageMetaNotFound`, and `versionCompatibleCheck`. Both `ctest` suites pass.
+- **Directory computation** (`instancemanager_backup.cpp` `getBackupDirForSave`) — `sanitizeFileName(instanceName) + "-" + instanceId.left(8)`; the save-name level keeps the plain name. An empty id falls back to the instance name alone for robustness.
+- **Lazy migration** (`migrateLegacyBackups`) — both legacy layouts (`backups/{instanceName}/{saveName}` and the even older single-level `backups/{saveName}`) are migrated on access; if a target already exists (name collision) migration is skipped to stay idempotent; migrated `*.zip` files are moved and old dirs emptied.
+- **Instance id threading** — backup-related `InstanceManager` interfaces (`getBackupDirForSave` / `listBackups` / `createBackup` / `restoreBackup`) gained an `instanceId` parameter; the `saveSelected` / `setSavePath` chain `savestabpage → instancedetailpage → mainwindow → savedetailpage` passes the id along (`savestabpage` uses `m_instance.id` directly).
+- **Backup zip file naming is unchanged** — `saveName[_note]_yyyyMMdd_HHmmss.zip`; only the directory level changed.
 
-### Shutdown Cleanup: No More Orphan Processes or Stuck Registry Locks
+### The Built-in Updater Can Now Update Itself
 
-Fixed a bug where closing the launcher while the index was downloading (e.g. right after entering Mod Management) left a background process running: the window closed but the process kept downloading, and because `CKAN/registry.locked` held a live PID, reopening the launcher and entering Mod Management kept reporting the instance as locked with a 10 s poll loop.
+The updater is exempt from its own keep-list (it always skips `updater.exe` during cleanup/move), so it cannot replace itself. Previously the Release notes asked v1.2.0 users to replace it manually. Now, when a Release notes body marks "this Release ships an updated built-in updater", the update **keeps the update package zip** and the restarted new launcher silently replaces `updater.exe` — no manual step required.
 
-- **Root cause** — nobody cancelled in-flight background tasks on exit. `~CKanManager()` (the only place that sets the cancel flag and waits on the watchers) is a static destructor, and its order relative to the global `QThreadPool` destructor's `waitForDone()` (which waits indefinitely for in-flight `QtConcurrent` tasks) was not guaranteed; in practice the pool waited first → the cancel flag was never set → index downloads ran to completion (mirror × resume-retry could drag on) → the process lingered and the lock was never released.
-- **Fix (`main.cpp`)** — connect `QCoreApplication::aboutToQuit` (while `QApplication` is still alive) → `CKanManager::instance().closeInstance()`: set the cancel flag + `cancelInstall()` + `waitForFinished()` for all background tasks (downloads poll for cancellation every 200 ms) + close the current instance and release the registry lock. Cleanup can no longer be left to static destruction.
-- **Fix (`modpackcontroller.cpp` `importFromZip`)** — the modpack import task is not managed by `CKanManager` (its watcher is owned by the controller) and was only cancellable via the progress dialog's `wasCanceled`; once the dialog was destroyed with the window, nobody cancelled it. Now the dialog's `destroyed` signal sets `cancelRequested` (polled by `modpackImportGameData`), so the background extraction aborts promptly.
-- **Exit-safety audit of remaining async operations** (unchanged): mod search / reverse relationships (in-memory index traversal, bounded CPU, sub-second), backup/restore (slot-level synchronous `waitForFinished`, naturally safe at exit), icon loading (fast, bounded), version check/update (main-thread `QNetworkAccessManager`, aborted automatically when `QApplication` is destroyed).
-- **Tests** — `test_launcher` adds `TestShutdownCleanup`: `closeInstance()` while a background scan is in flight does not hang and releases `registry.locked`; it is idempotent; safe with no bound instance. Verified live: after closing the window the process exits cleanly within 3 s (ExitCode=0). Both `ctest` suites pass.
+- **Detection** (`updatemanager.{h,cpp}` `bodyIndicatesUpdaterUpdate`) — matches the bilingual phrases in the Release body (Chinese "本 Release 含有更新器" or English "ships an updated built-in updater"); on a hit `ReleaseInfo.updaterUpdate=true`.
+- **Keep zip** (`updatemanager.cpp` `applyUpdate`) — on Windows, if `updaterUpdate`, writes an `updater_pending` marker (containing the zip filename) into `.updater_update/` and passes `--keep-zip` to the updater; `src/updater/main.cpp` parses `--keep-zip` and no longer deletes the `.updater_update` directory on completion.
+- **New launcher replacement** (`main.cpp`, after the startup guard, Windows only) — `applyPendingUpdaterUpdate` detects `updater_pending` → looks up `updater.exe` in the kept zip by basename (tolerates the single-top-level release layout, case-insensitive) → extracts to a temp file → overwrites the app dir's `updater.exe` → on success removes `.updater_update` entirely. On failure a dialog offers "Retry / Ignore" (Ignore calls `cleanupPendingUpdaterUpdate`); normally silent and non-blocking.
+- **Zip entry API** (`updatemanager.{h,cpp}`) — `findZipEntryByBaseName` / `extractZipEntry` (miniz-based) for locating and extracting updater entries at any depth.
+- **Translations** — 7 new UI strings with full en_US (`556` all translated), `.qm` rebuilt and synced to `dist/translations`.
+- **Tests** — `test_launcher` adds `updaterUpdateBodyDetection` and `zipUpdaterEntry` (both-locale detection, no false positive on plain logs, any-depth lookup, case-insensitivity, missing entry, extraction content match). Both `ctest` suites pass.
+
+### Custom Title Bar Edge Resizing Fixed
+
+`Qt::FramelessWindowHint` strips the native `WS_THICKFRAME` style that enables window resizing, so the frameless window could not be resized from its edges.
+
+- **Patch** (`mainwindow.{h,cpp}` `applyNativeFrameStyle`, Windows only) — keeps the frameless custom-drawn look, then after the first `showEvent` and in `toggleMaximize`, re-adds `WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX` via `SetWindowLongPtr(GWL_STYLE)` and calls `SetWindowPos(SWP_FRAMECHANGED)` so the system recomputes the non-client area. `WS_CAPTION` is deliberately not restored, so no system title bar appears.
+- **Hit-test** (`WM_NCHITTEST`) — the edge/corner grab area widened from 6px to 8px to pair with the restored `WS_THICKFRAME` for smooth native resizing.
+- **Result** — all four edges resize freely and smoothly while the custom-drawn frameless title bar is preserved.
+
+### About Page Entry Icons
+
+- **Credits section** — KSP-CKAN team (`ckan.png`), Hello Minecraft Launcher project (`hmcl.png`); the two mirrors gh-proxy.com and ghfast.top share the GitHub icon (`github.png`).
+- **Dependencies section** — Qt 6 (`qt6.png`).
+- **Implementation** — 4 PNGs registered into `resources/resources.qrc`; `aboutpage.cpp` loads the `QPixmap` in its constructor and passes it as the 4th arg to `makeLinkRow`.
+
+### Full English (en_US) Localization
+
+The source contains 548 UI strings but `translations/hello_ksp_launcher_en_US.ts` had only 506. Re-extracted with `lupdate` (`build/en_fresh.ts`) and compared to fill in the 43 missing English translations added by recent versions (crash log analysis, modpack import/export, debug mode, recommends/suggests dialogs, batch & uninstall progress, registry-lock hint, self-update SHA256, etc.). All 548 strings now have translations (`lrelease` reports 0 unfinished); the existing 506 were untouched. `.qm` was rebuilt and synced to `dist/translations`. Since English is the default language, first launch now shows a complete English UI.
 
 ### Tech Stack
 

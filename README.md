@@ -31,13 +31,14 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Atomic Transactions** — Install, uninstall, and upgrade run as atomic transactions with automatic rollback on failure or cancellation, so no files are left behind and the registry is restored to its pre-operation state.
 - **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
 - **Backup Management** — Create, browse, and delete save backups with a progress dialog.
-- **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files); or import a modpack from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
+- **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files). Export embeds an `hkspl_package.json` metadata file (launcher version, precise game version, name, description); import validates it first and rejects mismatched or corrupt packages. Import from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
 - **Custom Background** — Choose any PNG/JPG as the launcher background. Cover-mode scaling. Resets to default with one click.
 - **Theme Support** — Dark and light themes with translucent UI and automatic icon tinting.
 - **Launch Configuration (Profile)** — Each instance carries its own launch profile: custom command-line arguments (e.g. `-force-d3d11 -popupwindow`), a system-level process memory cap (Job Object on Windows / `RLIMIT_AS` on POSIX), and process priority (High first closes Edge/Chrome/Firefox then raises the game's priority; Low leaves everything untouched).
 - **Custom Title Bar** — A frameless, semi-transparent theme-colored title bar with custom minimize/maximize(restore)/close buttons, drag-to-move, double-click maximize, Aero snap, and edge resizing (Windows).
-- **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. Optional auto-check on startup plus a manual "Check for Updates" button.
+- **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. The built-in updater can also update itself — a pending `updater.exe` replacement is silently applied on the next launch. Optional auto-check on startup plus a manual "Check for Updates" button.
 - **About Page Release Link** — The version entry in the About page opens its corresponding GitHub Release.
+- **Crash Log Analysis** — When the game exits abnormally (non-zero exit code), the launcher reads the tail of KSP's `Player.log`, detects a hard crash or an out-of-memory condition, and explains the cause with targeted advice. Can be toggled in settings.
 - **Debug Logging** — A "debug mode" switch (from the next launch) writes run logs with timestamps, levels, and thread ids to `HKSPL.log` next to the launcher for troubleshooting.
 - **Windows Only** — Built with Qt 6 and CMake, targeting Windows (x64).
 
@@ -95,6 +96,7 @@ Settings are persisted in `HKSPL.json` next to the executable, including:
 - Download concurrency (1–8)
 - Show suggested mods during installation
 - Show recommended mods during installation (checkbox dialog, default all selected)
+- Crash log analysis on abnormal game exit (default on)
 - Debug log mode (off by default; when on, writes `HKSPL.log` next to the exe from the next launch)
 - Download cache folder
 - Per-instance launch profile (memory limit, process priority)
@@ -111,27 +113,40 @@ HelloKSPLauncher/
 ├── CMakeLists.txt
 ├── LICENSE
 ├── README.md
+├── RELEASE_NOTES.md           # English release notes (latest version)
+├── sync_version.py            # Version-bump helper (X.Y.Z)
+├── docs/                      # Changelog (Chinese: 功能更新.md)
 ├── resources/
-│   ├── backgrounds/       # Default background images
-│   ├── icons/             # SVG icons
-│   ├── themes/            # QSS theme files (dark.qss, light.qss)
+│   ├── backgrounds/           # Default background images
+│   ├── icons/                 # SVG icons
+│   ├── instanceicons/         # Per-instance large icons (Beyond Home, RP-1, RSS)
+│   ├── themes/                # QSS theme files (dark.qss, light.qss)
 │   └── resources.qrc
-├── src/
+├── src/                       # Main application
 │   ├── main.cpp
 │   ├── mainwindow.cpp/h
+│   ├── appversion.h           # Single source of the version number
 │   ├── backgroundmanager.cpp/h
 │   ├── configmanager.cpp/h
 │   ├── iconutils.cpp/h
-│   ├── instancemanager.cpp/h
+│   ├── instancemanager*.cpp/h # Instances / saves / modpack / backup
 │   ├── processopt.cpp/h       # Memory job / priority / browser kill
 │   ├── updatemanager.cpp/h    # GitHub release query & download
 │   ├── updateflow.cpp/h       # Update dialog orchestration
-│   ├── updater/               # Standalone updater.exe source
-│   ├── pages/             # UI pages (homepage, instances, settings, saves, etc.)
-│   └── widgets/           # Custom widgets (toggleswitch, instanceitemwidget)
+│   ├── playerloganalyzer.cpp/h# KSP crash log analysis
+│   ├── debuglogger.cpp/h      # Optional run logging to HKSPL.log
+│   ├── steamdiscovery.cpp/h   # Steam library discovery
+│   ├── moddecision.cpp/h      # Decision hooks (dialog injection)
+│   ├── ckan/                  # Core CKAN logic (libckan)
+│   ├── pages/                 # UI pages (home, instances, settings, saves, about...)
+│   ├── services/              # Service layer (install/uninstall/modpack/cache/index/scan)
+│   ├── widgets/               # Custom widgets (toggleswitch, instanceitemwidget)
+│   └── updater/               # Standalone updater.exe source
+├── tests/                     # test_libckan + test_launcher
+├── translations/              # Qt locale files (.ts / .qm)
 ├── thirdparty/
-│   └── miniz.c/h          # ZIP library
-└── README/                # Changelog (Chinese)
+│   └── miniz.c/h              # ZIP library
+└── dist/                      # Build output
 ```
 
 ---
@@ -174,13 +189,14 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
 - **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑小绿人属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
-- **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
+- **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；导出时写入 `hkspl_package.json` 元数据（启动器版本、精确游戏版本、名称、描述），导入时先行校验并拒绝不匹配或损坏的包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
 - **主题支持** — 深色和浅色主题，半透明 UI 搭配自动图标色调适配。
 - **启动配置（Profile）** — 每个实例独立携带一份启动配置：自定义命令行参数（如 `-force-d3d11 -popupwindow`）、系统级进程内存上限（Windows 用 Job Object、POSIX 用 `RLIMIT_AS`）以及进程优先级（「高」先结束 Edge/Chrome/Firefox 再把游戏进程设为高优先，「低」不做任何处理）。
 - **自绘标题栏** — 无边框、半透明主题色标题栏，含自定义最小化/最大化→还原/关闭按钮，支持拖动、双击最大化、Aero 贴靠与边缘缩放（Windows）。
-- **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；可选启动时自动检查，另设手动「检查更新」按钮。
+- **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；内置更新器自身也可自更新（下次启动静默替换 `updater.exe`）；可选启动时自动检查，另设手动「检查更新」按钮。
 - **关于页 Release 链接** — 关于页版本首条可点击，跳转对应 GitHub Release。
+- **崩溃日志分析** — 游戏异常退出（非 0 退出码）时自动读取 KSP `Player.log` 尾部，识别硬崩溃或内存溢出并给出针对性建议；可在设置中开关。
 - **调试日志** — 设置中的「调试模式」开关（下次启动生效）会把带时间戳/级别/线程号的运行日志写入启动器目录下的 `HKSPL.log`，便于排障。
 - **仅支持 Windows** — 基于 Qt 6 和 CMake 构建，面向 Windows（x64）平台。
 
@@ -238,6 +254,7 @@ cmake --build .
 - 下载并发数（1–8）
 - 安装时是否显示建议模组
 - 安装时是否显示推荐模组（勾选弹窗，默认全选；关闭则自动安装推荐）
+- 游戏异常退出时是否进行崩溃日志分析（默认开）
 - 调试模式（默认关；开启后从下次启动起写入 `HKSPL.log`）
 - 下载缓存文件夹
 - 每实例启动配置（内存上限、进程优先级）
@@ -252,27 +269,40 @@ HelloKSPLauncher/
 ├── CMakeLists.txt
 ├── LICENSE
 ├── README.md
+├── RELEASE_NOTES.md           # 英文发布说明（最新版本）
+├── sync_version.py            # 版本号同步脚本（X.Y.Z）
+├── docs/                      # 更新日志（中文：功能更新.md）
 ├── resources/
-│   ├── backgrounds/       # 默认背景图片
-│   ├── icons/             # SVG 图标
-│   ├── themes/            # QSS 主题文件 (dark.qss, light.qss)
+│   ├── backgrounds/           # 默认背景图片
+│   ├── icons/                 # SVG 图标
+│   ├── instanceicons/         # 实例专属大图标（Beyond Home、RP-1、RSS）
+│   ├── themes/                # QSS 主题文件 (dark.qss, light.qss)
 │   └── resources.qrc
-├── src/
+├── src/                       # 主程序
 │   ├── main.cpp
 │   ├── mainwindow.cpp/h
+│   ├── appversion.h           # 版本号单一来源
 │   ├── backgroundmanager.cpp/h
 │   ├── configmanager.cpp/h
 │   ├── iconutils.cpp/h
-│   ├── instancemanager.cpp/h
+│   ├── instancemanager*.cpp/h # 实例 / 存档 / 整合包 / 备份
 │   ├── processopt.cpp/h       # 进程内存限制 / 优先级 / 结束浏览器
 │   ├── updatemanager.cpp/h    # GitHub Release 查询与下载
 │   ├── updateflow.cpp/h       # 更新流程弹窗编排
-│   ├── updater/               # 独立 updater.exe 源码
-│   ├── pages/             # UI 页面（首页、实例、设置、存档等）
-│   └── widgets/           # 自定义控件（开关、实例列表项）
+│   ├── playerloganalyzer.cpp/h# KSP 崩溃日志分析
+│   ├── debuglogger.cpp/h      # 可选运行日志（HKSPL.log）
+│   ├── steamdiscovery.cpp/h   # Steam 库发现
+│   ├── moddecision.cpp/h      # 决策钩子（弹窗注入）
+│   ├── ckan/                  # 核心 CKAN 逻辑（libckan）
+│   ├── pages/                 # UI 页面（首页、实例、设置、存档、关于等）
+│   ├── services/              # 服务层（安装/卸载/整合包/缓存/索引/扫描）
+│   ├── widgets/               # 自定义控件（开关、实例列表项）
+│   └── updater/               # 独立 updater.exe 源码
+├── tests/                     # test_libckan + test_launcher
+├── translations/              # Qt 翻译文件 (.ts / .qm)
 ├── thirdparty/
-│   └── miniz.c/h          # ZIP 库
-└── README/                # 更新日志（中文）
+│   └── miniz.c/h              # ZIP 库
+└── dist/                      # 构建产物
 ```
 
 ---
