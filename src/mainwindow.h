@@ -67,6 +67,11 @@ private:
     void toggleMaximize();
     void updateWindowButtons();
     void applyWindowCornerPreference();
+#if defined(_WIN32)
+    // Windows：FramelessWindowHint 剥掉了 WS_THICKFRAME/WS_MINIMIZEBOX，导致四边无法拉伸、
+    // 最小化无动画；此函数在 show 后把这两个底层样式位补回(不补 WS_CAPTION，保持自绘无边框外观)。
+    void applyNativeFrameStyle();
+#endif
     // 游戏异常退出后读取 Player.log 尾部分析崩溃原因并弹窗（见 onGameFinished）
     void maybeShowCrashAnalysis();
     

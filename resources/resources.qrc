@@ -4,6 +4,10 @@
         <file>themes/light.qss</file>
         <file>appicon.ico</file>
         <file>author.png</file>
+        <file>ckan.png</file>
+        <file>github.png</file>
+        <file>hmcl.png</file>
+        <file>qt6.png</file>
         <file>icons/add.svg</file>
         <file>icons/arrow-left.svg</file>
         <file>icons/back.svg</file>

@@ -38,6 +38,10 @@ AboutPage::AboutPage(QWidget *parent)
     mainLayout->addWidget(titleLabel);
 
     QPixmap appIcon = QIcon(":/appicon.ico").pixmap(256, 256);
+    QPixmap ckanIcon(":/ckan.png");
+    QPixmap githubIcon(":/github.png");
+    QPixmap hmclIcon(":/hmcl.png");
+    QPixmap qt6Icon(":/qt6.png");
 
     // 作者头像：圆形裁剪
     QPixmap avatar;
@@ -82,22 +86,26 @@ AboutPage::AboutPage(QWidget *parent)
     mainLayout->addWidget(makeLinkRow(
         tr("KSP-CKAN 团队"),
         tr("提供模组管理 C# 参考代码和仓库索引"),
-        QStringLiteral("https://github.com/KSP-CKAN")));
+        QStringLiteral("https://github.com/KSP-CKAN"),
+        ckanIcon));
 
     mainLayout->addWidget(makeLinkRow(
         tr("Hello Minecraft Launcher 项目"),
         tr("提供许多 UI 设计上的参考"),
-        QStringLiteral("https://github.com/HMCL-dev/HMCL")));
+        QStringLiteral("https://github.com/HMCL-dev/HMCL"),
+        hmclIcon));
 
     mainLayout->addWidget(makeLinkRow(
         tr("gh-proxy.com"),
         tr("提供 CKAN 索引和模组下载加速"),
-        QStringLiteral("https://gh-proxy.com/")));
+        QStringLiteral("https://gh-proxy.com/"),
+        githubIcon));
 
     mainLayout->addWidget(makeLinkRow(
         tr("ghfast.top"),
         tr("提供 CKAN 索引和模组下载加速"),
-        QStringLiteral("https://ghfast.top/")));
+        QStringLiteral("https://ghfast.top/"),
+        githubIcon));
 
     // ---------------- 依赖 ----------------
     mainLayout->addWidget(makeSectionTitle(tr("依赖"), container));
@@ -105,7 +113,8 @@ AboutPage::AboutPage(QWidget *parent)
     mainLayout->addWidget(makeLinkRow(
         tr("Qt 6"),
         tr("Copyright © The Qt Company Ltd · Licence under LGPL v3"),
-        QStringLiteral("https://www.qt.io/development/qt-framework/qt6")));
+        QStringLiteral("https://www.qt.io/development/qt-framework/qt6"),
+        qt6Icon));
 
     mainLayout->addWidget(makeLinkRow(
         tr("miniz"),

@@ -299,6 +299,9 @@ void MainWindow::toggleMaximize()
         showNormal();
     else
         showMaximized();
+#if defined(_WIN32)
+    applyNativeFrameStyle(); // Qt 切换窗口状态时可能重设样式，这里把补回的样式位再补回来
+#endif
     updateWindowButtons();
     applyWindowCornerPreference();
 }
@@ -353,6 +356,9 @@ void MainWindow::showEvent(QShowEvent *event)
     if (!m_dwmApplied) {
         m_dwmApplied = true;
         updateWindowButtons();
+#if defined(_WIN32)
+        applyNativeFrameStyle(); // 首次显示时补回原生缩放/最小化样式位
+#endif
         QTimer::singleShot(0, this, &MainWindow::applyWindowCornerPreference);
     }
 }
@@ -369,6 +375,24 @@ void MainWindow::applyWindowCornerPreference()
 }
 
 #if defined(_WIN32)
+void MainWindow::applyNativeFrameStyle()
+{
+    if (!windowHandle()) return;
+    const HWND hwnd = reinterpret_cast<HWND>(windowHandle()->winId());
+    const LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    // 补回 FramelessWindowHint 剥掉的「可缩放 + 可最小/最大化」底层样式位，
+    // 使系统恢复原生平滑边缘缩放与最小化/还原动画。刻意不补 WS_CAPTION，
+    // 因此不会画出系统标题栏，仍保持自绘无边框外观。
+    const LONG_PTR need = WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    if ((style & need) == need) return;
+    SetWindowLongPtr(hwnd, GWL_STYLE, style | need);
+    // 通知系统重新计算非客户区
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+#endif
+
+#if defined(_WIN32)
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
     Q_UNUSED(eventType);
@@ -377,7 +401,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
     if (msg->message == WM_NCHITTEST && !isMaximized() && !isFullScreen()) {
         const QPoint pos = mapFromGlobal(QCursor::pos());
         const QRect r = rect();
-        const int b = 6;
+        const int b = 8; // 四边/四角的抓取区宽度(配合补回的 WS_THICKFRAME 触发原生缩放)
         const bool top    = pos.y() <= b;
         const bool bottom = pos.y() >= r.height() - 1 - b;
         const bool left   = pos.x() <= b;
