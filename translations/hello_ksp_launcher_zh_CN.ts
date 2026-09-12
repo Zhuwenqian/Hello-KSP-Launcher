@@ -1789,6 +1789,26 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/main.cpp" line="55"/>
+        <source>更新器组件更新失败</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="57"/>
+        <source>检测到待处理的更新器（updater.exe）更新，但替换失败：%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="59"/>
+        <source>重试</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="60"/>
+        <source>忽略</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/updateflow.cpp" line="33"/>
         <source>发现新版本</source>
         <translation type="unfinished"></translation>
@@ -2837,6 +2857,26 @@
     <message>
         <location filename="../src/updatemanager.cpp" line="265"/>
         <source>无法启动更新组件：%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="466"/>
+        <source>保留的更新包缺失：%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="472"/>
+        <source>更新包中未找到 updater.exe：%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="475"/>
+        <source>从更新包解压 updater.exe 失败</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="482"/>
+        <source>覆盖 %1 失败</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

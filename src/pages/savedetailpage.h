@@ -16,7 +16,7 @@ class SaveDetailPage : public QWidget
 public:
     explicit SaveDetailPage(QWidget *parent = nullptr);
 
-    void setSavePath(const QString& saveFolderPath, const QString& instanceName);
+    void setSavePath(const QString& saveFolderPath, const QString& instanceName, const QString& instanceId);
     void loadSaveData();
     void refreshIcons(const QString& color);
 
@@ -49,6 +49,7 @@ private:
     QString m_saveFolderPath;
     QString m_saveName;
     QString m_instanceName;
+    QString m_instanceId;
     SaveInfo m_saveInfo;
     QList<KerbalInfo> m_kerbals;
 

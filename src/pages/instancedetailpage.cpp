@@ -3,6 +3,7 @@
 #include "gamesettingstabpage.h"
 #include "dlctabpage.h"
 #include "advancedtabpage.h"
+#include "savestabpage.h"
 #include "modpackcontroller.h"
 #include "../ckanmanager.h"
 #include "../iconutils.h"
@@ -126,6 +127,9 @@ void InstanceDetailPage::setupUI()
     m_contentStack->addWidget(m_modsTabPage);
     m_advancedTabPage = new AdvancedTabPage(m_contentStack);
     m_contentStack->addWidget(m_advancedTabPage);
+    m_savesTabPage = new SavesTabPage(m_contentStack);
+    m_contentStack->addWidget(m_savesTabPage);
+    connect(m_savesTabPage, &SavesTabPage::saveSelected, this, &InstanceDetailPage::saveSelected);
     setupBrowseMenu();
 
     // 整合包导入/导出流程控制器（对话框以本页为父窗口）
@@ -167,10 +171,8 @@ void InstanceDetailPage::onNavButtonClicked()
     if (!btn) return;
 
     if (btn == m_savesBtn) {
-        // 切到存档页：先离开模组管理（停轮询），再回到游戏设置 tab 兜底
-        m_modsTabPage->setTabActive(false);
-        emit savesManageRequested();
-        showSection(0);
+        // 存档管理在详情页内作为第 4 个 tab，切栈即可；离开模组管理由 showSection 停轮询
+        showSection(4);
         return;
     }
 
@@ -189,6 +191,7 @@ void InstanceDetailPage::showSection(int detailIndex)
     m_dlcBtn->setChecked(detailIndex == 1);
     m_modsBtn->setChecked(detailIndex == 2);
     m_advancedBtn->setChecked(detailIndex == 3);
+    m_savesBtn->setChecked(detailIndex == 4);
     m_browseBtn->setChecked(false);
     m_importModpackBtn->setChecked(false);
     m_exportModpackBtn->setChecked(false);
@@ -198,6 +201,8 @@ void InstanceDetailPage::showSection(int detailIndex)
 
     if (detailIndex == 3) {
         m_advancedTabPage->loadLaunchArgs(m_instanceId);
+    } else if (detailIndex == 4) {
+        m_savesTabPage->loadSaves();
     }
 }
 
@@ -228,6 +233,7 @@ void InstanceDetailPage::refreshData()
     m_advancedTabPage->loadLaunchArgs(m_instanceId);
     m_modpackController->setInstance(m_instance);
     m_modsTabPage->setInstance(m_instance, m_instanceId);
+    m_savesTabPage->setInstanceId(m_instanceId);
 }
 
 void InstanceDetailPage::refreshIcons(const QString &color)
@@ -243,6 +249,7 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_browseBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_advancedTabPage->refreshIcons(color);
     m_modsTabPage->refreshIcons(color);
+    m_savesTabPage->refreshIcons(color);
 }
 
 // ---- 整合包导出/导入菜单入口（实际流程在 ModpackController） ----

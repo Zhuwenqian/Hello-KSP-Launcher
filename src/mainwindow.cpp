@@ -135,7 +135,6 @@ void MainWindow::setupUI()
     m_instanceDetailPage = new InstanceDetailPage(m_contentStack);
     m_settingsPage = new SettingsPage(m_contentStack);
     m_aboutPage = new AboutPage(m_contentStack);
-    m_savesListPage = new SavesListPage(m_contentStack);
     m_saveDetailPage = new SaveDetailPage(m_contentStack);
 
     m_contentStack->addWidget(m_homePage);
@@ -143,7 +142,6 @@ void MainWindow::setupUI()
     m_contentStack->addWidget(m_instanceDetailPage);
     m_contentStack->addWidget(m_settingsPage);
     m_contentStack->addWidget(m_aboutPage);
-    m_contentStack->addWidget(m_savesListPage);
     m_contentStack->addWidget(m_saveDetailPage);
 
     contentLayout->addWidget(m_contentStack, 1);
@@ -162,19 +160,11 @@ void MainWindow::setupUI()
             this, &MainWindow::onBackToHome);
     connect(m_instanceDetailPage, &InstanceDetailPage::backClicked,
             this, &MainWindow::onBackToInstanceList);
-    connect(m_instanceDetailPage, &InstanceDetailPage::savesManageRequested,
-            this, &MainWindow::onSavesManageRequested);
     connect(m_settingsPage, &SettingsPage::themeChanged,
             this, &MainWindow::applyTheme);
-    connect(m_savesListPage, &SavesListPage::backClicked,
-            this, &MainWindow::onBackFromSavesList);
-    connect(m_savesListPage, &SavesListPage::saveSelected,
+    // 存档 tab 双击存档 → 打开全屏存档详情编辑器
+    connect(m_instanceDetailPage, &InstanceDetailPage::saveSelected,
             this, &MainWindow::onSaveSelected);
-    // 存档管理页的实例二级菜单→跳回详情页对应 tab
-    connect(m_savesListPage, &SavesListPage::navToDetail,
-            this, &MainWindow::onSavesNavToDetail);
-    connect(m_savesListPage, &SavesListPage::modpackActionRequested,
-            this, &MainWindow::onSavesModpackAction);
     connect(m_saveDetailPage, &SaveDetailPage::backClicked,
             this, &MainWindow::onBackFromSaveDetail);
     connect(m_saveDetailPage, &SaveDetailPage::homeClicked,
@@ -541,7 +531,6 @@ void MainWindow::refreshIcons(const QString &theme)
 
     m_instanceListPage->refreshIcons(color);
     m_instanceDetailPage->refreshIcons(color);
-    m_savesListPage->refreshIcons(color);
     m_saveDetailPage->refreshIcons(color);
 }
 
@@ -717,11 +706,10 @@ void MainWindow::onBackToHome()
 void MainWindow::showPage(QWidget *page)
 {
     m_contentStack->setCurrentWidget(page);
-    // 实例管理详情页 / 存档管理 / 存档详情页均自带二级菜单，隐藏全局主侧边栏
+    // 实例管理详情页 / 存档详情页均自带二级菜单，隐藏全局主侧边栏
     // 统一让实例二级菜单占位，返回顶层页（首页/实例列表/设置）时再显示。
     const bool instanceSubPage =
         (page == m_instanceDetailPage) ||
-        (page == m_savesListPage) ||
         (page == m_saveDetailPage);
     if (m_sidebar)
         m_sidebar->setVisible(!instanceSubPage);
@@ -924,40 +912,6 @@ void MainWindow::onCurrentInstanceChanged()
     m_instanceListPage->refresh();
 }
 
-void MainWindow::onSavesManageRequested()
-{
-    KSPInstance cur = ConfigManager::instance().currentInstance();
-    if (cur.id.isEmpty()) {
-        QMessageBox::information(this, "提示", "请先选择一个KSP实例");
-        return;
-    }
-    m_savesListPage->setInstanceId(cur.id);
-    showPage(m_savesListPage);
-    m_launchBar->hide();
-    // 取消侧边栏按钮高亮
-    setNavButtonChecked(nullptr);
-}
-
-void MainWindow::onSavesNavToDetail(int detailIndex)
-{
-    if (!toInstanceDetailPage())
-        return;
-    m_instanceDetailPage->showSection(detailIndex);
-}
-
-void MainWindow::onSavesModpackAction(int actionKind)
-{
-    if (!toInstanceDetailPage())
-        return;
-    m_instanceDetailPage->showSection(2); // 动作发生在地模组管理 tab
-    if (actionKind == 0)
-        m_instanceDetailPage->triggerExportModpack();
-    else if (actionKind == 1)
-        m_instanceDetailPage->triggerImportModpack();
-    else if (actionKind == 2)
-        m_instanceDetailPage->triggerBrowse();
-}
-
 // 切到实例管理详情页并隐藏启动条（当前实例为空时返回 false）
 bool MainWindow::toInstanceDetailPage()
 {
@@ -971,21 +925,9 @@ bool MainWindow::toInstanceDetailPage()
     return true;
 }
 
-void MainWindow::onBackFromSavesList()
+void MainWindow::onSaveSelected(const QString &savePath, const QString &instanceName, const QString &instanceId)
 {
-    // 返回实例详情页
-    KSPInstance cur = ConfigManager::instance().currentInstance();
-    if (!cur.id.isEmpty()) {
-        m_instanceDetailPage->loadCurrentInstance();
-    }
-    setNavButtonChecked(m_instanceManageBtn);
-    showPage(m_instanceDetailPage);
-    m_launchBar->hide();
-}
-
-void MainWindow::onSaveSelected(const QString &savePath, const QString &instanceName)
-{
-    m_saveDetailPage->setSavePath(savePath, instanceName);
+    m_saveDetailPage->setSavePath(savePath, instanceName, instanceId);
     showPage(m_saveDetailPage);
     m_launchBar->hide();
     setNavButtonChecked(nullptr);
@@ -993,13 +935,10 @@ void MainWindow::onSaveSelected(const QString &savePath, const QString &instance
 
 void MainWindow::onBackFromSaveDetail()
 {
-    KSPInstance cur = ConfigManager::instance().currentInstance();
-    if (!cur.id.isEmpty()) {
-        m_savesListPage->setInstanceId(cur.id);
-    }
-    showPage(m_savesListPage);
-    m_launchBar->hide();
-    setNavButtonChecked(nullptr);
+    // 返回实例管理详情页，并停在存档管理 tab
+    if (!toInstanceDetailPage())
+        return;
+    m_instanceDetailPage->showSection(4);
 }
 
 void MainWindow::onHomeFromSaveDetail()

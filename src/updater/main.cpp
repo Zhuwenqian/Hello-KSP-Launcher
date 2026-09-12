@@ -191,11 +191,13 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     QString zipPath, waitPid, installDir;
+    bool keepZip = false;
     QStringList args = QCoreApplication::arguments();
     for (int i = 1; i < args.size(); ++i) {
         if (args[i] == QLatin1String("--apply") && i + 1 < args.size()) zipPath = args[++i];
         else if (args[i] == QLatin1String("--wait-pid") && i + 1 < args.size()) waitPid = args[++i];
         else if (args[i] == QLatin1String("--dir") && i + 1 < args.size()) installDir = args[++i];
+        else if (args[i] == QLatin1String("--keep-zip")) keepZip = true;
     }
     if (zipPath.isEmpty() || installDir.isEmpty()) {
         fputs("usage: updater --dir <installDir> --apply <zip> [--wait-pid <pid>]\n", stderr);
@@ -245,7 +247,14 @@ int main(int argc, char *argv[])
     if (!moveTopLevel(newRoot, g_installDir))
         fatal(QStringLiteral("应用新版本时出现错误（部分文件可能未覆盖）"));
 
-    QDir(updDir).removeRecursively();
+    // 本 Release 含更新器（updater.exe）更新：更新器受保留名单约束无法替换自身，
+    // 故按 --keep-zip 保留 .updater_update（含 zip 与 pending 标记），交由更新完成后
+    // 重启的新版启动器用该 zip 替换 updater.exe 并清理（见 UpdaterManager::applyPendingUpdaterUpdate）。
+    if (keepZip) {
+        log(QStringLiteral("保留更新包供启动器更新更新器: %1").arg(zipPath));
+    } else {
+        QDir(updDir).removeRecursively();
+    }
     // 替换完成、即将重启新版前，清除"正在更新"标记，让新启动器正常启动。
     QFile::remove(QDir(g_installDir).filePath(QStringLiteral(".updating")));
 

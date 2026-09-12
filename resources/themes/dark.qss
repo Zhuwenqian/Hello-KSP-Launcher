@@ -451,7 +451,7 @@ QTableView::item:hover {
 
 /* 实例管理二级 tab 内容区：半透明背板，与侧栏风格对齐。
    模组页/游戏设置/DLC/高级 tab 拆为独立页类后需各自带背板，避免露出背景图 */
-#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage {
+#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage, #savesTabPage {
     background-color: rgba(37, 37, 38, 165);
     border-radius: 8px;
 }
@@ -652,26 +652,6 @@ QWidget#instanceDetailPage QPushButton#backButton:hover {
     background-color: rgba(58, 58, 62, 190);
 }
 QWidget#instanceDetailPage QLabel#pageTitle {
-    background-color: rgba(45, 45, 48, 165);
-    border-radius: 6px;
-    padding: 8px 14px;
-    color: #ffffff;
-    font-size: 13pt;
-    font-weight: bold;
-}
-
-/* 存档管理页顶部返回+标题：半透明底，与详情页一致 */
-QWidget#savesListPage QPushButton#backButton {
-    background-color: rgba(45, 45, 48, 165);
-    border: none;
-    border-radius: 6px;
-    color: #ffffff;
-    padding: 8px 12px;
-}
-QWidget#savesListPage QPushButton#backButton:hover {
-    background-color: rgba(58, 58, 62, 190);
-}
-QWidget#savesListPage QLabel#pageTitle {
     background-color: rgba(45, 45, 48, 165);
     border-radius: 6px;
     padding: 8px 14px;

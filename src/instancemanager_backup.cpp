@@ -228,16 +228,20 @@ QString InstanceManager::getBackupsRootDir() const
     return backupsDir;
 }
 
-QString InstanceManager::getBackupDirForSave(const QString &instanceName, const QString &saveName) const
+QString InstanceManager::getBackupDirForSave(const QString &instanceName, const QString &instanceId,
+                                             const QString &saveName) const
 {
     QString rootDir = getBackupsRootDir();
-    // 先迁移可能存在的旧单层结构备份，再返回新两级目录
-    migrateLegacyBackups(instanceName, saveName);
+    // 先迁移可能存在的旧结构备份，再返回新两级目录
+    migrateLegacyBackups(instanceName, instanceId, saveName);
 
-    // 移除文件名中的非法字符（实例名与存档名）
+    // 第1级目录：{实例名}-{id前8位}（id为不带花括号的UUID，前8位即首段）
     QString safeInstance = sanitizeFileName(instanceName);
+    QString idPrefix = instanceId.left(8); // UUID 首段，形如 550e8400
+    QString instanceDirName = idPrefix.isEmpty() ? safeInstance : safeInstance + "-" + idPrefix;
+    // 存档目录名只取清除非法字符后的纯存档名
     QString safeSave = sanitizeFileName(saveName);
-    QString saveBackupDir = QDir(QDir(rootDir).filePath(safeInstance)).filePath(safeSave);
+    QString saveBackupDir = QDir(QDir(rootDir).filePath(instanceDirName)).filePath(safeSave);
     QDir dir(saveBackupDir);
     if (!dir.exists()) {
         dir.mkpath(".");
@@ -245,56 +249,67 @@ QString InstanceManager::getBackupDirForSave(const QString &instanceName, const 
     return saveBackupDir;
 }
 
-void InstanceManager::migrateLegacyBackups(const QString &instanceName, const QString &saveName) const
+void InstanceManager::migrateLegacyBackups(const QString &instanceName, const QString &instanceId,
+                                           const QString &saveName) const
 {
     QString rootDir = getBackupsRootDir();
     QString safeInstance = sanitizeFileName(instanceName);
+    QString idPrefix = instanceId.left(8);
+    QString instanceDirName = idPrefix.isEmpty() ? safeInstance : safeInstance + "-" + idPrefix;
     QString safeSave = sanitizeFileName(saveName);
-    // 旧单层结构目录（仅当目标两级目录尚不存在时才迁移，保持幂等）
-    QString legacyDir = QDir(rootDir).filePath(safeSave);
-    QString newDir = QDir(QDir(rootDir).filePath(safeInstance)).filePath(safeSave);
+    // 目标：新两级结构
+    QString newDir = QDir(QDir(rootDir).filePath(instanceDirName)).filePath(safeSave);
 
-    if (legacyDir == newDir) return;
-    if (QDir(newDir).exists()) return;
+    // 待迁移的旧结构源目录（由旧到新依次尝试，均已迁移到 newDir）
+    QStringList legacyDirs;
+    // 旧两层结构：backups/{实例名}/{存档名}
+    legacyDirs << QDir(QDir(rootDir).filePath(safeInstance)).filePath(safeSave);
+    // 更早的单层结构：backups/{存档名}
+    legacyDirs << QDir(rootDir).filePath(safeSave);
 
-    QDir legacy(legacyDir);
-    if (!legacy.exists()) return;
+    for (const QString& legacyDir : legacyDirs) {
+        if (legacyDir == newDir) continue;
+        if (QDir(newDir).exists()) break;      // 冲突：目标已存在，跳过本次迁移以保持幂等
+        QDir legacy(legacyDir);
+        if (!legacy.exists()) continue;
 
-    QDir newBase = QDir(QDir(rootDir).filePath(safeInstance));
-    if (!newBase.exists()) newBase.mkpath(".");
+        QDir newBase = QDir(QDir(rootDir).filePath(instanceDirName));
+        if (!newBase.exists()) newBase.mkpath(".");
 
-    // 迁移该目录下的zip备份到新位置
-    QStringList filters;
-    filters << "*.zip";
-    const QFileInfoList files = legacy.entryInfoList(filters, QDir::Files);
-    for (const QFileInfo& fi : files) {
-        if (!QDir().mkpath(newDir)) {
-            qWarning() << "Failed to create backup dir for migration:" << newDir;
-            return;
-        }
-        QString target = QDir(newDir).filePath(fi.fileName());
-        if (QFile::rename(fi.absoluteFilePath(), target)) {
-            qInfo() << "Migrated legacy backup:" << fi.absoluteFilePath() << "->" << target;
-        } else if (!QFile::exists(target)) {
-            // 重命名失败（可能跨目录/权限），尝试复制后删除原文件
-            if (QFile::copy(fi.absoluteFilePath(), target)) {
-                QFile::remove(fi.absoluteFilePath());
-            } else {
-                qWarning() << "Failed to migrate backup:" << fi.absoluteFilePath();
+        // 迁移该目录下的zip备份到新位置
+        QStringList filters;
+        filters << "*.zip";
+        const QFileInfoList files = legacy.entryInfoList(filters, QDir::Files);
+        for (const QFileInfo& fi : files) {
+            if (!QDir().mkpath(newDir)) {
+                qWarning() << "Failed to create backup dir for migration:" << newDir;
+                return;
+            }
+            QString target = QDir(newDir).filePath(fi.fileName());
+            if (QFile::rename(fi.absoluteFilePath(), target)) {
+                qInfo() << "Migrated legacy backup:" << fi.absoluteFilePath() << "->" << target;
+            } else if (!QFile::exists(target)) {
+                // 重命名失败（可能跨目录/权限），尝试复制后删除原文件
+                if (QFile::copy(fi.absoluteFilePath(), target)) {
+                    QFile::remove(fi.absoluteFilePath());
+                } else {
+                    qWarning() << "Failed to migrate backup:" << fi.absoluteFilePath();
+                }
             }
         }
-    }
 
-    // 移除空的旧目录
-    if (legacy.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
-        QDir().rmdir(legacyDir);
+        // 移除空的旧目录（仅当不再包含任何内容时）
+        if (legacy.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
+            QDir().rmdir(legacyDir);
+        }
     }
 }
 
-QList<BackupInfo> InstanceManager::listBackups(const QString &instanceName, const QString &saveName) const
+QList<BackupInfo> InstanceManager::listBackups(const QString &instanceName, const QString &instanceId,
+                                              const QString &saveName) const
 {
     QList<BackupInfo> backups;
-    QString backupDir = getBackupDirForSave(instanceName, saveName);
+    QString backupDir = getBackupDirForSave(instanceName, instanceId, saveName);
     QDir dir(backupDir);
 
     QStringList filters;
@@ -336,7 +351,8 @@ QList<BackupInfo> InstanceManager::listBackups(const QString &instanceName, cons
 }
 
 bool InstanceManager::createBackup(const QString &saveFolderPath, const QString &instanceName,
-                                   const QString &saveName, const QString &note,
+                                   const QString &instanceId, const QString &saveName,
+                                   const QString &note,
                                    std::function<void(int progress)> progressCallback) const
 {
     QDir saveDir(saveFolderPath);
@@ -352,7 +368,7 @@ bool InstanceManager::createBackup(const QString &saveFolderPath, const QString 
         return false;
     }
 
-    QString backupDir = getBackupDirForSave(instanceName, saveName);
+    QString backupDir = getBackupDirForSave(instanceName, instanceId, saveName);
 
     // 生成文件名：存档名[_备注]_yyyyMMdd_HHmmss.zip
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
@@ -442,7 +458,8 @@ bool InstanceManager::revealBackupInExplorer(const QString &backupFilePath) cons
 }
 
 bool InstanceManager::restoreBackup(const QString &backupFilePath, const QString &saveFolderPath,
-                                    const QString &instanceName, const QString &saveName,
+                                    const QString &instanceName, const QString &instanceId,
+                                    const QString &saveName,
                                     std::function<void(int progress)> progressCallback) const
 {
     QFileInfo backupInfo(backupFilePath);
@@ -461,7 +478,7 @@ bool InstanceManager::restoreBackup(const QString &backupFilePath, const QString
     QFileInfoList entries = saveDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     if (!entries.isEmpty()) {
         if (progressCallback) progressCallback(1);
-        bool backupOk = createBackup(saveFolderPath, instanceName, saveName, tr("恢复前"), progressCallback);
+        bool backupOk = createBackup(saveFolderPath, instanceName, instanceId, saveName, tr("恢复前"), progressCallback);
         if (!backupOk) {
             qWarning() << "Failed to create pre-restore backup; abort restore:" << saveFolderPath;
             return false;

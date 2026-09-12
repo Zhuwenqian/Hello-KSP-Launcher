@@ -448,7 +448,7 @@ QTableView::item:hover {
 }
 
 /* Mods management area: translucent panel like the detail sidebar */
-#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage {
+#modsContentWidget, #gameSettingsTabPage, #dlcTabPage, #advancedTabPage, #savesTabPage {
     background-color: rgba(243, 243, 243, 204);
     border-radius: 8px;
 }
@@ -679,24 +679,4 @@ QPushButton#winBtn:hover {
 QPushButton#winCloseBtn:hover {
     background-color: #e81123;
     border-radius: 0px;
-}
-
-/* 存档管理页顶部返回+标题：半透明底，与详情页一致 */
-QWidget#savesListPage QPushButton#backButton {
-    background-color: rgba(243, 243, 243, 200);
-    border: none;
-    border-radius: 6px;
-    color: #1e1e1e;
-    padding: 8px 12px;
-}
-QWidget#savesListPage QPushButton#backButton:hover {
-    background-color: rgba(232, 232, 232, 220);
-}
-QWidget#savesListPage QLabel#pageTitle {
-    background-color: rgba(243, 243, 243, 200);
-    border-radius: 6px;
-    padding: 8px 14px;
-    color: #1e1e1e;
-    font-size: 13pt;
-    font-weight: bold;
 }

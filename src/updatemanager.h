@@ -28,6 +28,7 @@ public:
         QString expectedDigest; // GitHub API 提供的资产 SHA256（小写 hex，含 "sha256:" 前缀的关系）
         QString body;        // Release body（更新日志）
         bool hasUpdate = false; // 服务端版本是否高于当前本地版本
+        bool updaterUpdate = false; // 本 Release 含更新器（updater.exe）更新：更新后保留 zip，由新版启动器替换更新器
     };
 
     static UpdaterManager& instance();
@@ -55,6 +56,27 @@ public:
     // 从 GitHub 资产对象的 digest 字段提取期望 SHA256（形如 "sha256:<64hex>"）。
     // 纯静态函数，返回小写 64 位 hex；缺失 / 非 "sha256:" 前缀 / 非 64 位 hex 返回空串。
     static QString digestHexFromApi(const QJsonArray &assets, const QString &assetName);
+
+    // Release body 是否含"本 Release 含有更新器（updater.exe）的更新"固定提示块。
+    // 匹配双语关键短语：中文"本 Release 含有更新器"或英文"ships an updated built-in updater"。
+    static bool bodyIndicatesUpdaterUpdate(const QString &body);
+
+    // 在 zip 内按 basename（大小写不敏感）查找条目，命中写回完整条目名并返回 true。
+    static bool findZipEntryByBaseName(const QString &zipPath, const QString &baseName,
+                                       QString *outEntry);
+    // 从 zip 解压指定条目到 destPath（自动建父目录）。
+    static bool extractZipEntry(const QString &zipPath, const QString &entryName,
+                                const QString &destPath);
+
+    // 更新器组件（updater.exe）待更新处理结果
+    enum class PendingUpdaterResult { None, Updated, Failed };
+
+    // 处理上一轮更新保留的更新器更新（仅 Windows）：
+    // 检测 .updater_update/updater_pending 标记 → 从保留 zip 解出 updater.exe 覆盖应用目录
+    // → 成功后删除整个 .updater_update；失败保留现场供重试。无标记返回 None。
+    static PendingUpdaterResult applyPendingUpdaterUpdate(QString *errorOut = nullptr);
+    // 放弃待处理的更新器更新：删除 .updater_update 目录（含 zip 与标记）。
+    static void cleanupPendingUpdaterUpdate();
 
 signals:
     void updateCheckDone();                          // 查询完成，latest() 可读

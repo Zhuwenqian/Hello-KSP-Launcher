@@ -2,7 +2,9 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QDir>
+#include <cstring>
 
+#include "miniz.h"
 #include "steamdiscovery.h"
 #include "instancemanager.h"
 #include "updatemanager.h"
@@ -206,6 +208,8 @@ class TestUpdaterManager : public QObject
 private slots:
     void versionComparison();
     void digestHex();
+    void updaterUpdateBodyDetection();
+    void zipUpdaterEntry();
 };
 
 void TestUpdaterManager::versionComparison()
@@ -262,6 +266,87 @@ void TestUpdaterManager::digestHex()
         bad.append(a);
         QVERIFY(UpdaterManager::digestHexFromApi(bad, "HKSPL-x86_64.zip").isEmpty());
     }
+}
+
+void TestUpdaterManager::updaterUpdateBodyDetection()
+{
+    // 完整双语提示块 → 命中
+    QVERIFY(UpdaterManager::bodyIndicatesUpdaterUpdate(QStringLiteral(
+        "> **重要提示 / Important Note:** 本 Release 含有更新器（`updater.exe`）的更新。"
+        "> This release ships an updated built-in updater (`updater.exe`).")));
+    // 仅中文短语 → 命中
+    QVERIFY(UpdaterManager::bodyIndicatesUpdaterUpdate(QStringLiteral(
+        "本 Release 含有更新器（updater.exe）的更新")));
+    // 仅英文短语 → 命中
+    QVERIFY(UpdaterManager::bodyIndicatesUpdaterUpdate(QStringLiteral(
+        "This release ships an updated built-in updater (updater.exe).")));
+    // 普通更新日志（无更新器提示）→ 不命中
+    QVERIFY(!UpdaterManager::bodyIndicatesUpdaterUpdate(QStringLiteral(
+        "修复了若干 bug，提升了稳定性。")));
+    // 空 body → 不命中
+    QVERIFY(!UpdaterManager::bodyIndicatesUpdaterUpdate(QString()));
+}
+
+void TestUpdaterManager::zipUpdaterEntry()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString zip = dir.filePath(QStringLiteral("release.zip"));
+    // 构造一个含单一顶层发布目录（Release/）的 zip，内含 updater.exe 与普通文件
+    const QString srcExe = dir.filePath(QStringLiteral("src/updater.exe"));
+    QDir().mkpath(QFileInfo(srcExe).absolutePath());
+    {
+        QFile f(srcExe);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("fake-updater-binary");
+    }
+    const QString srcReadme = dir.filePath(QStringLiteral("src/README.txt"));
+    {
+        QFile f(srcReadme);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("readme");
+    }
+    {
+        mz_zip_archive z;
+        std::memset(&z, 0, sizeof(z));
+        QVERIFY(mz_zip_writer_init_file(&z, zip.toUtf8().constData(), 0));
+        QVERIFY(mz_zip_writer_add_file(&z, "Release/updater.exe",
+                                       srcExe.toUtf8().constData(), nullptr, 0, 0));
+        QVERIFY(mz_zip_writer_add_file(&z, "Release/README.txt",
+                                       srcReadme.toUtf8().constData(), nullptr, 0, 0));
+        QVERIFY(mz_zip_writer_finalize_archive(&z));
+        QVERIFY(mz_zip_writer_end(&z));
+    }
+
+    // 按 basename 查找 updater.exe（任意深度、大小写不敏感）
+    QString entry;
+    QVERIFY(UpdaterManager::findZipEntryByBaseName(zip, QStringLiteral("updater.exe"), &entry));
+    QCOMPARE(entry, QStringLiteral("Release/updater.exe"));
+    QString entryUpper;
+    QVERIFY(UpdaterManager::findZipEntryByBaseName(zip, QStringLiteral("Updater.EXE"), &entryUpper));
+    QCOMPARE(entryUpper, entry);
+    // 不存在的条目 → 未找到
+    QString miss;
+    QVERIFY(!UpdaterManager::findZipEntryByBaseName(zip, QStringLiteral("missing.dll"), &miss));
+    // 其他文件按 basename 同样可找到（查找逻辑非 updater 特化）
+    QString readmeEntry;
+    QVERIFY(UpdaterManager::findZipEntryByBaseName(zip, QStringLiteral("README.txt"), &readmeEntry));
+    QCOMPARE(readmeEntry, QStringLiteral("Release/README.txt"));
+
+    // 解压条目到目标路径，内容一致
+    const QString outExe = dir.filePath(QStringLiteral("out/updater.exe"));
+    QVERIFY(UpdaterManager::extractZipEntry(zip, entry, outExe));
+    {
+        QFile f(outExe);
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("fake-updater-binary"));
+    }
+    // 解压不存在的条目 → 失败
+    QVERIFY(!UpdaterManager::extractZipEntry(zip, QStringLiteral("nope/updater.exe"),
+                                             dir.filePath(QStringLiteral("out2/updater.exe"))));
+    // zip 路径无效 → 查找失败
+    QVERIFY(!UpdaterManager::findZipEntryByBaseName(
+        dir.filePath(QStringLiteral("not_exist.zip")), QStringLiteral("updater.exe"), &miss));
 }
 
 // 实例列表图标的来源判定（按实例名后缀：RP-1 > RSS/Sol > exe）

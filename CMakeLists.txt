@@ -132,7 +132,7 @@ set(SOURCES
     src/pages/modtablemodel.cpp
     src/pages/settingspage.cpp
     src/pages/aboutpage.cpp
-    src/pages/saveslistpage.cpp
+    src/pages/savestabpage.cpp
     src/pages/savedetailpage.cpp
     src/widgets/instanceitemwidget.cpp
     src/widgets/toggleswitch.cpp
@@ -172,7 +172,7 @@ set(HEADERS
     src/pages/modtablemodel.h
     src/pages/settingspage.h
     src/pages/aboutpage.h
-    src/pages/saveslistpage.h
+    src/pages/savestabpage.h
     src/pages/savedetailpage.h
     src/widgets/instanceitemwidget.h
     src/widgets/toggleswitch.h
@@ -301,6 +301,8 @@ add_executable(test_launcher
     src/pages/modtablemodel.cpp
     src/ckanmanager.cpp
     src/configmanager.cpp
+    # updatemanager 内含 zip 条目查找/解压（miniz 未从 libckan 导出，需在测试程序内单独编译一份）
+    thirdparty/miniz.c
 )
 target_include_directories(test_launcher PRIVATE
     ${CMAKE_SOURCE_DIR}/src

@@ -14,7 +14,6 @@
 #include "pages/instancedetailpage.h"
 #include "pages/settingspage.h"
 #include "pages/aboutpage.h"
-#include "pages/saveslistpage.h"
 #include "pages/savedetailpage.h"
 
 class MainWindow : public QMainWindow
@@ -49,11 +48,7 @@ private slots:
     void onGameError(QProcess::ProcessError error);
     void onCurrentInstanceChanged();
     void switchInstanceFromMenu(QAction* action);
-    void onSavesManageRequested();
-    void onBackFromSavesList();
-    void onSaveSelected(const QString& savePath, const QString& instanceName);
-    void onSavesNavToDetail(int detailIndex);
-    void onSavesModpackAction(int actionKind);
+    void onSaveSelected(const QString& savePath, const QString& instanceName, const QString& instanceId);
     bool toInstanceDetailPage();
     void onBackFromSaveDetail();
     void onHomeFromSaveDetail();
@@ -103,7 +98,6 @@ private:
     InstanceDetailPage* m_instanceDetailPage;
     SettingsPage* m_settingsPage;
     AboutPage* m_aboutPage;
-    SavesListPage* m_savesListPage;
     SaveDetailPage* m_saveDetailPage;
 
     // Launch bar

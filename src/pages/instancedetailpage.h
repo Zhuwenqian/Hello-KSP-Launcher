@@ -15,6 +15,7 @@ class ModsTabPage;
 class GameSettingsTabPage;
 class DlcTabPage;
 class AdvancedTabPage;
+class SavesTabPage;
 class ModpackController;
 
 // 实例详情页：仅作为壳 + 侧栏导航 + 对外入口。
@@ -29,7 +30,7 @@ public:
     void setInstanceId(const QString& id);
     void loadCurrentInstance();
     void refreshIcons(const QString& color);
-    // 外部切换详情页的二级 tab：0=游戏设置 1=DLC 2=模组管理 3=高级（供存档等实例子页跳回）
+    // 外部切换详情页的二级 tab：0=游戏设置 1=DLC 2=模组管理 3=高级 4=存档管理
     void showSection(int detailIndex);
     // 供存档等实例子页触发原属于详情页侧栏的动作
     void triggerExportModpack();
@@ -38,7 +39,8 @@ public:
 
 signals:
     void backClicked();
-    void savesManageRequested();
+    // 存档 tab 双击存档 → 打开全屏存档详情编辑器
+    void saveSelected(const QString& saveFolderPath, const QString& instanceName, const QString& instanceId);
 
 private slots:
     void onBackClicked();
@@ -88,6 +90,7 @@ private:
     DlcTabPage* m_dlcTabPage = nullptr;
     ModsTabPage* m_modsTabPage = nullptr;
     AdvancedTabPage* m_advancedTabPage = nullptr;
+    SavesTabPage* m_savesTabPage = nullptr;
 
     // 整合包导入/导出流程控制器
     ModpackController* m_modpackController = nullptr;

@@ -303,10 +303,11 @@ void SaveDetailPage::setupBackupsTab()
     m_contentStack->addWidget(m_backupsTab);
 }
 
-void SaveDetailPage::setSavePath(const QString &saveFolderPath, const QString &instanceName)
+void SaveDetailPage::setSavePath(const QString &saveFolderPath, const QString &instanceName, const QString &instanceId)
 {
     m_saveFolderPath = saveFolderPath;
     m_instanceName = instanceName;
+    m_instanceId = instanceId;
     QDir dir(saveFolderPath);
     m_saveName = dir.dirName();
     m_titleLabel->setText("存档 - " + m_saveName);
@@ -604,7 +605,7 @@ void SaveDetailPage::refreshIcons(const QString &color)
 void SaveDetailPage::refreshBackupList()
 {
     m_backupList->clear();
-    QList<BackupInfo> backups = InstanceManager::instance().listBackups(m_instanceName, m_saveName);
+    QList<BackupInfo> backups = InstanceManager::instance().listBackups(m_instanceName, m_instanceId, m_saveName);
 
     for (const BackupInfo& backup : backups) {
         QWidget* itemWidget = new QWidget(m_backupList);
@@ -706,7 +707,7 @@ void SaveDetailPage::onCreateBackupClicked()
     connect(&watcher, &QFutureWatcher<bool>::finished, &loop, &QEventLoop::quit);
 
     QFuture<bool> future = QtConcurrent::run([&]() {
-        return InstanceManager::instance().createBackup(m_saveFolderPath, m_instanceName, m_saveName,
+        return InstanceManager::instance().createBackup(m_saveFolderPath, m_instanceName, m_instanceId, m_saveName,
             QString(), [&](int p) {
                 QMetaObject::invokeMethod(&progress, [&, p]() {
                     if (p > lastProgress) {
@@ -805,7 +806,7 @@ void SaveDetailPage::onRestoreBackupClicked(const QString &filePath)
 
     QFuture<bool> future = QtConcurrent::run([&]() {
         return InstanceManager::instance().restoreBackup(filePath, m_saveFolderPath,
-            m_instanceName, m_saveName, [&](int p) {
+            m_instanceName, m_instanceId, m_saveName, [&](int p) {
                 QMetaObject::invokeMethod(&progress, [&, p]() {
                     if (p > lastProgress) {
                         lastProgress = p;

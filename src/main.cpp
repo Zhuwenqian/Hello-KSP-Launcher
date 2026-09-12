@@ -5,10 +5,12 @@
 #include <QFile>
 #include <QIcon>
 #include <QMessageBox>
+#include <QPushButton>
 #include "mainwindow.h"
 #include "configmanager.h"
 #include "debuglogger.h"
 #include "ckanmanager.h"
+#include "updatemanager.h"
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +41,33 @@ int main(int argc, char *argv[])
             QObject::tr("检测到启动器正在更新，请稍候，更新完成后将自动启动。"));
         return 0;
     }
+
+    // 更新器组件更新（仅 Windows）：上一轮更新因 Release 提示"本 Release 含有更新器更新"
+    // 而保留了 zip（updater.exe 受保留名单约束无法自我替换），由新版启动器在此静默替换。
+    // 失败弹窗提供"重试 / 忽略"；正常情况无弹窗、不打断启动。
+#if defined(_WIN32)
+    {
+        QString updErr;
+        UpdaterManager::PendingUpdaterResult updRes =
+            UpdaterManager::applyPendingUpdaterUpdate(&updErr);
+        while (updRes == UpdaterManager::PendingUpdaterResult::Failed) {
+            QMessageBox box;
+            box.setWindowTitle(QObject::tr("更新器组件更新失败"));
+            box.setIcon(QMessageBox::Warning);
+            box.setText(QObject::tr("检测到待处理的更新器（updater.exe）更新，但替换失败：%1")
+                            .arg(updErr));
+            QPushButton *retry = box.addButton(QObject::tr("重试"), QMessageBox::ActionRole);
+            box.addButton(QObject::tr("忽略"), QMessageBox::ActionRole);
+            box.exec();
+            if (box.clickedButton() == retry)
+                updRes = UpdaterManager::applyPendingUpdaterUpdate(&updErr);
+            else {
+                UpdaterManager::cleanupPendingUpdaterUpdate();
+                break;
+            }
+        }
+    }
+#endif
 
     MainWindow w;
     w.show();
