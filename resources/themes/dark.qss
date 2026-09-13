@@ -394,6 +394,33 @@ QTabWidget#modDetailTabs QTextEdit {
     color: #e0e0e0;
 }
 
+/* 飞船管理：VAB/SPH 双 tab 半透明面板，与模组详情风格一致 */
+QWidget#shipListPanel {
+    background-color: rgba(37, 37, 38, 150);
+    border-radius: 8px;
+}
+
+QTabWidget#shipTypeTabs::pane {
+    background-color: rgba(37, 37, 38, 170);
+    border: 1px solid rgba(62, 62, 66, 150);
+    border-radius: 6px;
+    top: -1px;
+}
+
+/* 飞船详情：半透明背板，与存档详情/实例详情一致 */
+QWidget#shipDetailPanel {
+    background-color: rgba(37, 37, 38, 165);
+    border-radius: 8px;
+}
+
+/* 飞船详情描述只读框 */
+QPlainTextEdit#shipDetailDescription {
+    background-color: rgba(45, 45, 48, 180);
+    border: 1px solid rgba(62, 62, 66, 150);
+    border-radius: 6px;
+    color: #e0e0e0;
+}
+
 QHeaderView::section {
     background-color: rgba(51, 51, 55, 200);
     color: #ffffff;

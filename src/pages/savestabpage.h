@@ -25,6 +25,7 @@ signals:
 
 private slots:
     void onSaveItemDoubleClicked(QListWidgetItem* item);
+    void onDeleteSaveClicked(const QString& saveFolderPath);
 
 private:
     void setupUI();

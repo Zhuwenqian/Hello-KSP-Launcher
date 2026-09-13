@@ -4,6 +4,7 @@
 #include "dlctabpage.h"
 #include "advancedtabpage.h"
 #include "savestabpage.h"
+#include "shiptabpage.h"
 #include "modpackcontroller.h"
 #include "../ckanmanager.h"
 #include "../iconutils.h"
@@ -63,6 +64,12 @@ void InstanceDetailPage::setupUI()
     m_savesBtn->setMinimumHeight(40);
     connect(m_savesBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
+    m_shipsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"), tr("  全局飞船管理"), m_detailSidebar);
+    m_shipsBtn->setObjectName("detailNavButton");
+    m_shipsBtn->setCheckable(true);
+    m_shipsBtn->setMinimumHeight(40);
+    connect(m_shipsBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
+
     m_advancedBtn = new QPushButton(IconUtils::tintedIcon(":/icons/settings.svg", "#ffffff"), tr("  高级"), m_detailSidebar);
     m_advancedBtn->setObjectName("detailNavButton");
     m_advancedBtn->setCheckable(true);
@@ -91,6 +98,7 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->addWidget(m_dlcBtn);
     sidebarLayout->addWidget(m_modsBtn);
     sidebarLayout->addWidget(m_savesBtn);
+    sidebarLayout->addWidget(m_shipsBtn);
     sidebarLayout->addWidget(m_advancedBtn);
     sidebarLayout->addWidget(m_exportModpackBtn);
     sidebarLayout->addWidget(m_importModpackBtn);
@@ -133,6 +141,8 @@ void InstanceDetailPage::setupUI()
     m_savesTabPage = new SavesTabPage(m_contentStack);
     m_contentStack->addWidget(m_savesTabPage);
     connect(m_savesTabPage, &SavesTabPage::saveSelected, this, &InstanceDetailPage::saveSelected);
+    m_shipsTabPage = new ShipTabPage(m_contentStack);
+    m_contentStack->addWidget(m_shipsTabPage);
     setupBrowseMenu();
 
     // 整合包导入/导出流程控制器（对话框以本页为父窗口）
@@ -180,6 +190,11 @@ void InstanceDetailPage::onNavButtonClicked()
         return;
     }
 
+    if (btn == m_shipsBtn) {
+        showSection(5);
+        return;
+    }
+
     int idx = -1;
     if (btn == m_gameSettingsBtn) idx = 0;
     else if (btn == m_dlcBtn) idx = 1;
@@ -196,6 +211,7 @@ void InstanceDetailPage::showSection(int detailIndex)
     m_modsBtn->setChecked(detailIndex == 2);
     m_advancedBtn->setChecked(detailIndex == 3);
     m_savesBtn->setChecked(detailIndex == 4);
+    m_shipsBtn->setChecked(detailIndex == 5);
     m_browseBtn->setChecked(false);
     m_importModpackBtn->setChecked(false);
     m_exportModpackBtn->setChecked(false);
@@ -207,6 +223,8 @@ void InstanceDetailPage::showSection(int detailIndex)
         m_advancedTabPage->loadLaunchArgs(m_instanceId);
     } else if (detailIndex == 4) {
         m_savesTabPage->loadSaves();
+    } else if (detailIndex == 5) {
+        m_shipsTabPage->loadShips();
     }
 }
 
@@ -238,6 +256,7 @@ void InstanceDetailPage::refreshData()
     m_modpackController->setInstance(m_instance);
     m_modsTabPage->setInstance(m_instance, m_instanceId);
     m_savesTabPage->setInstanceId(m_instanceId);
+    m_shipsTabPage->setInstanceId(m_instanceId);
 }
 
 void InstanceDetailPage::refreshIcons(const QString &color)
@@ -247,6 +266,7 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_dlcBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
     m_modsBtn->setIcon(IconUtils::tintedIcon(":/icons/puzzle.svg", color));
     m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
+    m_shipsBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
     m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
     m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
     m_importModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
@@ -254,6 +274,7 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_advancedTabPage->refreshIcons(color);
     m_modsTabPage->refreshIcons(color);
     m_savesTabPage->refreshIcons(color);
+    m_shipsTabPage->refreshIcons(color);
 }
 
 // ---- 整合包导出/导入菜单入口（实际流程在 ModpackController） ----

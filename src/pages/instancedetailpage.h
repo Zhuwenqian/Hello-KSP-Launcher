@@ -16,6 +16,7 @@ class GameSettingsTabPage;
 class DlcTabPage;
 class AdvancedTabPage;
 class SavesTabPage;
+class ShipTabPage;
 class ModpackController;
 
 // 实例详情页：仅作为壳 + 侧栏导航 + 对外入口。
@@ -30,7 +31,7 @@ public:
     void setInstanceId(const QString& id);
     void loadCurrentInstance();
     void refreshIcons(const QString& color);
-    // 外部切换详情页的二级 tab：0=游戏设置 1=DLC 2=模组管理 3=高级 4=存档管理
+    // 外部切换详情页的二级 tab：0=游戏设置 1=DLC 2=模组管理 3=高级 4=存档管理 5=飞船管理
     void showSection(int detailIndex);
     // 供存档等实例子页触发原属于详情页侧栏的动作
     void triggerExportModpack();
@@ -74,6 +75,7 @@ private:
     QPushButton* m_dlcBtn;
     QPushButton* m_modsBtn;
     QPushButton* m_savesBtn;
+    QPushButton* m_shipsBtn;
     QPushButton* m_advancedBtn;
     QPushButton* m_exportModpackBtn;
     QPushButton* m_importModpackBtn;
@@ -91,6 +93,7 @@ private:
     ModsTabPage* m_modsTabPage = nullptr;
     AdvancedTabPage* m_advancedTabPage = nullptr;
     SavesTabPage* m_savesTabPage = nullptr;
+    ShipTabPage* m_shipsTabPage = nullptr;
 
     // 整合包导入/导出流程控制器
     ModpackController* m_modpackController = nullptr;
