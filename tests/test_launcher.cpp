@@ -648,6 +648,45 @@ private slots:
         QVERIFY(playerlog::describeSigno(6).contains(QStringLiteral("异常终止")));
         QVERIFY(playerlog::describeSigno(999).contains(QStringLiteral("signo:999")));
     }
+
+    void extractContextReturnsFromCrashLeadingLinesToEnd()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 关键错误前有超过 40 行内容：上下文应从崩溃行往前回溯，结尾落到日志末尾
+        QString leading;
+        for (int i = 0; i < 60; ++i)
+            leading += QStringLiteral("line %1\n").arg(i);
+        const QString content = leading
+            + QStringLiteral("Caught fatal signal - signo:11 code:1 errno:0 addr:0x0\n"
+                             "Obtained stack frames...\nDone.\n");
+        const QString ctx = playerlog::extractPlayerLogContext(content);
+        QVERIFY(!ctx.isEmpty());
+        // 上下文应当覆盖崩溃段和其后的内容，且从崩溃行往前回溯（不应从 index:41 之前开始，
+        // 即起点行号应 >= idx(60 行 - 40 行 = 20)）；
+        QVERIFY(ctx.contains(QStringLiteral("Caught fatal signal")));
+        QVERIFY(ctx.endsWith(QStringLiteral("Done.\n")));
+        // 回溯仅取 40 行：起点应是第 20 行
+        QVERIFY(ctx.startsWith(QStringLiteral("line 20")));
+    }
+
+    void extractContextWithFewLeadingLinesStartsAtBeginning()
+    {
+        const QString content = QStringLiteral(
+            "before\n"
+            "OutOfMemoryException: Out of memory\n"
+            "after\n");
+        const QString ctx = playerlog::extractPlayerLogContext(content);
+        QVERIFY(!ctx.isEmpty());
+        QVERIFY(ctx.startsWith(QStringLiteral("before")));
+        QVERIFY(ctx.contains(QStringLiteral("Out of memory")));
+    }
+
+    void extractContextReturnsEmptyWithoutCrash()
+    {
+        QVERIFY(playerlog::extractPlayerLogContext(
+                    QStringLiteral("Normal lines.\nNo crash here.\n"))
+                    .isEmpty());
+    }
 };
 
 // CKanManager 退出清理（回归：关闭启动器后进程残留、registry.locked 被残留进程

@@ -32,6 +32,12 @@
 #include <QGuiApplication>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QDateTime>
+#include <QRegularExpression>
+#include <QDir>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include "miniz.h"
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -1002,11 +1008,118 @@ void MainWindow::maybeShowCrashAnalysis()
     qInfo() << "[crash] 检测到游戏异常退出崩溃：" << title;
 
     QMessageBox box(QMessageBox::Warning, title, text, QMessageBox::Ok, this);
+
+    // 只读可复制的滚动文本框：展示关键错误前后文（崩溃标记往前 40 行为起点，到日志末尾）。
+    auto *logView = new QPlainTextEdit(&box);
+    logView->setReadOnly(true);
+    logView->setMinimumHeight(240);
+    logView->setPlainText(result.context.isEmpty()
+                              ? tr("（未提取到关键错误上下文）")
+                              : result.context);
+
+    // 插入到按钮行之前，占据额外纵向空间
+    QVBoxLayout *boxLayout = qobject_cast<QVBoxLayout *>(box.layout());
+    if (boxLayout)
+        boxLayout->insertWidget(boxLayout->count() - 1, logView, 1);
+
     QPushButton *openLogBtn = box.addButton(tr("打开日志文件"), QMessageBox::HelpRole);
+    QPushButton *saveLogBtn = box.addButton(tr("保存日志"), QMessageBox::ActionRole);
     box.exec();
-    if (box.clickedButton() == openLogBtn) {
+
+    if (box.clickedButton() == saveLogBtn) {
+        const QString zipPath = packLogToZip(logPath);
+        if (zipPath.isEmpty()) {
+            QMessageBox::warning(this, title, tr("日志打包失败，请确认日志文件存在且可读取。"));
+        } else {
+            qInfo() << "[crash] 已保存崩溃日志压缩包：" << zipPath;
+            QMessageBox::information(this, title, tr("日志已保存到启动器目录：\n%1").arg(zipPath));
+        }
+    } else if (box.clickedButton() == openLogBtn) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(logPath).absolutePath()));
     }
+}
+
+// 将整个 Player.log 打包为 zip 存到启动器目录，返回 zip 绝对路径；失败返回空字符串。
+// zip 文件名：<清洗后的实例名>[-id前8位]_<时间戳>.zip（无实例或 id 不足 8 位时省略 id 段）。
+QString MainWindow::packLogToZip(const QString& logPath)
+{
+    QFileInfo srcInfo(logPath);
+    if (!srcInfo.exists())
+        return QString();
+
+    // 打包条目名取原文件名（Player.log）
+    const QString entryName = srcInfo.fileName();
+
+    // 组装 zip 基础名：清洗实例名 + 可选 id 前 8 位 + 时间戳
+    const KSPInstance cur = ConfigManager::instance().currentInstance();
+    QString safeName = cur.name;
+    safeName.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("_")); // 非法/危险字符
+    safeName.replace(QRegularExpression(QStringLiteral("_+")), QStringLiteral("_"));              // 折叠连续下划线
+    safeName = safeName.trimmed();
+    if (safeName.isEmpty())
+        safeName = tr("日志");
+
+    QString base = safeName + QStringLiteral("_");
+    if (cur.id.size() >= 8)
+        base += cur.id.left(8) + QStringLiteral("_");
+    base += QDateTime::currentDateTime().toString(QStringLiteral("yyMMdd_HHmmss"));
+    const QString zipPath =
+        QDir(QCoreApplication::applicationDirPath()).filePath(base + QStringLiteral(".zip"));
+
+    QFile srcFile(logPath);
+    if (!srcFile.open(QIODevice::ReadOnly))
+        return QString();
+
+    QFile zipFile(zipPath);
+    if (!zipFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        srcFile.close();
+        return QString();
+    }
+
+    // 顺序写入回调节点：miniz 写本地头/文件名/数据时按递增偏移调用 m_pWrite
+    struct WriteCtx { QFile* file; };
+    WriteCtx writeCtx{ &zipFile };
+    auto writeCb = [](void* opaque, mz_uint64 file_ofs, const void* pBuf, size_t n) -> size_t {
+        WriteCtx* ctx = static_cast<WriteCtx*>(opaque);
+        if (ctx->file->seek(static_cast<qint64>(file_ofs)))
+            return static_cast<size_t>(
+                ctx->file->write(static_cast<const char*>(pBuf), static_cast<qint64>(n)));
+        return 0;
+    };
+
+    // 流式读回调节点：避免把可能数百 MB 的 Player.log 一次性读入内存
+    struct ReadCtx { QFile* file; };
+    ReadCtx readCtx{ &srcFile };
+    auto readCb = [](void* opaque, mz_uint64 file_ofs, void* pBuf, size_t n) -> size_t {
+        ReadCtx* ctx = static_cast<ReadCtx*>(opaque);
+        if (ctx->file->seek(static_cast<qint64>(file_ofs)))
+            return static_cast<size_t>(
+                ctx->file->read(static_cast<char*>(pBuf), static_cast<qint64>(n)));
+        return 0;
+    };
+
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    zip.m_pWrite = writeCb;
+    zip.m_pIO_opaque = &writeCtx;
+
+    bool ok = mz_zip_writer_init(&zip, 0);
+    if (ok) {
+        ok = mz_zip_writer_add_read_buf_callback(
+            &zip, entryName.toUtf8().constData(), readCb, &readCtx,
+            static_cast<mz_uint64>(srcFile.size()),
+            nullptr, nullptr, 0, 2, nullptr, 0, nullptr, 0);
+    }
+    const bool finalized = ok && mz_zip_writer_finalize_archive(&zip);
+    mz_zip_writer_end(&zip);
+    zipFile.close();
+    srcFile.close();
+
+    if (!ok || !finalized) {
+        QFile::remove(zipPath);
+        return QString();
+    }
+    return zipPath;
 }
 
 void MainWindow::onGameError(QProcess::ProcessError error)

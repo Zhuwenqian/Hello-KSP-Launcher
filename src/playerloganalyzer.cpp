@@ -9,6 +9,25 @@ namespace playerlog {
 // 只保留尾部一段，避免对可能数百 MB 的 Player.log 做全量读取。
 static const qint64 kTailBytes = 512 * 1024;
 
+// 定位关键错误在 content 中的起始偏移；无匹配返回 -1。
+// kind 决定使用哪类关键错误线索（OOM 优先于 HardCrash，与 analyzePlayerLog 一致）。
+static int locateErrorOffset(const QString& content, PlayerLogAnalysis::Kind kind)
+{
+    if (kind == PlayerLogAnalysis::OutOfMemory) {
+        int off = content.indexOf(QStringLiteral("OutOfMemoryException"));
+        if (off < 0)
+            off = content.indexOf(QStringLiteral("Out of memory"), 0, Qt::CaseInsensitive);
+        return off;
+    }
+    if (kind == PlayerLogAnalysis::HardCrash) {
+        static const QRegularExpression re(
+            QStringLiteral("Caught fatal signal"), QRegularExpression::CaseInsensitiveOption);
+        const QRegularExpressionMatch m = re.match(content);
+        return m.hasMatch() ? m.capturedStart() : -1;
+    }
+    return -1;
+}
+
 PlayerLogAnalysis analyzePlayerLog(const QString &content)
 {
     PlayerLogAnalysis result;
@@ -19,20 +38,61 @@ PlayerLogAnalysis analyzePlayerLog(const QString &content)
     if (content.contains(QStringLiteral("OutOfMemoryException"))
         || content.contains(QStringLiteral("Out of memory"), Qt::CaseInsensitive)) {
         result.kind = PlayerLogAnalysis::OutOfMemory;
-        return result;
+    } else {
+        // 原生崩溃段落格式：Caught fatal signal - signo:11 code:1 errno:0 addr:(nil)
+        // 崩溃痕迹总是写在日志末尾，故只需在尾段匹配。
+        static const QRegularExpression re(
+            QStringLiteral("Caught fatal signal[^\\r\\n]*signo:(\\d+)"),
+            QRegularExpression::CaseInsensitiveOption);
+        const QRegularExpressionMatch match = re.match(content);
+        if (match.hasMatch()) {
+            result.kind = PlayerLogAnalysis::HardCrash;
+            result.signo = match.captured(1).toInt();
+        }
     }
 
-    // 原生崩溃段落格式：Caught fatal signal - signo:11 code:1 errno:0 addr:(nil)
-    // 崩溃痕迹总是写在日志末尾，故只需在尾段匹配。
-    static const QRegularExpression re(
-        QStringLiteral("Caught fatal signal[^\\r\\n]*signo:(\\d+)"),
-        QRegularExpression::CaseInsensitiveOption);
-    const QRegularExpressionMatch match = re.match(content);
-    if (match.hasMatch()) {
-        result.kind = PlayerLogAnalysis::HardCrash;
-        result.signo = match.captured(1).toInt();
+    if (result.kind == PlayerLogAnalysis::HardCrash
+        || result.kind == PlayerLogAnalysis::OutOfMemory) {
+        result.context = extractPlayerLogContext(content);
     }
     return result;
+}
+
+QString extractPlayerLogContext(const QString &content)
+{
+    const PlayerLogAnalysis analysis = analyzePlayerLog(content);
+    if (analysis.kind != PlayerLogAnalysis::HardCrash
+        && analysis.kind != PlayerLogAnalysis::OutOfMemory)
+        return QString();
+
+    const int errOff = locateErrorOffset(content, analysis.kind);
+    if (errOff < 0)
+        return QString();
+
+    // 从关键错误所在行往前回溯 kContextLeadingLines 行作为显示起点；
+    // 不足该行长时从 content 开头开始。
+    int start = errOff;
+    // 先对齐到关键错误所在行的行首
+    {
+        const int nl = content.lastIndexOf('\n', start - 1);
+        start = (nl >= 0) ? nl + 1 : 0;
+    }
+    // 再向上跨越 kContextLeadingLines 条换行（每条换行对应上一行行首偏移）。
+    // 注意：start 位于行首时，紧邻其前的 '\n' 是上一行的结尾，需从 start-2 起往前查找
+    // 上上一行的换行，才能正确走到上一行的行首，避免原地踏步。
+    int moved = 0;
+    while (moved < playerlog::kContextLeadingLines && start > 0) {
+        const int nl = content.lastIndexOf('\n', start - 2);
+        if (nl < 0) {
+            start = 0;
+            break;
+        }
+        start = nl + 1;
+        ++moved;
+    }
+
+    // 截取 [start, content末尾]。EOF 方向上会包含完整日志上下文 + 崩溃段。
+    return content.mid(start);
 }
 
 PlayerLogAnalysis analyzePlayerLogFile(const QString &logPath, qint64 maxTailBytes)

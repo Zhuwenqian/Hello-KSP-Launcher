@@ -24,10 +24,22 @@ struct PlayerLogAnalysis {
     };
     Kind kind = LogMissing;
     int signo = -1; // 仅当 kind == HardCrash 时有意义（见 describeSigno），否则为 -1
+    // 关键错误上下文：以关键错误（崩溃标记/OOM）所在行为基准，往前回溯 kContextLeadingLines
+    // 行作为起点，一直到 content 末尾的文本。仅当 kind 为 HardCrash / OutOfMemory 时填充，
+    // 其余情况为空。供弹窗的滚动文本框展示。
+    QString context;
 };
+
+// 关键错误上下文向前回溯的行数（含关键错误所在行）。
+constexpr int kContextLeadingLines = 40;
 
 // 纯字符串解析：从日志内容中判定崩溃类型。content 通常是日志文件尾部一段。
 PlayerLogAnalysis analyzePlayerLog(const QString &content);
+
+// 返回关键错误上下文文本：定位关键错误（崩溃标记/OOM）所在行，往前回溯
+// kContextLeadingLines 行作为起点，返回 [起点, content末尾] 的文本。
+// content 中无关键错误时返回空字符串。纯字符串解析，供单元测试与弹窗展示。
+QString extractPlayerLogContext(const QString &content);
 
 // 读取日志文件末尾 maxTailBytes 字节后调用 analyzePlayerLog。
 // 文件不存在或无法打开返回 { LogMissing }。maxTailBytes<=0 时退化为全量读取。

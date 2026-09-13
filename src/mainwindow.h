@@ -74,6 +74,8 @@ private:
 #endif
     // 游戏异常退出后读取 Player.log 尾部分析崩溃原因并弹窗（见 onGameFinished）
     void maybeShowCrashAnalysis();
+    // 将指定的日志文件整体打包为 zip 到启动器目录，返回 zip 绝对路径（失败返回空字符串）
+    QString packLogToZip(const QString& logPath);
     
     void refreshIcons(const QString& theme);
     void updateBackgroundPixmap();
