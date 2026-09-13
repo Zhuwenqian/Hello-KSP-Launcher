@@ -105,6 +105,7 @@ set(SOURCES
     src/instancemanager_keymap.cpp
     src/instancemanager_settings.cpp
     src/instancemanager_saves.cpp
+    src/instancemanager_ships.cpp
     src/instancemanager_backup.cpp
     src/instancemanager_modpack.cpp
     src/playerloganalyzer.cpp
@@ -134,6 +135,7 @@ set(SOURCES
     src/pages/aboutpage.cpp
     src/pages/savestabpage.cpp
     src/pages/savedetailpage.cpp
+    src/pages/shiptabpage.cpp
     src/widgets/instanceitemwidget.cpp
     src/widgets/toggleswitch.cpp
     # 实例导出需在启动器内直接生成 ZIP（miniz 编译进 DLL 但未导出，故在 exe 内单独编译一份）
@@ -174,6 +176,7 @@ set(HEADERS
     src/pages/aboutpage.h
     src/pages/savestabpage.h
     src/pages/savedetailpage.h
+    src/pages/shiptabpage.h
     src/widgets/instanceitemwidget.h
     src/widgets/toggleswitch.h
     thirdparty/miniz.h
@@ -199,7 +202,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # 消费 libckan.dll 需 dllimport（CKAN_BUILD_SHARED）；声明自身 include 目录
 target_compile_definitions(${PROJECT_NAME} PRIVATE CKAN_BUILD_SHARED)
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dwmapi)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dwmapi shell32)
 endif()
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -295,6 +298,7 @@ add_executable(test_launcher
     src/updatemanager.cpp
     src/instanceiconmanager.cpp
     src/playerloganalyzer.cpp
+    src/instancemanager_ships.cpp
     src/services/indexservice.cpp
     src/services/cacheservice.cpp
     src/services/installservice.cpp

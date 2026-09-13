@@ -3,6 +3,17 @@
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
+#include <QFileInfo>
+#include <string>
+#include <vector>
+
+#ifdef Q_OS_WIN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 QString InstanceManager::getSavesDir(const QString &gamePath) const
 {
@@ -12,6 +23,35 @@ QString InstanceManager::getSavesDir(const QString &gamePath) const
 QString InstanceManager::getPersistentSfsPath(const QString &saveFolderPath) const
 {
     return QDir(saveFolderPath).filePath("persistent.sfs");
+}
+
+bool InstanceManager::moveSaveToTrash(const QString &saveFolderPath) const
+{
+    QFileInfo info(saveFolderPath);
+    if (!info.exists()) {
+        return false;
+    }
+
+#ifdef Q_OS_WIN
+    // Windows: SHFileOperation(FO_DELETE + FOF_ALLOWUNDO) 将整个文件夹移入回收站，可撤销。
+    // pFrom 必须以双 null 结尾，且为宽字符。
+    std::wstring ws = QDir::toNativeSeparators(saveFolderPath).toStdWString();
+    std::vector<wchar_t> from(ws.begin(), ws.end());
+    from.push_back(L'\0'); // 结尾双 null，保证即便有额外纠结也终止
+    from.push_back(L'\0');
+
+    SHFILEOPSTRUCT op = {};
+    op.hwnd = nullptr; // 我们自己已弹确认框，不需要系统再显示删除确认
+    op.wFunc = FO_DELETE;
+    op.pFrom = from.data();
+    op.pTo = nullptr;
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
+    return (SHFileOperation(&op) == 0);
+#else
+    // macOS / Linux 无统一回收站 API，直接永久删除整个文件夹。
+    QDir dir(saveFolderPath);
+    return dir.removeRecursively();
+#endif
 }
 
 QStringList InstanceManager::listSaves(const QString &gamePath) const

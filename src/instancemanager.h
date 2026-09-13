@@ -52,6 +52,13 @@ struct KerbalInfo {
     int lineNumber;      // KERBAL块起始行
 };
 
+struct ShipInfo {
+    QString fileName;    // 完整文件名 (xxx.craft)
+    QString name;        // ship = XXX（飞船名）
+    QString version;     // version = X.Y.Z（游戏版本）
+    QString description; // description = XXXX
+};
+
 struct BackupInfo {
     QString fileName;    // 备份文件名
     QString filePath;    // 完整文件路径
@@ -84,6 +91,21 @@ public:
     bool saveKerbals(const QString& saveFolderPath, const QList<KerbalInfo>& kerbals) const;
     QString getSavesDir(const QString& gamePath) const;
     QString getPersistentSfsPath(const QString& saveFolderPath) const;
+    // 将存档文件夹移动到系统回收站（Windows）。其他平台（macOS/Linux）无统一回收站 API，
+    // 直接永久删除整个文件夹。删除后存档将无法恢复，请先由界面提示用户。
+    bool moveSaveToTrash(const QString& saveFolderPath) const;
+
+    // 飞船管理（Ships/craft）
+    // Ships 根目录（…/Ships）；type 为 "VAB" 或 "SPH"，对应 Ships/VAB、Ships/SPH。
+    QString getShipsDir(const QString& gamePath) const;
+    // 列出 type 子目录下的 .craft 文件（排除 .loadmeta、*.craft.original 等），按文件名排序
+    QStringList listCraftFiles(const QString& gamePath, const QString& type) const;
+    // 解析 craft 顶层的 ship/version/description；name 缺失时回退为文件名（去 .craft 后缀）
+    ShipInfo loadCraftInfo(const QString& craftFilePath) const;
+    // 缩略图路径（Ships/@thumbs/{type}/{名称}.png|.jpg），找不到返回空串
+    QString getShipThumbPath(const QString& gamePath, const QString& type, const QString& craftFileName) const;
+    // 将单个 craft 文件移动到系统回收站（Windows）；其他平台直接永久删除
+    bool moveCraftToTrash(const QString& craftFilePath) const;
 
     // 备份管理
     // 备份目录结构：backups/{实例名-id前8位}/{存档名}/*.zip

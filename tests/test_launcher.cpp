@@ -689,6 +689,114 @@ private slots:
     }
 };
 
+// craft 飞船管理：top-level 的 ship/version/description 解析、.craft 列表过滤、
+// 缩略图定位（纯文件系统逻辑，一 feature 一测试）。
+class TestShips : public QObject
+{
+    Q_OBJECT
+private slots:
+    void loadCraftInfoParsesTopLevelKeys()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString p = dir.filePath(QStringLiteral("FFCraft.craft"));
+        QFile f(p);
+        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
+        f.write(
+            "ship = FFCraft\n"
+            "version = 1.12.5\n"
+            "description = a probe core test\n"
+            "PART\n"
+            "{\n"
+            "    name = probeCore\n"
+            "}\n");
+        f.close();
+
+        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        QCOMPARE(info.fileName, QStringLiteral("FFCraft.craft"));
+        QCOMPARE(info.name, QStringLiteral("FFCraft"));
+        QCOMPARE(info.version, QStringLiteral("1.12.5"));
+        QCOMPARE(info.description, QStringLiteral("a probe core test"));
+    }
+
+    void loadCraftInfoIgnoresNestedKeys()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString p = dir.filePath(QStringLiteral("nested.craft"));
+        QFile f(p);
+        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
+        f.write(
+            "ship = TopShip\n"
+            "PART\n"
+            "{\n"
+            "    version = 0.0.1        // 嵌套 version 不得覆盖顶层\n"
+            "}\n"
+            "description = kept\n");
+        f.close();
+
+        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        QCOMPARE(info.name, QStringLiteral("TopShip"));
+        QCOMPARE(info.version, QStringLiteral("")); // 顶层无 version
+        QCOMPARE(info.description, QStringLiteral("kept"));
+    }
+
+    void loadCraftInfoFallsBackToFileNameWhenNoShip()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString p = dir.filePath(QStringLiteral("NoShip.craft"));
+        QFile f(p);
+        QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Text));
+        f.write("version = 1.0\nPART\n{\n}\n");
+        f.close();
+
+        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        QCOMPARE(info.name, QStringLiteral("NoShip")); // name 回退为文件名（去 .craft）
+        QCOMPARE(info.version, QStringLiteral("1.0"));
+    }
+
+    void listCraftFilesExcludesLoadmetaAndOriginal()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString vabDir = dir.filePath(QStringLiteral("Ships/VAB"));
+        QVERIFY(QDir().mkpath(vabDir));
+        for (const QString& name : {QStringLiteral("A.craft"),
+                                    QStringLiteral("B.craft"),
+                                    QStringLiteral("A.loadmeta"),
+                                    QStringLiteral("C.craft.original"),
+                                    QStringLiteral("notes.txt")}) {
+            QFile f(QDir(vabDir).filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.close();
+        }
+
+        const QStringList files = InstanceManager::instance().listCraftFiles(dir.path(), QStringLiteral("VAB"));
+        QCOMPARE(files, QStringList({QStringLiteral("A.craft"), QStringLiteral("B.craft")}));
+        QVERIFY(InstanceManager::instance().listCraftFiles(dir.path(), QStringLiteral("SPH")).isEmpty());
+    }
+
+    void getShipThumbPathMatchesBaseNameAndReturnsEmptyWhenMissing()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString thumbDir = dir.filePath(QStringLiteral("Ships/@thumbs/VAB"));
+        QVERIFY(QDir().mkpath(thumbDir));
+        QFile f(QDir(thumbDir).filePath(QStringLiteral("Rocket.png")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.close();
+
+        const QString found = InstanceManager::instance().getShipThumbPath(
+            dir.path(), QStringLiteral("VAB"), QStringLiteral("Rocket.craft"));
+        QVERIFY(found.endsWith(QStringLiteral("@thumbs/VAB/Rocket.png")));
+        QVERIFY(InstanceManager::instance().getShipThumbPath(
+                    dir.path(), QStringLiteral("VAB"), QStringLiteral("Nope.craft")).isEmpty());
+        QVERIFY(InstanceManager::instance().getShipThumbPath(
+                    dir.path(), QStringLiteral("SPH"), QStringLiteral("Rocket.craft")).isEmpty());
+    }
+};
+
 // CKanManager 退出清理（回归：关闭启动器后进程残留、registry.locked 被残留进程
 // 占用，导致重开启动器进模组管理一直提示被锁）。closeInstance() 在后台扫描在途时
 // 调用必须能取消等待并释放注册表锁，且幂等、未绑定实例时安全。
@@ -755,6 +863,8 @@ int main(int argc, char *argv[])
     failures += QTest::qExec(&tModsFilter, argc, argv);
     TestPlayerLogAnalyzer tPlayerLog;
     failures += QTest::qExec(&tPlayerLog, argc, argv);
+    TestShips tShips;
+    failures += QTest::qExec(&tShips, argc, argv);
     TestShutdownCleanup tShutdown;
     failures += QTest::qExec(&tShutdown, argc, argv);
     return failures;
