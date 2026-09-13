@@ -26,36 +26,16 @@ InstanceDetailPage::InstanceDetailPage(QWidget *parent)
 
 void InstanceDetailPage::setupUI()
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    QHBoxLayout* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    QWidget* topBar = new QWidget(this);
-    QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
-    topBarLayout->setContentsMargins(10, 5, 15, 5);
-
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
-    m_backButton->setObjectName("backButton");
-    m_backButton->setFixedHeight(40);
-    m_backButton->setMinimumWidth(100);
-    connect(m_backButton, &QPushButton::clicked, this, &InstanceDetailPage::onBackClicked);
-
-    m_titleLabel = new QLabel(tr("实例管理"), topBar);
-    m_titleLabel->setObjectName("pageTitle");
-
-    topBarLayout->addWidget(m_backButton);
-    topBarLayout->addWidget(m_titleLabel, 1);
-    mainLayout->addWidget(topBar);
-
-    QHBoxLayout* contentLayout = new QHBoxLayout();
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(0);
-
+    // 左侧二级菜单栏：整列通栏，位置/宽度与首页一级菜单栏保持一致
     m_detailSidebar = new QWidget(this);
-    m_detailSidebar->setFixedWidth(200);
+    m_detailSidebar->setFixedWidth(220);
     m_detailSidebar->setObjectName("sidebarWidget");
     QVBoxLayout* sidebarLayout = new QVBoxLayout(m_detailSidebar);
-    sidebarLayout->setContentsMargins(0, 10, 0, 10);
+    sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
     m_gameSettingsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), tr("  游戏设置"), m_detailSidebar);
@@ -117,7 +97,30 @@ void InstanceDetailPage::setupUI()
     sidebarLayout->addWidget(m_browseBtn);
     sidebarLayout->addStretch();
 
-    m_contentStack = new QStackedWidget(this);
+    // 右侧内容区：顶部为返回+标题，下方为二级 tab 栈
+    QWidget* rightContainer = new QWidget(this);
+    QVBoxLayout* rightLayout = new QVBoxLayout(rightContainer);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(0);
+
+    QWidget* topBar = new QWidget(rightContainer);
+    QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
+    topBarLayout->setContentsMargins(10, 5, 15, 5);
+
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
+    m_backButton->setObjectName("backButton");
+    m_backButton->setFixedHeight(40);
+    m_backButton->setMinimumWidth(100);
+    connect(m_backButton, &QPushButton::clicked, this, &InstanceDetailPage::onBackClicked);
+
+    m_titleLabel = new QLabel(tr("实例管理"), topBar);
+    m_titleLabel->setObjectName("pageTitle");
+
+    topBarLayout->addWidget(m_backButton);
+    topBarLayout->addWidget(m_titleLabel, 1);
+    rightLayout->addWidget(topBar);
+
+    m_contentStack = new QStackedWidget(rightContainer);
     // 各二级 tab 拆为独立页面类；栈下标按 showSection 约定：0=游戏设置 1=DLC 2=模组管理 3=高级
     m_gameSettingsTabPage = new GameSettingsTabPage(m_contentStack);
     m_contentStack->addWidget(m_gameSettingsTabPage);
@@ -139,9 +142,10 @@ void InstanceDetailPage::setupUI()
     connect(m_modpackController, &ModpackController::modsReloadRequested,  this, &InstanceDetailPage::onModpackReloadMods);
     connect(m_modpackController, &ModpackController::modsInstallRequested, this, &InstanceDetailPage::onModpackModsInstall);
 
-    contentLayout->addWidget(m_detailSidebar);
-    contentLayout->addWidget(m_contentStack, 1);
-    mainLayout->addLayout(contentLayout, 1);
+    rightLayout->addWidget(m_contentStack, 1);
+
+    mainLayout->addWidget(m_detailSidebar);
+    mainLayout->addWidget(rightContainer, 1);
 }
 
 void InstanceDetailPage::setInstanceId(const QString &id)

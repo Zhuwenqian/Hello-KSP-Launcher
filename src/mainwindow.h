@@ -39,7 +39,7 @@ private slots:
     void onAddInstanceRequested();
     void runSteamDiscovery();
     void onInstanceEntered(const QString& id);
-    void onBackToInstanceList();
+    void onBackFromInstanceDetail();
     void onBackToHome();
     void onLaunchClicked();
     void onLaunchSwitchClicked();
@@ -104,6 +104,10 @@ private:
     SettingsPage* m_settingsPage;
     AboutPage* m_aboutPage;
     SaveDetailPage* m_saveDetailPage;
+
+    // 实例管理详情页的返回目标：进入详情页时记录（设置/关于入口记首页），返回后清空；
+    // 存档详情返回实例管理时保持原值，保证"返回最初进入前的页面"。
+    QWidget* m_instanceDetailReturnPage = nullptr;
 
     // Launch bar
     QPushButton* m_launchButton;

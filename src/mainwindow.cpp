@@ -187,7 +187,7 @@ void MainWindow::setupUI()
     connect(m_instanceListPage, &InstanceListPage::backClicked,
             this, &MainWindow::onBackToHome);
     connect(m_instanceDetailPage, &InstanceDetailPage::backClicked,
-            this, &MainWindow::onBackToInstanceList);
+            this, &MainWindow::onBackFromInstanceDetail);
     connect(m_settingsPage, &SettingsPage::themeChanged,
             this, &MainWindow::applyTheme);
     // 存档 tab 双击存档 → 打开全屏存档详情编辑器
@@ -385,7 +385,8 @@ void MainWindow::updateWindowButtons()
     const QString icon = isMaximized()
         ? QStringLiteral(":/icons/window-restore.svg")
         : QStringLiteral(":/icons/window-maximize.svg");
-    m_winMaxBtn->setIcon(IconUtils::tintedIcon(icon, "#d0d0d0"));
+    m_winMaxBtn->setIcon(IconUtils::tintedIcon(icon, IconUtils::iconColorForTheme(m_currentTheme)));
+    m_winCloseBtn->setIcon(IconUtils::tintedIcon(":/icons/window-close.svg", IconUtils::iconColorForTheme(m_currentTheme)));
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
@@ -629,6 +630,10 @@ void MainWindow::refreshIcons(const QString &theme)
     m_instanceListPage->refreshIcons(color);
     m_instanceDetailPage->refreshIcons(color);
     m_saveDetailPage->refreshIcons(color);
+
+    // 标题栏窗口控制按钮随主题切换颜色
+    m_winMinBtn->setIcon(IconUtils::tintedIcon(":/icons/window-minimize.svg", color));
+    updateWindowButtons();
 }
 
 void MainWindow::setNavButtonChecked(QPushButton* btn)
@@ -654,6 +659,10 @@ void MainWindow::onNavButtonClicked()
     } else if (btn == m_instanceManageBtn) {
         KSPInstance cur = ConfigManager::instance().currentInstance();
         if (!cur.id.isEmpty()) {
+            // 记录返回目标：从设置/关于进入时直接回首页，其余回进入前的页面
+            QWidget* prev = m_contentStack->currentWidget();
+            m_instanceDetailReturnPage = (prev == m_settingsPage || prev == m_aboutPage)
+                ? m_homePage : prev;
             m_instanceDetailPage->loadCurrentInstance();
             showPage(m_instanceDetailPage);
             m_launchBar->hide();
@@ -778,18 +787,37 @@ QString MainWindow::makeUniqueInstanceName(const QString &base, QSet<QString> &u
 
 void MainWindow::onInstanceEntered(const QString &id)
 {
+    // 从实例列表进入 → 返回时回实例列表
+    m_instanceDetailReturnPage = m_instanceListPage;
     setNavButtonChecked(m_instanceManageBtn);
     m_instanceDetailPage->setInstanceId(id);
     showPage(m_instanceDetailPage);
     m_launchBar->hide();
 }
 
-void MainWindow::onBackToInstanceList()
+void MainWindow::onBackFromInstanceDetail()
 {
-    setNavButtonChecked(m_instanceListBtn);
-    m_instanceListPage->refresh();
-    showPage(m_instanceListPage);
-    m_launchBar->hide();
+    // 返回进入实例管理前的页面：首页/实例列表/设置/关于；
+    // 未记录时（异常路径）兜底回实例列表。
+    QWidget* target = m_instanceDetailReturnPage ? m_instanceDetailReturnPage : m_instanceListPage;
+    m_instanceDetailReturnPage = nullptr;
+    if (target == m_homePage) {
+        onBackToHome();
+    } else if (target == m_settingsPage) {
+        setNavButtonChecked(m_settingsBtn);
+        showPage(m_settingsPage);
+        m_launchBar->hide();
+    } else if (target == m_aboutPage) {
+        setNavButtonChecked(m_aboutBtn);
+        showPage(m_aboutPage);
+        m_launchBar->hide();
+    } else {
+        // 实例列表：保留刷新
+        setNavButtonChecked(m_instanceListBtn);
+        m_instanceListPage->refresh();
+        showPage(m_instanceListPage);
+        m_launchBar->hide();
+    }
 }
 
 void MainWindow::onBackToHome()

@@ -90,44 +90,16 @@ SaveDetailPage::SaveDetailPage(QWidget *parent)
 
 void SaveDetailPage::setupUI()
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    QHBoxLayout* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // 顶部栏
-    QWidget* topBar = new QWidget(this);
-    QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
-    topBarLayout->setContentsMargins(10, 5, 15, 5);
-
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
-    m_backButton->setObjectName("backButton");
-    m_backButton->setFixedHeight(40);
-    m_backButton->setMinimumWidth(100);
-    connect(m_backButton, &QPushButton::clicked, this, &SaveDetailPage::onBackClicked);
-
-    m_homeButton = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), "", topBar);
-    m_homeButton->setObjectName("backButton");
-    m_homeButton->setFixedSize(40, 40);
-    connect(m_homeButton, &QPushButton::clicked, this, &SaveDetailPage::onHomeClicked);
-
-    m_titleLabel = new QLabel(tr("存档详情"), topBar);
-    m_titleLabel->setObjectName("pageTitle");
-
-    topBarLayout->addWidget(m_backButton);
-    topBarLayout->addWidget(m_homeButton);
-    topBarLayout->addWidget(m_titleLabel, 1);
-    mainLayout->addWidget(topBar);
-
-    QHBoxLayout* contentLayout = new QHBoxLayout();
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(0);
-
-    // 侧边栏
+    // 左侧二级菜单栏：整列通栏，位置/宽度与首页一级菜单栏保持一致
     m_sidebar = new QWidget(this);
-    m_sidebar->setFixedWidth(200);
+    m_sidebar->setFixedWidth(220);
     m_sidebar->setObjectName("sidebarWidget");
     QVBoxLayout* sidebarLayout = new QVBoxLayout(m_sidebar);
-    sidebarLayout->setContentsMargins(0, 10, 0, 10);
+    sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
     m_saveInfoBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), tr("  存档信息"), m_sidebar);
@@ -154,14 +126,43 @@ void SaveDetailPage::setupUI()
     sidebarLayout->addWidget(m_backupsBtn);
     sidebarLayout->addStretch();
 
-    m_contentStack = new QStackedWidget(this);
+    // 右侧内容区：顶部为返回+标题，下方为二级 tab 栈
+    QWidget* rightContainer = new QWidget(this);
+    QVBoxLayout* rightLayout = new QVBoxLayout(rightContainer);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(0);
+
+    QWidget* topBar = new QWidget(rightContainer);
+    QHBoxLayout* topBarLayout = new QHBoxLayout(topBar);
+    topBarLayout->setContentsMargins(10, 5, 15, 5);
+
+    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), topBar);
+    m_backButton->setObjectName("backButton");
+    m_backButton->setFixedHeight(40);
+    m_backButton->setMinimumWidth(100);
+    connect(m_backButton, &QPushButton::clicked, this, &SaveDetailPage::onBackClicked);
+
+    m_homeButton = new QPushButton(IconUtils::tintedIcon(":/icons/home.svg", "#ffffff"), "", topBar);
+    m_homeButton->setObjectName("backButton");
+    m_homeButton->setFixedSize(40, 40);
+    connect(m_homeButton, &QPushButton::clicked, this, &SaveDetailPage::onHomeClicked);
+
+    m_titleLabel = new QLabel(tr("存档详情"), topBar);
+    m_titleLabel->setObjectName("pageTitle");
+
+    topBarLayout->addWidget(m_backButton);
+    topBarLayout->addWidget(m_homeButton);
+    topBarLayout->addWidget(m_titleLabel, 1);
+    rightLayout->addWidget(topBar);
+
+    m_contentStack = new QStackedWidget(rightContainer);
     setupSaveInfoTab();
     setupKerbalsTab();
     setupBackupsTab();
+    rightLayout->addWidget(m_contentStack, 1);
 
-    contentLayout->addWidget(m_sidebar);
-    contentLayout->addWidget(m_contentStack, 1);
-    mainLayout->addLayout(contentLayout, 1);
+    mainLayout->addWidget(m_sidebar);
+    mainLayout->addWidget(rightContainer, 1);
 }
 
 void SaveDetailPage::setupSaveInfoTab()
