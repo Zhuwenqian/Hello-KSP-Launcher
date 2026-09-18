@@ -1,64 +1,62 @@
 # Release Notes
 
-## v1.3.0 — Save Management Rework, Updater Self-Update & UI Polish (2026-09-12)
+## v1.4.0 — Ship Management, Progressive Mod Selection & UI Performance (2026-09-18)
 
-This release refactors save management into a sub-tab of the instance detail page, upgrades the backup directory scheme to avoid collisions, lets the built-in updater update itself, and polishes the custom title bar and About page.
+This release adds a full ship (`.craft`) manager for instances and saves with drag-and-drop import, makes the recommends/suggests dialogs progressive and per-module, speeds up the instance detail page through lazy loading, and lets the mod list persist its view state per instance.
 
-### Save Management Now Lives Inside the Instance Detail Page
+### Ship Management (Instances & Saves)
 
-"Save Management" was previously a standalone full-screen page (`SavesListPage`) that duplicated the instance-detail sidebar and had to route export/import/browse **back** through the mod-management tab. It is now a second-level tab of the instance detail page, consistent with Game Settings and Mod Management.
+A new ship manager lists, inspects and imports `.craft` files for any instance and for any save, mirroring the save manager's tabbed placement.
 
-- **New `savestabpage.{h,cpp}`** — contains only the save list (`loadSaves`, double-click `saveSelected`). Object name `savesTabPage`.
-- **`instancedetailpage.{h,cpp}`** — adds a 4th tab (Save Management) to its `QStackedWidget`; the sidebar "Save Management" button now calls `showSection(4)`; `showSection` gained idx=4 selection and `loadSaves`; new `saveSelected` signal; removed the `savesManageRequested` signal.
-- **`mainwindow.{h,cpp}`** — dropped `SavesListPage` and the `onSavesManageRequested` / `onSavesNavToDetail` / `onSavesModpackAction` / `onBackFromSavesList` routing; `InstanceDetailPage::saveSelected` connects straight to `onSaveSelected`; `onBackFromSaveDetail` returns to the instance detail page and stays on the save tab.
-- **Export/import/browse** — triggered in place from within the save tab, reusing the instance detail sidebar's ZIP/CKAN and browse menus (same `ModpackController`), no tab hopping.
-- **Removed** `saveslistpage.{h,cpp}`; `CMakeLists.txt` and `dark/light.qss` `savesListPage` rules cleaned up accordingly.
-- **Tests** — both suites build; the UI was verified manually: save management never navigates away, export/import opens in place, and returning from save detail lands back on the save tab.
+- **Instance ship manager** (`shiptabpage.{h,cpp}`, new) — an `QTabWidget` with **VAB / SPH** tabs listing `.craft` files (auto-excluding `.loadmeta`, `.craft.original`, etc.); each row shows the ship name (sans `.craft`) and game version (parsed from `version = X.Y.Z`, "Unknown" when missing).
+- **Ship detail (second page in-list)** — clicking a row opens name (`ship = XXX`), game version, and a read-only description (`description = XXX`), with the matching thumbnail from `Ships/@thumbs/VAB|SPH` on the right (rocket SVG fallback when missing).
+- **Parsing** (`instancemanager_ships.cpp`) — `listCraftFiles` (filename-sorted, `.craft` only), `loadCraftInfo` (read-only `ship/version/description`, name falls back to filename), `getShipThumbPath` (png/jpg), `moveCraftToTrash`.
+- **Entry points** — the instance detail sidebar gained a "Ship Management" 5th tab (`showSection(5)`, `rocket.svg`); the save detail page gained a "Ship Management" 3rd tab reusing the same `ShipTabPage` via a settable base path (`setShipsBase`) that auto-locates `instanceRoot/saves/saveName/Ships/VAB|SPH`.
+- **Import ships** — the list toolbar gained an "Import Ships" button (`download.svg`); import via `QFileDialog` (multi-select) or by directly **dragging-and-dropping** `.craft` onto a VAB/SPH tab; imports into the current tab's folder; case-insensitive name collisions prompt an "Overwrite Ship" confirm (Yes = overwrite / No = skip / Cancel = abort the rest), preserving the target's original casing.
+- **Delete to recycle bin** — each row now has a trash button (replacing the old decorative arrow in the save list too); deletion moves the `.craft` / save folder to the system recycle bin on Windows (`SHFileOperation(FO_DELETE + FOF_ALLOWUNDO)`), permanent delete elsewhere.
+- **Translations / tests** — new ShipTabPage strings fully translated to en_US (0 unfinished); `test_launcher` adds `TestShips` (top-level key parsing, nested keys don't override, name fallback, list filtering, thumbnail location). No automated tests for the import / trash flows (they depend on modal dialogs and instance paths, consistent with project convention).
 
-### Backup Directory Upgrade (Collision-Proof)
+### Progressive, Per-Module Recommends/Suggests Dialogs
 
-Backups previously lived in `backups/{instanceName}/{saveName}/*.zip`; two similarly named instances with the same save name could overwrite each other's backups. The first level now appends the first 8 characters of the instance id (the first UUID segment, e.g. `550e8400`): `backups/{instanceName-idPrefix}/{saveName}/*.zip`. Instance ids are globally unique and unchanged by renaming, so backups stay locatable even after any explicit rename.
+Installing a module now resolves and asks for its recommendations/suggestions **module by module**, instead of aggregating everything into one giant list.
 
-- **Directory computation** (`instancemanager_backup.cpp` `getBackupDirForSave`) — `sanitizeFileName(instanceName) + "-" + instanceId.left(8)`; the save-name level keeps the plain name. An empty id falls back to the instance name alone for robustness.
-- **Lazy migration** (`migrateLegacyBackups`) — both legacy layouts (`backups/{instanceName}/{saveName}` and the even older single-level `backups/{saveName}`) are migrated on access; if a target already exists (name collision) migration is skipped to stay idempotent; migrated `*.zip` files are moved and old dirs emptied.
-- **Instance id threading** — backup-related `InstanceManager` interfaces (`getBackupDirForSave` / `listBackups` / `createBackup` / `restoreBackup`) gained an `instanceId` parameter; the `saveSelected` / `setSavePath` chain `savestabpage → instancedetailpage → mainwindow → savedetailpage` passes the id along (`savestabpage` uses `m_instance.id` directly).
-- **Backup zip file naming is unchanged** — `saveName[_note]_yyyyMMdd_HHmmss.zip`; only the directory level changed.
+- **Collection** (`relationshipresolver.{h,cpp}`, `ckan.{h,cpp}`) — new `collectOptionalFor(parent, curInstallSet, wantRecommends)` collects only a **single parent module's** own Recommends/Suggests candidates, skipping already-installed/selected/conflicting ones, with **no auto-cascade**. The old all-in-one aggregation is no longer used for popups.
+- **Install flow** (`installservice.cpp` `resolveInstallSet`) — two-phase progressive resolution:
+  - **Phase 1 (Recommends)** — for each explicitly-installed module, show a recommends dialog one at a time; merge selections into the install set and queue newly added modules (FIFO) until nothing new appears.
+  - **Phase 2 (Suggests)** — show a suggests dialog per explicit module; if a newly-chosen module's recommends weren't shown in phase 1, ask them first, then its suggests.
+  - Each module is installed once (deduplicated by identifier); modules with no candidates are silently skipped; each dialog is titled with its source parent.
+- **Selection dialog** (`moddecision.{h,cpp}`) — `askOptionalModules` gained a Trak-a-dock **"Select all / Select none"** toggle button that flips with the current state, plus a `parentName` context header. The **Cancel button has been removed** — the only way out is "Install Selected"; abandoning an install returns you to mod management.
+- **Tests** — `test_libckan` adds `collectOptionalNoCascade` (per-module, no cascade, no cross-contamination) and `collectOptionalSkipsInstalledAndSelected`. All green.
 
-### The Built-in Updater Can Now Update Itself
+### Mod Management UI (Splitter & Per-Instance State)
 
-The updater is exempt from its own keep-list (it always skips `updater.exe` during cleanup/move), so it cannot replace itself. Previously the Release notes asked v1.2.0 users to replace it manually. Now, when a Release notes body marks "this Release ships an updated built-in updater", the update **keeps the update package zip** and the restarted new launcher silently replaces `updater.exe` — no manual step required.
+- **Draggable list/detail splitter** (`modstabpage.cpp`, `configmanager.{h,cpp}`) — a vertical `QSplitter` (`modSplitter`) sits between the mod table and the 4 detail tabs (metadata/files/relationships/versions); dragging it resizes the list height (list stays on top, detail tabs move down). Initial 3:2 split, both panes non-collapsible; the bottom action bar stays put. The top-pane height persists to `HKSPL.json` (`modSplitterTopHeight`, global) with 250ms debounced saving; applied exactly in the first `showEvent` by the splitter's real height.
+- **Per-instance list state** (`configmanager.{h,cpp}`, `modstabpage.cpp`) — each instance's mod list restores its exact view across instance switches/restarts: search text, status filter (All/Installed/Upgradable/Not installed), tag filter, detail tab index, sort column+order, vertical scroll, and the selected module. Saved on change (300ms debounce; flushed before switching instances) into a dedicated `modListViewState` section keyed by instance id. Restored after the async list load (`restoreListStateAfterLoad`) with an `m_restorePending` flag distinguishing first-entry load from same-instance refresh.
 
-- **Detection** (`updatemanager.{h,cpp}` `bodyIndicatesUpdaterUpdate`) — matches the bilingual phrases in the Release body (Chinese "本 Release 含有更新器" or English "ships an updated built-in updater"); on a hit `ReleaseInfo.updaterUpdate=true`.
-- **Keep zip** (`updatemanager.cpp` `applyUpdate`) — on Windows, if `updaterUpdate`, writes an `updater_pending` marker (containing the zip filename) into `.updater_update/` and passes `--keep-zip` to the updater; `src/updater/main.cpp` parses `--keep-zip` and no longer deletes the `.updater_update` directory on completion.
-- **New launcher replacement** (`main.cpp`, after the startup guard, Windows only) — `applyPendingUpdaterUpdate` detects `updater_pending` → looks up `updater.exe` in the kept zip by basename (tolerates the single-top-level release layout, case-insensitive) → extracts to a temp file → overwrites the app dir's `updater.exe` → on success removes `.updater_update` entirely. On failure a dialog offers "Retry / Ignore" (Ignore calls `cleanupPendingUpdaterUpdate`); normally silent and non-blocking.
-- **Zip entry API** (`updatemanager.{h,cpp}`) — `findZipEntryByBaseName` / `extractZipEntry` (miniz-based) for locating and extracting updater entries at any depth.
-- **Translations** — 7 new UI strings with full en_US (`556` all translated), `.qm` rebuilt and synced to `dist/translations`.
-- **Tests** — `test_launcher` adds `updaterUpdateBodyDetection` and `zipUpdaterEntry` (both-locale detection, no false positive on plain logs, any-depth lookup, case-insensitivity, missing entry, extraction content match). Both `ctest` suites pass.
+### Instance Detail Page — Lazy Loading
 
-### Custom Title Bar Edge Resizing Fixed
+Entering instance management no longer loads everything ahead of time; each secondary tab fetches its data only when entered.
 
-`Qt::FramelessWindowHint` strips the native `WS_THICKFRAME` style that enables window resizing, so the frameless window could not be resized from its edges.
+- `instancedetailpage.cpp` `showSection` — mod manager tab triggers `prepareMods()` (async index + DLL scan), save tab `loadSaves()`, ship tab `loadShips()`. The page opens on "Game Settings" and does no heavy work up front.
+- **Mods tab** (`modstabpage.{h,cpp}`) — `setInstance` only records the instance, and `setTabActive(true)` re-prepares mods on each entry.
+- **Saves tab** (`savestabpage.{h,cpp}`) — `loadSaves()` runs in a `QtConcurrent::run` background thread iterating the directory and parsing `persistent.sfs` per file, filling the list via a `QFutureWatcher` (with a "Loading saves..." placeholder); post-delete refresh reuses the same async path.
+- **Ships tab** (`shiptabpage.{h,cpp}`) — `loadShips()` parses VAB + SPH in a background thread and fills via watcher; row construction is split out as `addShipRow`.
+- **Thread safety** — `InstanceManager::listSaves/loadSaveInfo/listCraftFiles/loadCraftInfo` are pure file reads with no shared mutable state, safe to call off the main thread.
 
-- **Patch** (`mainwindow.{h,cpp}` `applyNativeFrameStyle`, Windows only) — keeps the frameless custom-drawn look, then after the first `showEvent` and in `toggleMaximize`, re-adds `WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX` via `SetWindowLongPtr(GWL_STYLE)` and calls `SetWindowPos(SWP_FRAMECHANGED)` so the system recomputes the non-client area. `WS_CAPTION` is deliberately not restored, so no system title bar appears.
-- **Hit-test** (`WM_NCHITTEST`) — the edge/corner grab area widened from 6px to 8px to pair with the restored `WS_THICKFRAME` for smooth native resizing.
-- **Result** — all four edges resize freely and smoothly while the custom-drawn frameless title bar is preserved.
+### Crash Log Dialog — Context & One-Click Log Packing
 
-### About Page Entry Icons
+- **Context window** (`playerloganalyzer.{h,cpp}`) — `analyzePlayerLog` gained a `context` field; `extractPlayerLogContext` takes the key error line (crash marker `Caught fatal signal` / OOM) and walks back up to 40 lines (`kContextLeadingLines`) from there to the end of the log.
+- **Dialog** (`mainwindow.cpp` `maybeShowCrashAnalysis`) — a read-only, selectable `QPlainTextEdit` (min height 240px) now pastes the error context inside the message box, plus a new "Save Log" button.
+- **One-click packing** (`mainwindow.{h,cpp}` `packLogToZip`) — streams the whole `Player.log` into a zip (miniz callbacks, never loading a multi-hundred-MB log into memory), saved next to the launcher as `<cleaned-instance>-<id8>_<yyMMdd_HHmmss>.zip`; illegal filename characters are folded to underscores. Success shows the full path; failure warns without leaving a partial zip.
+- **Tests** — `test_launcher` adds three `extractPlayerLogContext` cases (≥40-line backtrace start, short-log head start, no crash returns empty).
 
-- **Credits section** — KSP-CKAN team (`ckan.png`), Hello Minecraft Launcher project (`hmcl.png`); the two mirrors gh-proxy.com and ghfast.top share the GitHub icon (`github.png`).
-- **Dependencies section** — Qt 6 (`qt6.png`).
-- **Implementation** — 4 PNGs registered into `resources/resources.qrc`; `aboutpage.cpp` loads the `QPixmap` in its constructor and passes it as the 4th arg to `makeLinkRow`.
+### UI Polish
 
-### Full English (en_US) Localization
-
-The source contains 548 UI strings but `translations/hello_ksp_launcher_en_US.ts` had only 506. Re-extracted with `lupdate` (`build/en_fresh.ts`) and compared to fill in the 43 missing English translations added by recent versions (crash log analysis, modpack import/export, debug mode, recommends/suggests dialogs, batch & uninstall progress, registry-lock hint, self-update SHA256, etc.). All 548 strings now have translations (`lrelease` reports 0 unfinished); the existing 506 were untouched. `.qm` was rebuilt and synced to `dist/translations`. Since English is the default language, first launch now shows a complete English UI.
+- **Secondary sidebar alignment** — the instance-detail and save-detail secondary menus now run the full window height as a left column, width unified to **220px** matching the home sidebar (the back/title bar moves into the content area top).
 
 ### Tech Stack
 
 - **Framework**: Qt 6 (Widgets, Svg, Network, Concurrent)
-
 - **Language**: C++17
-
 - **Build**: CMake ≥ 3.16; Windows uses Qt's bundled mingw toolchain
-
 - **Testing**: `test_libckan` + `test_launcher` (all passed)

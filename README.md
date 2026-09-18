@@ -18,7 +18,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 
 ## Features
 
-- **Instance Management** — Add, rename, delete, and switch between multiple KSP installations with ease.
+- **Instance Management** — Add, rename, delete, and switch between multiple KSP installations with ease. The detail page lazy-loads mods/saves/ships only when you enter each tab, so navigation stays snappy on large instances.
 - **Steam Discovery** — On startup, automatically scans Steam libraries (via Windows registry + libraryfolders.vdf), finds KSP installations, and adds them to the instance list (named with the detected version, deduplicated by path).
 - **One-Click Launch** — Launch your selected KSP instance immediately. Configurable post-launch behavior: keep the launcher open, minimize to tray, or auto-close.
 - **Game Settings Editor** — Browse and edit KSP settings.cfg values in a tree view. Boolean values use a smooth toggle switch. Save changes directly.
@@ -27,9 +27,11 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Parallel Downloads** — Modules download concurrently (configurable up to 8 at a time) with a unified progress view and cancel button.
 - **Mod Suggestions** — During installation, optional suggested mods (from the "suggests" field) are shown in a checkbox dialog; selected suggestions and their dependencies are resolved and installed automatically. Can be toggled in settings.
 - **Mod Recommendations** — When a module recommends others (the "recommends" field), a checkbox dialog (all selected by default) lets you pick which recommended mods and their dependencies to install, instead of silently auto-installing. Can be toggled in settings.
+- **Mod Install Dialogs** — Recommends/suggests are resolved **progressively per module** (no more aggregated mega-list). Each dialog carries a "Select all / Select none" toggle and no Cancel — "Install Selected" is the only exit. The mod list also gains a draggable list/detail splitter and per-instance view-state persistence.
 - **Flexible Sources & Cache** — Switch between official and mirror download sources, configure the index refresh interval, and manage the download cache folder (precise cleanup and cache migration).
 - **Atomic Transactions** — Install, uninstall, and upgrade run as atomic transactions with automatic rollback on failure or cancellation, so no files are left behind and the registry is restored to its pre-operation state.
-- **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches.
+- **Save Management** — View all saves for an instance, inspect save metadata (mode, version, modded status, etc.), and edit Kerbal attributes (name, trait, bravery, stupidity, badS, veteran, hero) with inline editing and toggle switches. Delete saves to the system recycle bin.
+- **Ship Management** — List, inspect, and import `.craft` ships for any instance or save: VAB/SPH tabs, a detail view (name, game version, description, thumbnail), drag-and-drop or file-picker import with name-collision overwrite, and delete-to-recycle-bin.
 - **Backup Management** — Create, browse, and delete save backups with a progress dialog.
 - **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files). Export embeds an `hkspl_package.json` metadata file (launcher version, precise game version, name, description); import validates it first and rejects mismatched or corrupt packages. Import from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
 - **Custom Background** — Choose any PNG/JPG as the launcher background. Cover-mode scaling. Resets to default with one click.
@@ -38,7 +40,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Custom Title Bar** — A frameless, semi-transparent theme-colored title bar with custom minimize/maximize(restore)/close buttons, drag-to-move, double-click maximize, Aero snap, and edge resizing (Windows).
 - **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. The built-in updater can also update itself — a pending `updater.exe` replacement is silently applied on the next launch. Optional auto-check on startup plus a manual "Check for Updates" button.
 - **About Page Release Link** — The version entry in the About page opens its corresponding GitHub Release.
-- **Crash Log Analysis** — When the game exits abnormally (non-zero exit code), the launcher reads the tail of KSP's `Player.log`, detects a hard crash or an out-of-memory condition, and explains the cause with targeted advice. Can be toggled in settings.
+- **Crash Log Analysis** — When the game exits abnormally (non-zero exit code), the launcher reads the tail of KSP's `Player.log`, detects a hard crash or an out-of-memory condition, and explains the cause with targeted advice. The dialog shows the key error context and offers one-click packing of the full log into a zip. Can be toggled in settings.
 - **Debug Logging** — A "debug mode" switch (from the next launch) writes run logs with timestamps, levels, and thread ids to `HKSPL.log` next to the launcher for troubleshooting.
 - **Windows Only** — Built with Qt 6 and CMake, targeting Windows (x64).
 
@@ -175,7 +177,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 
 ## 功能特色
 
-- **实例管理** — 轻松添加、重命名、删除和切换多个 KSP 游戏实例。
+- **实例管理** — 轻松添加、重命名、删除和切换多个 KSP 游戏实例。详情页仅在进入对应 tab 时才异步加载模组/存档/飞船数据，大实例下进入页面依然流畅。
 - **Steam 发现** — 启动时自动扫描 Steam 库（通过 Windows 注册表 + libraryfolders.vdf），找到 KSP 安装并自动加入实例列表（按检测到的版本命名，按路径去重）。
 - **一键启动** — 立即启动所选 KSP 实例。支持启动后行为：保持打开、最小化到任务栏或自动关闭启动器。
 - **游戏设置编辑** — 以树形视图浏览和编辑 KSP 的 settings.cfg 配置。布尔值使用平滑动画开关控件，修改后一键保存。
@@ -185,9 +187,11 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **并行下载** — 模组并发下载（并发数可配，最高 8），统一进度显示与取消按钮。
 - **模组建议** — 安装过程中弹窗显示可选建议模组（源自 "suggests" 字段），勾选后连同其依赖自动解析安装；可在设置中关闭。
 - **模组推荐** — 当安装的模组推荐其他模组（"recommends" 字段）时，弹窗勾选（默认全选）决定安装哪些推荐模组及其依赖，而不再静默自动安装；可在设置中关闭，关闭后回到自动安装推荐。
+- **模组安装弹窗** — 推荐/建议模组改为**逐模组渐进式**弹窗（不再一股脑汇总成一个大列表），每框带「全选/全不选」切换、无「取消」按钮只能「安装所选」退出；模组列表另新增可拖动的列表/详情分隔条，并按实例持久化列表停留状态。
 - **灵活的下载源与缓存** — 官方/镜像下载源可切换，索引刷新间隔可配置，支持下载缓存文件夹管理（精确清理与缓存迁移）。
 - **原子事务** — 安装、卸载、升级以原子事务执行，失败或取消时自动回滚，不残留任何文件，并还原注册表到操作前状态。
-- **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑小绿人属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。
+- **存档管理** — 查看实例的所有存档，浏览存档元数据（模式、版本、是否含模组等），并支持编辑小绿人属性（名称、职业、勇敢度、愚蠢度、坏蛋/老兵/英雄标志），布尔值使用开关控件。存档可一键删除并移入系统回收站。
+- **飞船管理** — 列出并浏览实例/存档的 `.craft` 飞船（VAB/SPH 双 tab），查看详情（名称、游戏版本、描述、缩略图）；支持文件选择或拖拽导入（重名提示覆盖），逐条删除移入回收站。
 - **备份管理** — 创建、浏览和删除存档备份，支持进度条显示。
 - **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；导出时写入 `hkspl_package.json` 元数据（启动器版本、精确游戏版本、名称、描述），导入时先行校验并拒绝不匹配或损坏的包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
@@ -196,7 +200,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **自绘标题栏** — 无边框、半透明主题色标题栏，含自定义最小化/最大化→还原/关闭按钮，支持拖动、双击最大化、Aero 贴靠与边缘缩放（Windows）。
 - **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；内置更新器自身也可自更新（下次启动静默替换 `updater.exe`）；可选启动时自动检查，另设手动「检查更新」按钮。
 - **关于页 Release 链接** — 关于页版本首条可点击，跳转对应 GitHub Release。
-- **崩溃日志分析** — 游戏异常退出（非 0 退出码）时自动读取 KSP `Player.log` 尾部，识别硬崩溃或内存溢出并给出针对性建议；可在设置中开关。
+- **崩溃日志分析** — 游戏异常退出（非 0 退出码）时自动读取 KSP `Player.log` 尾部，识别硬崩溃或内存溢出并给出针对性建议；弹窗展示关键错误上下文，并支持一键将完整日志打包为 zip；可在设置中开关。
 - **调试日志** — 设置中的「调试模式」开关（下次启动生效）会把带时间戳/级别/线程号的运行日志写入启动器目录下的 `HKSPL.log`，便于排障。
 - **仅支持 Windows** — 基于 Qt 6 和 CMake 构建，面向 Windows（x64）平台。
 
