@@ -10,6 +10,8 @@
 #include <QProgressDialog>
 #include "../instancemanager.h"
 
+class ShipTabPage;
+
 class SaveDetailPage : public QWidget
 {
     Q_OBJECT
@@ -41,6 +43,7 @@ private:
     void setupUI();
     void setupSaveInfoTab();
     void setupKerbalsTab();
+    void setupShipsTab();
     void setupBackupsTab();
     void showKerbalDetail(const KerbalInfo& kerbal);
     bool collectKerbalData(QList<KerbalInfo>& kerbals);
@@ -62,6 +65,7 @@ private:
 
     QPushButton* m_saveInfoBtn;
     QPushButton* m_kerbalsBtn;
+    QPushButton* m_shipsBtn;
     QPushButton* m_backupsBtn;
 
     // 存档信息页面
@@ -81,6 +85,9 @@ private:
     QListWidget* m_backupList;
     QPushButton* m_createBackupBtn;
     QPushButton* m_refreshBackupsBtn;
+
+    // 飞船管理页面（复用实例详情页的 ShipTabPage）
+    ShipTabPage* m_shipsPage;
 };
 
 #endif // SAVEDETAILPAGE_H

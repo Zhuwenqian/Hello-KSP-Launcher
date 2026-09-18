@@ -271,6 +271,19 @@ void ConfigManager::setCompatibleVersions(const QString &instanceId, const QStri
     }
 }
 
+QJsonObject ConfigManager::modListViewState(const QString &instanceId) const
+{
+    return m_config["modListViewState"].toObject().value(instanceId).toObject();
+}
+
+void ConfigManager::setModListViewState(const QString &instanceId, const QJsonObject &state)
+{
+    QJsonObject section = m_config["modListViewState"].toObject();
+    section[instanceId] = state;
+    m_config["modListViewState"] = section;
+    save(); // 随改随存：每次防抖后立即持久化，无需额外兜底
+}
+
 bool ConfigManager::installSuggests() const
 {
     return m_config["installSuggests"].toBool(true);
@@ -473,6 +486,20 @@ void ConfigManager::setModTableColumnWidths(const QVector<int> &widths)
         save();
         emit configChanged();
     }
+}
+
+int ConfigManager::modSplitterTopHeight() const
+{
+    return m_config["modSplitterTopHeight"].toInt(-1);
+}
+
+void ConfigManager::setModSplitterTopHeight(int top)
+{
+    if (top < 0) top = -1;
+    if (m_config["modSplitterTopHeight"].toInt(-1) == top) return;
+    m_config["modSplitterTopHeight"] = top;
+    save();
+    emit configChanged();
 }
 
 QVector<ckan::Repository> ConfigManager::repositories() const

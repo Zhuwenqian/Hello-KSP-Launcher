@@ -73,6 +73,13 @@ public:
     // 低于 1.9（或高于 1.12）时仅勾选检测版本所在版本线；检测失败回退静态 1.9~1.12。
     static QStringList defaultCompatibleVersions(const ckan::GameVersion &detectedVersion);
 
+    // ---- 模组管理列表 UI 状态（每实例，随改随存）----
+    // 每个实例的模组管理列表还原状态：滚动位置/状态筛选/标签筛选/详情tab/排序/搜索/选中模组。
+    // 存于 HKSPL.json 独立配置节 "modListViewState"（以实例 id 为键）。
+    // 未配置/字段缺失返回空对象，调用方按默认值兜底（优雅兼容旧配置文件）。
+    QJsonObject modListViewState(const QString &instanceId) const;
+    void setModListViewState(const QString &instanceId, const QJsonObject &state);
+
     // 安装时是否显示级联建议模组的勾选弹窗（默认开启）
     bool installSuggests() const;
     void setInstallSuggests(bool enable);
@@ -129,6 +136,10 @@ public:
     void setModTableColumnWidths(const QVector<int> &widths);
     // 内置默认列宽（顺序与 ModsTableModel::Column 一致）
     static QVector<int> defaultModTableColumnWidths();
+
+    // 模组管理垂直分隔条：上方段（列表）高度，像素。-1=未设置（用默认 3:2）。
+    int modSplitterTopHeight() const;
+    void setModSplitterTopHeight(int top);
 
     // 仓库列表（多仓库）：数组顺序即优先级（首位优先级最高）。
     // 默认仅含 KSP-CKAN 官方仓库；可自由增删。

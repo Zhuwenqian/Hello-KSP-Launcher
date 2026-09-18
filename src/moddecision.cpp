@@ -48,7 +48,8 @@ moddecision::ConflictChoice askConflict(const QStringList &conflicts)
     return { moddecision::ConflictAction::OverwriteAll, {} };        // 全部覆盖：不删除任何文件夹
 }
 
-// 可选模组勾选弹窗（Recommends / Suggests 共用）：每个模组一个复选框（默认勾选）。
+// 可选模组勾选弹窗（Recommends / Suggests 共用）：每个模组一个复选框（默认勾选），
+// 列表顶部一个"全选/全不选"切换按钮（随当前勾选状态动态切换文案）。
 // cancelled 输出用户是否取消（区别于"全都不选"）。
 QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString &info,
                                              const QVector<ckan::CkanModule> &modules, bool *cancelled)
@@ -69,6 +70,23 @@ QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString
     QWidget *listHost = new QWidget(scroll);
     QVBoxLayout *listLay = new QVBoxLayout(listHost);
     QVector<QCheckBox*> boxes;
+    // "全选/全不选"切换按钮：当前全部勾选 → 显示"全不选"，否则显示"全选"，点击后按需切换。
+    QPushButton *toggleBtn = new QPushButton(listHost);
+    auto updateToggle = [&]() {
+        bool all = !boxes.isEmpty();
+        for (const QCheckBox *cb : boxes)
+            if (!cb->isChecked()) { all = false; break; }
+        toggleBtn->setText(all ? QObject::tr("全不选") : QObject::tr("全选"));
+        toggleBtn->setEnabled(!boxes.isEmpty());
+    };
+    QObject::connect(toggleBtn, &QPushButton::clicked, listHost, [&]() {
+        bool all = !boxes.isEmpty();
+        for (const QCheckBox *cb : boxes)
+            if (!cb->isChecked()) { all = false; break; }
+        for (QCheckBox *cb : boxes) cb->setChecked(!all);
+        updateToggle();
+    });
+    listLay->addWidget(toggleBtn, 0, Qt::AlignLeft);
     for (const ckan::CkanModule &m : modules) {
         QString text = m.name + QStringLiteral("  (") + m.identifier
                      + QStringLiteral(" ") + m.version + QStringLiteral(")");
@@ -78,15 +96,15 @@ QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString
         boxes.append(cb);
         listLay->addWidget(cb);
     }
+    updateToggle();
     listLay->addStretch();
     scroll->setWidget(listHost);
     lay->addWidget(scroll, 1);
 
-    QDialogButtonBox *btnBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    // 推荐/建议窗口不含"取消"：只能点"安装所选"退出，如需放弃回到启动器模组管理界面取消。
+    QDialogButtonBox *btnBox = new QDialogButtonBox(QDialogButtonBox::Ok, &dlg);
     btnBox->button(QDialogButtonBox::Ok)->setText(QObject::tr("安装所选"));
-    btnBox->button(QDialogButtonBox::Cancel)->setText(QObject::tr("取消"));
     QObject::connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-    QObject::connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     lay->addWidget(btnBox);
 
     if (dlg.exec() != QDialog::Accepted) {
@@ -102,18 +120,24 @@ QVector<ckan::CkanModule> askOptionalModules(const QString &title, const QString
 }
 
 // 推荐安装模组勾选弹窗（Recommends）：默认全选，用户可按需取消个别或全部。
-QVector<ckan::CkanModule> askRecommends(const QVector<ckan::CkanModule> &recommends, bool *cancelled)
+QVector<ckan::CkanModule> askRecommends(const QVector<ckan::CkanModule> &recommends, bool *cancelled,
+                                        const QString &parentName)
 {
-    return askOptionalModules(QObject::tr("推荐安装的模组"),
-                              QObject::tr("以下模组为该模组推荐安装（Recommends），默认全部勾选，可按需取消："),
+    const QString parent = parentName.isEmpty() ? QObject::tr("所选模组") : parentName;
+    return askOptionalModules(QObject::tr("%1 推荐安装的模组").arg(parent),
+                              QObject::tr("%1 推荐安装以下模组（Recommends），默认全部勾选，可按需选择：")
+                                  .arg(parent),
                               recommends, cancelled);
 }
 
 // 建议安装模组勾选弹窗（Suggests）：默认全选，用户可按需取消个别或全部。
-QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests, bool *cancelled)
+QVector<ckan::CkanModule> askSuggests(const QVector<ckan::CkanModule> &suggests, bool *cancelled,
+                                      const QString &parentName)
 {
-    return askOptionalModules(QObject::tr("建议安装的模组"),
-                              QObject::tr("以下模组为可选建议（Suggests），默认全部勾选，可按需取消："),
+    const QString parent = parentName.isEmpty() ? QObject::tr("所选模组") : parentName;
+    return askOptionalModules(QObject::tr("%1 建议安装的模组").arg(parent),
+                              QObject::tr("%1 建议安装以下模组（Suggests），默认全部勾选，可按需选择：")
+                                  .arg(parent),
                               suggests, cancelled);
 }
 

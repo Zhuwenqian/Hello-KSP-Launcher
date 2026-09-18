@@ -22,9 +22,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QAbstractScrollArea>
+#include <QScrollBar>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
+#include <QShowEvent>
 #include <QtConcurrent/QtConcurrent>
 #include <algorithm>
 
@@ -186,7 +188,18 @@ void ModsTabPage::setupUi()
         updateSelectAllButtonText();
         updateModActionButtons();
     });
-    layout->addWidget(m_modTable, 1);
+    // 垂直分隔条：上方=列表段（表格+进度条），下方=详情四tab，拖动分隔条调节上下高度分配
+    m_modSplitter = new QSplitter(Qt::Vertical, this);
+    m_modSplitter->setObjectName("modSplitter");
+    m_modSplitter->setChildrenCollapsible(false);
+    m_modSplitter->setCollapsible(0, false);
+    m_modSplitter->setCollapsible(1, false);
+    QWidget* listSection = new QWidget(m_modSplitter);
+    listSection->setObjectName("modListSection");
+    QVBoxLayout* listSecLayout = new QVBoxLayout(listSection);
+    listSecLayout->setContentsMargins(0, 0, 0, 0);
+    listSecLayout->setSpacing(8);
+    listSecLayout->addWidget(m_modTable, 1);
 
     // 下载进度条（任务进行中显示）
     m_modProgressWidget = new QWidget(this);
@@ -207,11 +220,12 @@ void ModsTabPage::setupUi()
     progLayout->addWidget(m_modProgressLabel);
     progLayout->addWidget(m_cancelDownloadBtn);
     m_modProgressWidget->setVisible(false);
-    layout->addWidget(m_modProgressWidget);
+    listSecLayout->addWidget(m_modProgressWidget);
 
     // 底部：详情（四 tab）+ 操作按钮
+    // 最小高取小值，给分隔条留出实际拖动空间（默认窗口下 210 会顶死拖不动）
     m_modDetailTabs = new QTabWidget(this);
-    m_modDetailTabs->setMinimumHeight(210);
+    m_modDetailTabs->setMinimumHeight(140);
     m_modDetailTabs->setObjectName("modDetailTabs");
 
     // ① 元数据 tab
@@ -287,7 +301,26 @@ void ModsTabPage::setupUi()
     verLay->addWidget(m_versionsInstallBtn);
     m_modDetailTabs->addTab(verWrap, tr("版本"));
 
-    layout->addWidget(m_modDetailTabs);
+    // 将列表段与详情四tab装配到分隔条；构造期未布局，仅设默认 3:2 初始值，
+    // 持久化高度的精确还原在 showEvent（页面首次布局后）进行。
+    m_modSplitter->addWidget(listSection);
+    m_modSplitter->addWidget(m_modDetailTabs);
+    m_modSplitter->setStretchFactor(0, 3);
+    m_modSplitter->setStretchFactor(1, 2);
+    m_modSplitter->setSizes({600, 400});
+    // 拖动分隔条（防抖 250ms）后持久化上方段高度；QTimer 以 this 为父随页存活
+    QTimer* splitterSaveTimer = new QTimer(this);
+    splitterSaveTimer->setSingleShot(true);
+    splitterSaveTimer->setInterval(250);
+    connect(splitterSaveTimer, &QTimer::timeout, this, [this]() {
+        const QList<int> sizes = m_modSplitter->sizes();
+        if (sizes.size() == 2)
+            ConfigManager::instance().setModSplitterTopHeight(sizes.at(0));
+    });
+    connect(m_modSplitter, &QSplitter::splitterMoved, this, [this, splitterSaveTimer]() {
+        splitterSaveTimer->start();
+    });
+    layout->addWidget(m_modSplitter, 1);
 
     QWidget* btnBar = new QWidget(this);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
@@ -354,14 +387,51 @@ void ModsTabPage::setupUi()
     connect(&m_controller, &ModsController::singleDownloadFinished,
             this, &ModsTabPage::onSingleDownloadFinished);
 
+    // 模组列表 UI 状态持久化（每实例，随改随存）：防抖 300ms 落盘。
+    // 搜索/状态筛选/标签筛选/选中行在各自槽内 queueStateSave()，这里挂接详情tab/排序/滚动。
+    m_stateSaveTimer = new QTimer(this);
+    m_stateSaveTimer->setSingleShot(true);
+    m_stateSaveTimer->setInterval(300);
+    connect(m_stateSaveTimer, &QTimer::timeout, this, &ModsTabPage::captureAndSaveListState);
+    connect(m_modDetailTabs, &QTabWidget::currentChanged, this,
+            [this](int) { queueStateSave(); });
+    connect(hHeader, &QHeaderView::sortIndicatorChanged, this,
+            [this](int, Qt::SortOrder) { queueStateSave(); });
+    connect(m_modTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
+            [this](int) { queueStateSave(); });
+
     updateModActionButtons();
+}
+
+void ModsTabPage::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    // 仅首次显示时还原：此刻页面已完成布局，可用高度为真实值，
+    // 下方详情段取剩余空间，避免构造期 setSizes 被 Qt 按可用空间归一化导致持久化失效。
+    if (m_splitterRestored || !m_modSplitter)
+        return;
+    m_splitterRestored = true;
+    const int savedTop = ConfigManager::instance().modSplitterTopHeight();
+    if (savedTop > 0) {
+        const int avail = m_modSplitter->height();
+        if (avail > 0) {
+            const int top = qBound(1, savedTop, avail - 1);
+            m_modSplitter->setSizes({top, avail - top});
+        }
+    }
 }
 
 void ModsTabPage::setInstance(const KSPInstance &inst, const QString &instanceId)
 {
+    // 先把本页当前控件上的状态落盘到上一实例（端口切换前即便防抖未触发也不丢改动）
+    if (!m_instanceId.isEmpty())
+        captureAndSaveListState();
     m_instance = inst;
     m_instanceId = instanceId;
-    prepareMods();
+    // 还原目标实例的状态到控件（标签下拉/滚动/选中行待列表数据就绪后再还原）
+    restoreListState();
+    // 索引加载 / DLL 扫描 / 模型构建推迟到真正进入"模组管理"tab 时由 setTabActive(true) 触发，
+    // 避免进入实例管理页（默认停在游戏设置）就提前做重活。
 }
 
 void ModsTabPage::prepareMods()
@@ -421,17 +491,9 @@ void ModsTabPage::setTabActive(bool active)
         m_registryLockPollTimer->stop();
     }
     if (!active) return;
-    // 数据未就绪时给出"加载中"提示（后台扫描/索引加载完成会自动填充）
-    if (!m_modsReady) {
-        CKanManager &mgr = CKanManager::instance();
-        if (!mgr.indexReady())
-            setDetailNote(tr("正在加载 CKAN 仓库索引，请稍候..."));
-        else
-            setDetailNote(tr("正在扫描已安装的 DLL，请稍候..."));
-    } else {
-        // 确保刷新按钮状态与选中态一致
-        updateModActionButtons();
-    }
+    // 进入模组管理 tab：触发索引加载 + DLL 扫描（异步，不阻塞 UI，就绪后自动回填模型）。
+    // 每次进入都重新装载，保证手动放入/移除的模组 DLL 与索引状态最新。
+    prepareMods();
 }
 
 // .ckan 整合包导入：跳转后带待装清单，索引就绪后自动批量安装。
@@ -547,6 +609,89 @@ void ModsTabPage::onModsLoadFinished()
     updateModActionButtons();
     const int n = m_modsModel->rowCount();
     setDetailNote(tr("仓库索引已就绪，共 %1 个模组。").arg(n));
+    // 数据就绪（含标签下拉重建）后，还原本实例的标签选中/选中行/滚动位置。
+    restoreListStateAfterLoad();
+}
+
+// ---- 模组列表 UI 状态持久化（每实例，随改随存）----
+
+void ModsTabPage::captureAndSaveListState()
+{
+    if (m_instanceId.isEmpty() || !m_modSearchEdit) return;
+    QJsonObject o;
+    o["searchText"] = m_modSearchEdit->text();
+    bool ok = false;
+    const int statusFilter = m_modFilterCombo->currentData().toInt(&ok);
+    o["statusFilter"] = ok ? statusFilter : -1;
+    o["tagFilter"] = m_tagFilterCombo->currentData().toString();
+    o["detailTab"] = m_modDetailTabs->currentIndex();
+    o["sortColumn"] = m_modTable->horizontalHeader()->sortIndicatorSection();
+    o["sortOrder"] = static_cast<int>(m_modTable->horizontalHeader()->sortIndicatorOrder());
+    o["scrollPos"] = m_modTable->verticalScrollBar()->value();
+    o["selectedIdentifier"] = m_currentModIdentifier;
+    ConfigManager::instance().setModListViewState(m_instanceId, o);
+}
+
+void ModsTabPage::queueStateSave()
+{
+    if (m_stateSaveTimer)
+        m_stateSaveTimer->start();
+}
+
+void ModsTabPage::restoreListState()
+{
+    const QJsonObject st = ConfigManager::instance().modListViewState(m_instanceId);
+    m_pendingState = st; // 空对象=无已存状态，按默认值兜底
+    m_restorePending = true; // 标记本次为"进入实例的首次加载"（刷新时的加载不做标签重置/滚动还原）
+
+    if (m_modSearchEdit)
+        m_modSearchEdit->setText(st["searchText"].toString());
+    if (m_modFilterCombo) {
+        const int idx = m_modFilterCombo->findData(st["statusFilter"].toInt(-1));
+        m_modFilterCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    }
+    if (m_modDetailTabs)
+        m_modDetailTabs->setCurrentIndex(st["detailTab"].toInt(0));
+    // 排序：已保存则应用；未保存则回退默认名称升序（避免残留上一实例的排序）
+    const int col = st["sortColumn"].toInt(ModsTableModel::ColName);
+    const bool asc = st["sortOrder"].toInt(0) == 0;
+    if (col >= 0 && col < ModsTableModel::ColumnCount)
+        m_modTable->sortByColumn(col, asc ? Qt::AscendingOrder : Qt::DescendingOrder);
+    // 标签筛选/选中行/滚动位置：待列表数据就绪（标签下拉重建）后由 restoreListStateAfterLoad 还原
+}
+
+void ModsTabPage::restoreListStateAfterLoad()
+{
+    if (!m_restorePending || !m_tagFilterCombo) return;
+    // 标签筛选：下拉已重建。按保存值选定；无保存/标签已消失则归位「全部标签」（同时重置上一实例残留）。
+    const QString tag = m_pendingState["tagFilter"].toString();
+    const int idx = m_tagFilterCombo->findData(tag);
+    m_tagFilterCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    // 选中行/滚动：仅在有已存状态时还原（新实例不预选、不滚动）。
+    if (m_pendingState.isEmpty() || !m_modsProxy || !m_modsModel || !m_modTable) {
+        m_restorePending = false;
+        return;
+    }
+    // 恢复选中行：按标识符定位并选中，触发详情展示。
+    const QString selId = m_pendingState["selectedIdentifier"].toString();
+    if (!selId.isEmpty()) {
+        for (int r = 0; r < m_modsProxy->rowCount(); ++r) {
+            const QModelIndex src = m_modsProxy->mapToSource(
+                m_modsProxy->index(r, ModsTableModel::ColName));
+            const ckan::CkanModule *mod = m_modsModel->modulePtr(src.row());
+            if (mod && mod->identifier == selId) {
+                m_modTable->selectRow(r);
+                m_modTable->setCurrentIndex(m_modsProxy->index(r, ModsTableModel::ColName));
+                break;
+            }
+        }
+    }
+    // 滚动位置：行已就绪且已按恢复的筛选/排序排号后还原。
+    const int sp = m_pendingState["scrollPos"].toInt(0);
+    if (sp > 0)
+        m_modTable->verticalScrollBar()->setValue(sp);
+    m_restorePending = false;
+    m_pendingState = QJsonObject(); // 已消费：后续刷新又不反复滚动/选中
 }
 
 void ModsTabPage::onUnmanagedScanFinished()
@@ -559,6 +704,7 @@ void ModsTabPage::onUnmanagedScanFinished()
 void ModsTabPage::onModSearchChanged(const QString &text)
 {
     if (!m_modsProxy) return;
+    queueStateSave(); // 随改随存：搜索词防抖落盘
     // 清空搜索立即恢复全量列表；非空输入防抖 150ms，合并连续输入为一次过滤
     if (text.trimmed().isEmpty()) {
         m_searchDebounceTimer->stop();
@@ -577,12 +723,14 @@ void ModsTabPage::onSearchDebounceTimeout()
 void ModsTabPage::onModFilterChanged(int index)
 {
     if (!m_modsProxy || !m_modFilterCombo) return;
+    queueStateSave(); // 随改随存：状态筛选（已安装/可升级/未安装/全部）
     m_modsProxy->setStatusFilter(m_modFilterCombo->itemData(index).toInt());
 }
 
 void ModsTabPage::onTagFilterChanged(int index)
 {
     if (!m_modsProxy || !m_tagFilterCombo) return;
+    queueStateSave(); // 随改随存：标签筛选
     m_modsProxy->setTagFilter(m_tagFilterCombo->itemData(index).toString());
 }
 
@@ -748,6 +896,7 @@ void ModsTabPage::onIndexRefreshed(CKanManager::IndexRefreshStatus status,
 void ModsTabPage::onModSelectionChanged()
 {
     if (!m_modsProxy || !m_modTable) return;
+    queueStateSave(); // 随改随存：选中模组（含清除）防抖落盘
     const QModelIndex idx = m_modTable->currentIndex();
     if (!idx.isValid()) {
         m_currentModIdentifier.clear();

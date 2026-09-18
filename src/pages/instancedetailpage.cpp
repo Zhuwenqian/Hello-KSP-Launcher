@@ -216,6 +216,8 @@ void InstanceDetailPage::showSection(int detailIndex)
     m_importModpackBtn->setChecked(false);
     m_exportModpackBtn->setChecked(false);
 
+    // 进入对应二级 tab 时才触发数据装载（全部异步，不阻塞切页）：
+    // 模组 tab → 索引加载 + DLL 扫描；存档/飞船 tab → 后台扫描解析列表。
     m_modsTabPage->setTabActive(detailIndex == 2);
     m_contentStack->setCurrentIndex(detailIndex);
 

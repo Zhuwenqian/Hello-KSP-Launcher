@@ -94,6 +94,21 @@ QPushButton#backButton:hover {
     background-color: transparent;
 }
 
+/* 模组管理垂直分隔条 */
+QSplitter::handle#modSplitter {
+    background-color: rgba(0, 0, 0, 0.10);
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+QSplitter::handle#modSplitter:hover {
+    background-color: rgba(0, 120, 215, 0.45);
+}
+QSplitter::handle#modSplitter:pressed {
+    background-color: rgba(0, 120, 215, 0.65);
+}
+
 /* Instance list */
 QScrollArea {
     background-color: transparent;

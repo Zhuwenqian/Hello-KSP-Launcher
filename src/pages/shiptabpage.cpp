@@ -19,6 +19,7 @@
 #include <QUrl>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace {
 // 类型下标 → Ships/VAB|SPH 目录名
@@ -147,14 +148,19 @@ void ShipTabPage::setupUI()
 
 void ShipTabPage::setInstanceId(const QString& id)
 {
-    m_instanceId = id;
-    m_instance = ConfigManager::instance().getInstance(id);
-    loadShips();
+    // 实例模式：飞船根 = 实例根目录（getShipsDir 会拼出 <根>/Ships）
+    setShipsBase(ConfigManager::instance().getInstance(id).path);
+}
+
+void ShipTabPage::setShipsBase(const QString& basePath)
+{
+    m_shipsBasePath = basePath;
+    // 不在此处加载：进入飞船 tab 时由 InstanceDetailPage::showSection 调用 loadShips()（异步）。
 }
 
 void ShipTabPage::loadShips()
 {
-    if (m_instance.path.isEmpty()) {
+    if (m_shipsBasePath.isEmpty()) {
         for (int i = 0; i < 2; ++i) {
             m_lists[i]->clear();
         }
@@ -162,68 +168,99 @@ void ShipTabPage::loadShips()
         return;
     }
     for (int i = 0; i < 2; ++i) {
-        populateList(i, m_instance.path);
+        m_lists[i]->clear();
+        m_lists[i]->addItem(tr("正在加载飞船..."));
     }
     // 重新进入飞船管理时回列表页（若上次停在详情）
     m_stack->setCurrentIndex(0);
+
+    // 后台线程：遍历 VAB/SPH 目录 + 逐文件解析 .craft（纯文件读取，线程安全）。
+    // 完成后回主线程填充两个列表，避免大量飞船下进入页面卡顿。
+    const QString base = m_shipsBasePath;
+    auto future = QtConcurrent::run([base]() {
+        QVector<ShipListEntry> out;
+        for (int i = 0; i < 2; ++i) {
+            const QString type = QString::fromLatin1(kShipTypeNames[i]);
+            const QStringList craftFiles = InstanceManager::instance().listCraftFiles(base, type);
+            const QString typeDir = QDir(InstanceManager::instance().getShipsDir(base)).filePath(type);
+            out.reserve(out.size() + craftFiles.size());
+            for (const QString& craftName : craftFiles) {
+                ShipListEntry e;
+                e.type = type;
+                e.craftPath = QDir(typeDir).filePath(craftName);
+                e.info = InstanceManager::instance().loadCraftInfo(e.craftPath);
+                out.append(e);
+            }
+        }
+        return out;
+    });
+    if (!m_shipsLoadWatcher) {
+        m_shipsLoadWatcher = new QFutureWatcher<QVector<ShipListEntry>>(this);
+        connect(m_shipsLoadWatcher, &QFutureWatcher<QVector<ShipListEntry>>::finished,
+                this, &ShipTabPage::onShipsLoadFinished);
+    }
+    m_shipsLoadWatcher->setFuture(future);
 }
 
-void ShipTabPage::populateList(int typeIndex, const QString& path)
+void ShipTabPage::onShipsLoadFinished()
 {
-    QListWidget* list = m_lists[typeIndex];
-    list->clear();
+    for (int i = 0; i < 2; ++i)
+        m_lists[i]->clear();
 
-    const QString type = QString::fromLatin1(kShipTypeNames[typeIndex]);
-    QStringList craftFiles = InstanceManager::instance().listCraftFiles(path, type);
-
-    for (const QString& craftName : craftFiles) {
-        QString craftPath = QDir(QDir(InstanceManager::instance().getShipsDir(path)).filePath(type))
-                                .filePath(craftName);
-        ShipInfo info = InstanceManager::instance().loadCraftInfo(craftPath);
-
-        QWidget* itemWidget = new QWidget(list);
-        QHBoxLayout* rowLayout = new QHBoxLayout(itemWidget);
-        rowLayout->setContentsMargins(20, 15, 20, 15);
-
-        QVBoxLayout* textLayout = new QVBoxLayout();
-        textLayout->setSpacing(4);
-
-        QLabel* nameLabel = new QLabel(info.name, itemWidget); // 无 .craft 后缀
-        nameLabel->setStyleSheet("font-weight: bold; font-size: 11pt;");
-
-        QString versionText = info.version;
-        if (versionText.isEmpty()) {
-            versionText = tr("未知");
-        }
-        QLabel* infoLabel = new QLabel(tr("游戏版本: %1").arg(versionText), itemWidget);
-        infoLabel->setStyleSheet("color: #888; font-size: 9pt;");
-
-        textLayout->addWidget(nameLabel);
-        textLayout->addWidget(infoLabel);
-
-        // 每行最右侧删除按钮：确认后把 craft 移到回收站
-        QPushButton* deleteBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#888"), "", itemWidget);
-        deleteBtn->setObjectName("iconButton");
-        deleteBtn->setFixedSize(36, 36);
-        deleteBtn->setCursor(Qt::PointingHandCursor);
-        deleteBtn->setToolTip(tr("删除飞船"));
-        connect(deleteBtn, &QPushButton::clicked, this,
-                [this, craftPath, type]() { onDeleteShipClicked(craftPath, type); });
-
-        rowLayout->addLayout(textLayout, 1);
-        rowLayout->addWidget(deleteBtn);
-
-        QListWidgetItem* item = new QListWidgetItem(list);
-        item->setSizeHint(QSize(0, 78));
-        item->setData(Qt::UserRole, craftPath);
-        item->setData(Qt::UserRole + 1, type);
-        list->addItem(item);
-        list->setItemWidget(item, itemWidget);
+    const QVector<ShipListEntry> entries = m_shipsLoadWatcher->result();
+    bool any[2] = { false, false };
+    for (const ShipListEntry& e : entries) {
+        const int ti = (e.type == QLatin1String("SPH")) ? 1 : 0;
+        addShipRow(m_lists[ti], e.craftPath, e.type, e.info);
+        any[ti] = true;
     }
-
-    if (craftFiles.isEmpty()) {
-        list->addItem(tr("（未检测到飞船）"));
+    for (int i = 0; i < 2; ++i) {
+        if (!any[i])
+            m_lists[i]->addItem(tr("（未检测到飞船）"));
     }
+}
+
+void ShipTabPage::addShipRow(QListWidget* list, const QString& craftPath, const QString& type,
+                             const ShipInfo& info)
+{
+    QWidget* itemWidget = new QWidget(list);
+    QHBoxLayout* rowLayout = new QHBoxLayout(itemWidget);
+    rowLayout->setContentsMargins(20, 15, 20, 15);
+
+    QVBoxLayout* textLayout = new QVBoxLayout();
+    textLayout->setSpacing(4);
+
+    QLabel* nameLabel = new QLabel(info.name, itemWidget); // 无 .craft 后缀
+    nameLabel->setStyleSheet("font-weight: bold; font-size: 11pt;");
+
+    QString versionText = info.version;
+    if (versionText.isEmpty()) {
+        versionText = tr("未知");
+    }
+    QLabel* infoLabel = new QLabel(tr("游戏版本: %1").arg(versionText), itemWidget);
+    infoLabel->setStyleSheet("color: #888; font-size: 9pt;");
+
+    textLayout->addWidget(nameLabel);
+    textLayout->addWidget(infoLabel);
+
+    // 每行最右侧删除按钮：确认后把 craft 移到回收站
+    QPushButton* deleteBtn = new QPushButton(IconUtils::tintedIcon(":/icons/trash-2.svg", "#888"), "", itemWidget);
+    deleteBtn->setObjectName("iconButton");
+    deleteBtn->setFixedSize(36, 36);
+    deleteBtn->setCursor(Qt::PointingHandCursor);
+    deleteBtn->setToolTip(tr("删除飞船"));
+    connect(deleteBtn, &QPushButton::clicked, this,
+            [this, craftPath, type]() { onDeleteShipClicked(craftPath, type); });
+
+    rowLayout->addLayout(textLayout, 1);
+    rowLayout->addWidget(deleteBtn);
+
+    QListWidgetItem* item = new QListWidgetItem(list);
+    item->setSizeHint(QSize(0, 78));
+    item->setData(Qt::UserRole, craftPath);
+    item->setData(Qt::UserRole + 1, type);
+    list->addItem(item);
+    list->setItemWidget(item, itemWidget);
 }
 
 void ShipTabPage::onTabChanged(int index)
@@ -257,7 +294,7 @@ void ShipTabPage::loadDetail(const QString& path, int typeIndex)
 
     // 缩略图：Ships/@thumbs/{type}/{名字}.png|.jpg；缺失时用火箭 SVG 兜底
     const QString thumb = InstanceManager::instance().getShipThumbPath(
-        m_instance.path, QString::fromLatin1(kShipTypeNames[typeIndex]), info.fileName);
+        m_shipsBasePath, QString::fromLatin1(kShipTypeNames[typeIndex]), info.fileName);
     if (!thumb.isEmpty()) {
         QPixmap pm(thumb);
         if (!pm.isNull()) {
@@ -290,9 +327,8 @@ void ShipTabPage::onDeleteShipClicked(const QString& craftPath, const QString& t
     }
 
     if (InstanceManager::instance().moveCraftToTrash(craftPath)) {
-        // 静默刷新当前类型列表
-        const int typeIndex = (type == "SPH") ? 1 : 0;
-        populateList(typeIndex, m_instance.path);
+        // 静默异步刷新两个类型列表
+        loadShips();
     } else {
         QMessageBox::warning(this, tr("删除失败"), tr("无法删除飞船，请检查文件是否被占用。"));
     }
@@ -311,12 +347,12 @@ void ShipTabPage::onImportShipsClicked()
 
 void ShipTabPage::importShipFiles(const QStringList& paths, int typeIndex)
 {
-    if (m_instance.path.isEmpty()) {
+    if (m_shipsBasePath.isEmpty()) {
         return;
     }
 
     const QString type = QString::fromLatin1(kShipTypeNames[typeIndex]);
-    const QString dirPath = QDir(InstanceManager::instance().getShipsDir(m_instance.path)).filePath(type);
+    const QString dirPath = QDir(InstanceManager::instance().getShipsDir(m_shipsBasePath)).filePath(type);
     const QDir dir(dirPath);
     if (!dir.exists()) {
         return;
@@ -325,8 +361,8 @@ void ShipTabPage::importShipFiles(const QStringList& paths, int typeIndex)
     // 目标目录内已存在的文件名（小写形式），用于大小写不敏感的重名检测
     const QStringList existingNames = dir.entryList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
 
-    // 禁止从本实例自身的 Ships/VAB、Ships/SPH 目录导入
-    const QString shipsDir = InstanceManager::instance().getShipsDir(m_instance.path);
+    // 禁止从本飞船根目录自身的 Ships/VAB、Ships/SPH 目录导入
+    const QString shipsDir = InstanceManager::instance().getShipsDir(m_shipsBasePath);
     auto absOf = [](const QString& p) {
         return QDir::cleanPath(QFileInfo(p).absoluteFilePath());
     };
@@ -386,7 +422,7 @@ void ShipTabPage::importShipFiles(const QStringList& paths, int typeIndex)
     }
 
     if (imported) {
-        populateList(typeIndex, m_instance.path);
+        loadShips();
     }
 }
 

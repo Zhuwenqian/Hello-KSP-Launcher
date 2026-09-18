@@ -15,6 +15,9 @@
 #include <QProgressBar>
 #include <QFutureWatcher>
 #include <QStringList>
+#include <QSplitter>
+
+class QShowEvent;
 
 #include "ckan/ckanmodule.h"
 #include "modscontroller.h"
@@ -34,6 +37,12 @@ class ModsTabPage : public QWidget
 public:
     explicit ModsTabPage(QWidget *parent = nullptr);
 
+protected:
+    // 首次显示时按真实可用高度精确还原分隔条持久化位置
+    // （构造期页面未布局，setSizes 会被 Qt 按可用空间重新归一化导致还原失效）。
+    void showEvent(QShowEvent *event) override;
+
+public:
     // 绑定实例并准备模组数据（非阻塞：后台索引/DLL 扫描，就绪后自动填充模型）。
     void setInstance(const KSPInstance &inst, const QString &instanceId);
     // 前台/离开切换：进入时补"加载中"提示或刷新按钮态，并控制注册表锁轮询开关。
@@ -98,6 +107,11 @@ private:
     void updateModActionButtons();
     void updateSelectAllButtonText();
     void setModButtonsEnabled(bool enabled);
+    // 模组列表 UI 状态持久化（每实例，随改随存）
+    void captureAndSaveListState();   // 立即抓取当前控件状态并落盘（切换实例前 flush、防抖超时回调）
+    void queueStateSave();            // 防抖后落盘（搜索/筛选/标签/详情tab/排序/滚动/选中行）
+    void restoreListState();          // setInstance 时把已存状态应用回控件（标签/滚动/选中行留待数据就绪）
+    void restoreListStateAfterLoad(); // 列表数据就绪（标签下拉重建后）还原标签选中/选中行/滚动位置
     void showModDetails(const ckan::CkanModule &mod);
     void setDetailNote(const QString &text);
     void showMetaTab(const ckan::CkanModule &mod);
@@ -141,6 +155,9 @@ private:
     QPushButton* m_historyBtn;    // 查看安装历史
     // 模组详情四 tab
     QTabWidget*  m_modDetailTabs;     // 元数据 / 文件 / 关系 / 版本
+    // 模组列表 / 详情垂直分隔条（上方=列表段，下方=四tab）
+    QSplitter*   m_modSplitter = nullptr;
+    bool         m_splitterRestored = false; // 分隔条持久化高度是否已还原（仅首次显示）
     QTextEdit*   m_metaText;          // 元数据 tab
     QTreeWidget* m_contentsTree;      // 文件清单 tab
     QLabel*      m_contentsStatusLabel;
@@ -163,6 +180,10 @@ private:
     QTimer* m_searchDebounceTimer = nullptr;
     // 模组列表列宽持久化：拖动后防抖落盘
     QTimer* m_colWidthSaveTimer = nullptr;
+    // 模组列表 UI 状态持久化（每实例，随改随存）：防抖定时器 + 待还原状态
+    QTimer* m_stateSaveTimer = nullptr;
+    QJsonObject m_pendingState; // 本次实例待还原状态（数据就绪后消费；空=无已存状态走默认）
+    bool m_restorePending = false; // 是否处于"进入实例的首次加载"（区分刷新，避免刷新时误重置标签）
 };
 
 #endif // MODSTABPAGE_H

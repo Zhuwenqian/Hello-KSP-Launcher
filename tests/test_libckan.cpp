@@ -1571,6 +1571,56 @@ private slots:
         QVERIFY(ids.contains(QStringLiteral("C")));
         QVERIFY(!ids.contains(QStringLiteral("B")));
     }
+    void collectOptionalNoCascade()
+    {
+        // 逐模组收集推荐/建议：只返回"该父模组自己的"候选，且不做级联；
+        // 两个父模组的推荐互不掺入（不再一股脑汇总进一个大列表）。
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        const CkanModule C = makeModule(QStringLiteral("C"), QStringLiteral("1.0"),
+                                        {}, {}, {}, {}, {sug(QStringLiteral("D"))});
+        const CkanModule D = makeModule(QStringLiteral("D"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B, C, D});
+        RelationshipResolver resolver(idx);
+        Registry reg;
+        const QVector<CkanModule> curSet{A, C}; // 用户明确安装 A、C
+
+        const QVector<CkanModule> recA = resolver.collectOptionalFor(A, curSet, reg, true);
+        QCOMPARE(recA.size(), 1);
+        QCOMPARE(recA.first().identifier, QStringLiteral("B"));
+        // 不级联：A 的推荐里不应出现 D
+        const QVector<CkanModule> recC = resolver.collectOptionalFor(C, curSet, reg, true);
+        QVERIFY(recC.isEmpty());
+
+        const QVector<CkanModule> sugA = resolver.collectOptionalFor(A, curSet, reg, false);
+        QVERIFY(sugA.isEmpty());
+        const QVector<CkanModule> sugC = resolver.collectOptionalFor(C, curSet, reg, false);
+        QCOMPARE(sugC.size(), 1);
+        QCOMPARE(sugC.first().identifier, QStringLiteral("D"));
+    }
+    void collectOptionalSkipsInstalledAndSelected()
+    {
+        // B 已在安装集/已安装 → 不再出现在推荐候选里。
+        const CkanModule A = makeModule(QStringLiteral("A"), QStringLiteral("1.0"),
+                                        {}, {dep(QStringLiteral("B"))});
+        const CkanModule B = makeModule(QStringLiteral("B"), QStringLiteral("1.0"));
+        const auto idx = makeIndex({A, B});
+        Registry reg;
+
+        // B 已在待装集合 → 跳过
+        RelationshipResolver r1(idx);
+        QVERIFY(r1.collectOptionalFor(A, {A, B}, reg, true).isEmpty());
+
+        // B 已安装（registry）→ 跳过
+        Registry reg2;
+        InstalledModule im;
+        im.identifier = QStringLiteral("B");
+        im.module = B;
+        reg2.installedModules[im.identifier] = im;
+        RelationshipResolver r2(idx);
+        QVERIFY(r2.collectOptionalFor(A, {A}, reg2, true).isEmpty());
+    }
 };
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 #include "savedetailpage.h"
 #include "../widgets/toggleswitch.h"
+#include "shiptabpage.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -115,6 +116,12 @@ void SaveDetailPage::setupUI()
     m_kerbalsBtn->setMinimumHeight(40);
     connect(m_kerbalsBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
+    m_shipsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"), tr("  飞船管理"), m_sidebar);
+    m_shipsBtn->setObjectName("detailNavButton");
+    m_shipsBtn->setCheckable(true);
+    m_shipsBtn->setMinimumHeight(40);
+    connect(m_shipsBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
+
     m_backupsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/package.svg", "#ffffff"), tr("  备份管理"), m_sidebar);
     m_backupsBtn->setObjectName("detailNavButton");
     m_backupsBtn->setCheckable(true);
@@ -123,6 +130,7 @@ void SaveDetailPage::setupUI()
 
     sidebarLayout->addWidget(m_saveInfoBtn);
     sidebarLayout->addWidget(m_kerbalsBtn);
+    sidebarLayout->addWidget(m_shipsBtn);
     sidebarLayout->addWidget(m_backupsBtn);
     sidebarLayout->addStretch();
 
@@ -158,6 +166,7 @@ void SaveDetailPage::setupUI()
     m_contentStack = new QStackedWidget(rightContainer);
     setupSaveInfoTab();
     setupKerbalsTab();
+    setupShipsTab();
     setupBackupsTab();
     rightLayout->addWidget(m_contentStack, 1);
 
@@ -266,6 +275,21 @@ void SaveDetailPage::setupKerbalsTab()
     m_contentStack->addWidget(tab);
 }
 
+void SaveDetailPage::setupShipsTab()
+{
+    // 复用实例详情页的飞船管理（ShipTabPage）：包裹一层无边框容器塞进内容栈
+    QWidget* tab = new QWidget(m_contentStack);
+    tab->setObjectName("saveDetailTab");
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    m_shipsPage = new ShipTabPage(tab);
+    layout->addWidget(m_shipsPage);
+
+    m_contentStack->addWidget(tab);
+}
+
 void SaveDetailPage::setupBackupsTab()
 {
     m_backupsTab = new QWidget(m_contentStack);
@@ -312,6 +336,8 @@ void SaveDetailPage::setSavePath(const QString &saveFolderPath, const QString &i
     QDir dir(saveFolderPath);
     m_saveName = dir.dirName();
     m_titleLabel->setText("存档 - " + m_saveName);
+    // 存档飞船管理：飞船根 = 存档目录（getShipsDir 拼出 <存档>/Ships/VAB|SPH）
+    m_shipsPage->setShipsBase(m_saveFolderPath);
     loadSaveData();
     refreshBackupList();
 }
@@ -514,6 +540,7 @@ void SaveDetailPage::onNavButtonClicked()
 
     m_saveInfoBtn->setChecked(btn == m_saveInfoBtn);
     m_kerbalsBtn->setChecked(btn == m_kerbalsBtn);
+    m_shipsBtn->setChecked(btn == m_shipsBtn);
     m_backupsBtn->setChecked(btn == m_backupsBtn);
 
     if (btn == m_saveInfoBtn) {
@@ -521,8 +548,12 @@ void SaveDetailPage::onNavButtonClicked()
     } else if (btn == m_kerbalsBtn) {
         m_contentStack->setCurrentIndex(1);
         m_kerbalsStack->setCurrentIndex(0);
-    } else if (btn == m_backupsBtn) {
+    } else if (btn == m_shipsBtn) {
+        // 切到飞船管理时重扫目录（与实例详情一致）
         m_contentStack->setCurrentIndex(2);
+        m_shipsPage->loadShips();
+    } else if (btn == m_backupsBtn) {
+        m_contentStack->setCurrentIndex(3);
         refreshBackupList();
     }
 }
@@ -596,7 +627,10 @@ void SaveDetailPage::refreshIcons(const QString &color)
     m_homeButton->setIcon(IconUtils::tintedIcon(":/icons/home.svg", color));
     m_saveInfoBtn->setIcon(IconUtils::tintedIcon(":/icons/sliders.svg", color));
     m_kerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
+    m_shipsBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
     m_backupsBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
+
+    m_shipsPage->refreshIcons(color);
     m_backToKerbalListBtn->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
     m_saveKerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_refreshBackupsBtn->setIcon(IconUtils::tintedIcon(":/icons/refresh.svg", color));

@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QDir>
 #include <QMessageBox>
+#include <QtConcurrent/QtConcurrentRun>
 #include "../instancemanager.h"
 
 SavesTabPage::SavesTabPage(QWidget *parent)
@@ -30,20 +31,54 @@ void SavesTabPage::setInstanceId(const QString& id)
 {
     m_instanceId = id;
     m_instance = ConfigManager::instance().getInstance(id);
-    loadSaves();
+    // 不在此处加载：进入存档 tab 时由 InstanceDetailPage::showSection 调用 loadSaves()（异步）。
 }
 
 void SavesTabPage::loadSaves()
 {
     m_savesList->clear();
-    if (m_instance.path.isEmpty()) return;
+    if (m_instance.path.isEmpty()) {
+        m_savesList->addItem(tr("（未检测到存档）"));
+        return;
+    }
+    m_savesList->addItem(tr("正在加载存档..."));
 
-    QStringList saveNames = InstanceManager::instance().listSaves(m_instance.path);
-    QString savesDir = InstanceManager::instance().getSavesDir(m_instance.path);
+    // 后台线程：遍历存档目录 + 逐文件解析 persistent.sfs（纯文件读取，线程安全）。
+    // 完成后回主线程填充列表，避免大存档下进入页面卡顿。
+    const QString gamePath = m_instance.path;
+    auto future = QtConcurrent::run([gamePath]() {
+        QVector<QPair<QString, SaveInfo>> out;
+        const QStringList saveNames = InstanceManager::instance().listSaves(gamePath);
+        const QString savesDir = InstanceManager::instance().getSavesDir(gamePath);
+        out.reserve(saveNames.size());
+        for (const QString& saveName : saveNames) {
+            const QString savePath = QDir(savesDir).filePath(saveName);
+            out.append(qMakePair(savePath, InstanceManager::instance().loadSaveInfo(savePath)));
+        }
+        return out;
+    });
+    if (!m_savesLoadWatcher) {
+        m_savesLoadWatcher = new QFutureWatcher<QVector<QPair<QString, SaveInfo>>>(this);
+        connect(m_savesLoadWatcher, &QFutureWatcher<QVector<QPair<QString, SaveInfo>>>::finished,
+                this, &SavesTabPage::onSavesLoadFinished);
+    }
+    m_savesLoadWatcher->setFuture(future);
+}
 
-    for (const QString& saveName : saveNames) {
-        QString savePath = QDir(savesDir).filePath(saveName);
-        SaveInfo info = InstanceManager::instance().loadSaveInfo(savePath);
+void SavesTabPage::onSavesLoadFinished()
+{
+    m_savesList->clear();
+    const QVector<QPair<QString, SaveInfo>> items = m_savesLoadWatcher->result();
+
+    if (items.isEmpty()) {
+        m_savesList->addItem(tr("（未检测到存档）"));
+        return;
+    }
+
+    for (const QPair<QString, SaveInfo>& entry : items) {
+        const QString savePath = entry.first;
+        const SaveInfo& info = entry.second;
+        const QString saveName = QFileInfo(savePath).fileName();
 
         QWidget* itemWidget = new QWidget(m_savesList);
         QHBoxLayout* layout = new QHBoxLayout(itemWidget);
@@ -88,10 +123,6 @@ void SavesTabPage::loadSaves()
         item->setData(Qt::UserRole, savePath);
         m_savesList->addItem(item);
         m_savesList->setItemWidget(item, itemWidget);
-    }
-
-    if (saveNames.isEmpty()) {
-        m_savesList->addItem(tr("（未检测到存档）"));
     }
 }
 

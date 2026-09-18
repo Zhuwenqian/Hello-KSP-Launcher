@@ -32,7 +32,8 @@ struct DiskSpacePrompt {
 // 各类决策回调
 using ConflictHandler = std::function<ConflictChoice(const QStringList &conflicts)>;
 using OptionalModulesHandler =
-    std::function<QVector<ckan::CkanModule>(const QVector<ckan::CkanModule> &modules, bool *cancelled)>;
+    std::function<QVector<ckan::CkanModule>(const QVector<ckan::CkanModule> &modules,
+                                            bool *cancelled, const QString &parentName)>;
 using ProviderHandler =
     std::function<QVector<ckan::CkanModule>(const QVector<ckan::ProviderChoice> &choices, bool *cancelled)>;
 using DiskSpaceHandler = std::function<bool(const DiskSpacePrompt &prompt)>; // true=忽略继续
