@@ -10,6 +10,8 @@
 #include <QPlainTextEdit>
 #include <QDialogButtonBox>
 #include <QPushButton>
+#include <QDesktopServices>
+#include <QUrl>
 
 namespace updateflow {
 
@@ -58,6 +60,15 @@ static void promptAndApply()
         QDialogButtonBox::Yes | QDialogButtonBox::No, &dlg);
     box->button(QDialogButtonBox::Yes)->setText(QObject::tr("更新"));
     box->button(QDialogButtonBox::No)->setText(QObject::tr("取消"));
+    // 镜像源：发布日志在博客站内，给一个跳转"查看发布日志"的按钮（不关闭当前对话框）
+    const QString notesUrl = um.latest().notesUrl.trimmed();
+    if (!notesUrl.isEmpty()) {
+        QPushButton *notesBtn = box->addButton(QObject::tr("查看发布日志"),
+                                               QDialogButtonBox::ActionRole);
+        QObject::connect(notesBtn, &QPushButton::clicked, &dlg, [url = notesUrl]() {
+            QDesktopServices::openUrl(QUrl(url));
+        });
+    }
     QObject::connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     lay->addWidget(box);

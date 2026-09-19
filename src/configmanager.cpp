@@ -45,6 +45,7 @@ void ConfigManager::loadDefaults()
     m_config["downloadConcurrency"] = 3;
     m_config["diskSpaceCheck"] = true;
     m_config["autoCheckUpdate"] = true;
+    m_config["updateSource"] = static_cast<int>(Official);
     m_config["debugMode"] = false;
     m_config["crashLogAnalysis"] = true;
     m_instances.clear();
@@ -79,6 +80,9 @@ bool ConfigManager::load()
     }
     if (!m_config.contains("autoCheckUpdate")) {
         m_config["autoCheckUpdate"] = true;
+    }
+    if (!m_config.contains("updateSource")) {
+        m_config["updateSource"] = static_cast<int>(Official);
     }
     if (!m_config.contains("debugMode")) {
         m_config["debugMode"] = false;
@@ -335,6 +339,21 @@ void ConfigManager::setAutoCheckUpdate(bool enable)
 {
     if (autoCheckUpdate() != enable) {
         m_config["autoCheckUpdate"] = enable;
+        save();
+        emit configChanged();
+    }
+}
+
+ConfigManager::UpdateSource ConfigManager::updateSource() const
+{
+    return static_cast<UpdateSource>(
+        m_config["updateSource"].toInt(static_cast<int>(Official)));
+}
+
+void ConfigManager::setUpdateSource(UpdateSource source)
+{
+    if (updateSource() != source) {
+        m_config["updateSource"] = static_cast<int>(source);
         save();
         emit configChanged();
     }

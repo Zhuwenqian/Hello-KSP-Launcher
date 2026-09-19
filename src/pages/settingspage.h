@@ -34,6 +34,7 @@ private slots:
     void onClearCacheClicked();
     void onConcurrencyChanged(int index);
     void onRateLimitEdited();
+    void onUpdateSourceChanged(int index);
     void onAddPresetRepo(const ckan::Repository &preset);
     void onAddCustomRepo();
     void onRemoveRepo();
@@ -73,6 +74,7 @@ private:
 
     // 更新相关
     ToggleSwitch* m_autoUpdateToggle;
+    QComboBox* m_updateSourceCombo;
     // 调试相关
     ToggleSwitch* m_debugModeToggle;
     ToggleSwitch* m_crashAnalysisToggle;

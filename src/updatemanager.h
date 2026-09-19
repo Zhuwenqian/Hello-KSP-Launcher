@@ -23,10 +23,12 @@ class UpdaterManager : public QObject
 public:
     struct ReleaseInfo {
         QString version;     // 去前导 v 的版本号，如 1.1.2
-        QString assetUrl;    // x86_64 zip 资产下载地址
+        QString assetUrl;    // x86_64 zip 资产下载地址（官方=GitHub；镜像=主加速直链）
+        QString backupAssetUrl; // 镜像源的备用 zip 加速直链（官方源为空；下载主链失败或校验不过时回退）
         QString assetName;   // 资产文件名（便于生成暂存 zip 名）
-        QString expectedDigest; // GitHub API 提供的资产 SHA256（小写 hex，含 "sha256:" 前缀的关系）
-        QString body;        // Release body（更新日志）
+        QString expectedDigest; // 期望 SHA256（小写 64 hex）：官方源自 GitHub API，镜像源自索引
+        QString body;        // Release body（官方源=GitHub 更新日志；镜像源为空）
+        QString notesUrl;    // 镜像源发布日志的站内文章链接（官方源为空）；启动器给出"查看发布日志"按钮
         bool hasUpdate = false; // 服务端版本是否高于当前本地版本
         bool updaterUpdate = false; // 本 Release 含更新器（updater.exe）更新：更新后保留 zip，由新版启动器替换更新器
     };
@@ -93,11 +95,14 @@ private:
 
     // 解析 Releases/latest JSON；失败返回 false 并置 m_lastError
     bool parseRelease(const QByteArray& json);
+    // 解析镜像源 release 索引 JSON（{version, zip_url, zip_backup_url, notes_url, sha256}）；
+    // 失败返回 false 并置 m_lastError
+    bool parseMirrorIndex(const QByteArray& json);
     // 计算文件 SHA256（小写 64 位十六进制）；文件不可读返回 false。
     static bool fileSha256(const QString &path, QString *hexOut);
-    // 校验已下载 zip 的 SHA256 与 release 摘要是否一致：一致发 downloadFinished，
-    // 失败则清理暂存包并 updateError。
-    void verifyAndFinish(const QString &zipPath);
+    // 按 index 从 m_downloadUrls 发起一次下载；网络失败/SHA256 不符时回退到下一个地址，
+    // 全部用尽后置 m_lastError 并 updateError。成功 verifies 后 emit downloadFinished。
+    void beginDownloadAt(int index);
     // 清理已下载但未通过校验的暂存 zip（尽力而为，忽略删除失败）。
     void cleanupStagedZip();
 
@@ -105,6 +110,7 @@ private:
     QNetworkReply* m_reply;
     QFile* m_file;
     ReleaseInfo m_latest;
+    QList<QString> m_downloadUrls; // 当前更新的候选下载地址（主链 + 备用链）
     QString m_lastError;
     bool m_working;
     bool m_quiet; // 静默检查（自动检查）：失败不弹窗

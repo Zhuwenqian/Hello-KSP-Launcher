@@ -37,6 +37,7 @@ SettingsPage::SettingsPage(QWidget *parent)
       m_installRecommendsToggle(nullptr),
       m_diskSpaceCheckToggle(nullptr),
       m_autoUpdateToggle(nullptr),
+      m_updateSourceCombo(nullptr),
       m_debugModeToggle(nullptr)
 {
     setupUI();
@@ -116,6 +117,19 @@ void SettingsPage::setupUI()
     QLabel* autoUpdateLabel = new QLabel(tr("启动时自动检查更新："), generalGroup);
     autoUpdateLabel->setObjectName("settingLabel");
     generalLayout->addRow(autoUpdateLabel, m_autoUpdateToggle);
+
+    // 更新源（检查更新/下载更新用的源）
+    m_updateSourceCombo = new QComboBox(generalGroup);
+    m_updateSourceCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_updateSourceCombo->addItem(tr("官方源（GitHub）"), static_cast<int>(ConfigManager::Official));
+    m_updateSourceCombo->addItem(tr("镜像源（博客加速）"), static_cast<int>(ConfigManager::Mirror));
+    connect(m_updateSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SettingsPage::onUpdateSourceChanged);
+    QLabel* updateSourceLabel = new QLabel(tr("更新源："), generalGroup);
+    updateSourceLabel->setObjectName("settingLabel");
+    updateSourceLabel->setToolTip(tr("官方源走 GitHub Releases；镜像源读取博客发布的 release 索引，用 GitHub 镜像加速直链下载。手动检查与开机自动检查都跟随所选源。"));
+    updateSourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    generalLayout->addRow(updateSourceLabel, m_updateSourceCombo);
 
     // 立即检查更新按钮
     QHBoxLayout* updRow = new QHBoxLayout();
@@ -397,6 +411,7 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->blockSignals(true);
     m_diskSpaceCheckToggle->blockSignals(true);
     m_autoUpdateToggle->blockSignals(true);
+    m_updateSourceCombo->blockSignals(true);
     m_debugModeToggle->blockSignals(true);
     m_crashAnalysisToggle->blockSignals(true);
 
@@ -439,6 +454,11 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->setChecked(ConfigManager::instance().installRecommends());
     m_diskSpaceCheckToggle->setChecked(ConfigManager::instance().diskSpaceCheck());
     m_autoUpdateToggle->setChecked(ConfigManager::instance().autoCheckUpdate());
+
+    int updateSource = static_cast<int>(ConfigManager::instance().updateSource());
+    int updSrcIdx = m_updateSourceCombo->findData(updateSource);
+    if (updSrcIdx >= 0) m_updateSourceCombo->setCurrentIndex(updSrcIdx);
+
     m_debugModeToggle->setChecked(ConfigManager::instance().debugMode());
     m_crashAnalysisToggle->setChecked(ConfigManager::instance().crashLogAnalysis());
 
@@ -455,6 +475,7 @@ void SettingsPage::loadSettings()
     m_installRecommendsToggle->blockSignals(false);
     m_diskSpaceCheckToggle->blockSignals(false);
     m_autoUpdateToggle->blockSignals(false);
+    m_updateSourceCombo->blockSignals(false);
     m_debugModeToggle->blockSignals(false);
     m_crashAnalysisToggle->blockSignals(false);
 }
@@ -561,6 +582,13 @@ void SettingsPage::onModuleSourceChanged(int index)
 void SettingsPage::onConcurrencyChanged(int index)
 {
     ConfigManager::instance().setDownloadConcurrency(m_concurrencyCombo->itemData(index).toInt());
+}
+
+void SettingsPage::onUpdateSourceChanged(int index)
+{
+    const auto source = static_cast<ConfigManager::UpdateSource>(
+        m_updateSourceCombo->itemData(index).toInt());
+    ConfigManager::instance().setUpdateSource(source);
 }
 
 void SettingsPage::onRateLimitEdited()

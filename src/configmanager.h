@@ -93,9 +93,17 @@ public:
     bool diskSpaceCheck() const;
     void setDiskSpaceCheck(bool enable);
 
-    // 启动时是否自动检查 GitHub 更新（默认开启）；关闭后仅可在设置页手动检查
+    // 启动时是否自动检查更新（默认开启）；关闭后仅可在设置页手动检查
     bool autoCheckUpdate() const;
     void setAutoCheckUpdate(bool enable);
+
+    // ---- 自更新（检查更新/下载更新）源 ----
+    // 官方源（默认）：走 GitHub Releases API，行为与历史保持一致；
+    // 镜像源：读取博客发布的 release 索引（https://zwqbook.cn/api/release/index.json），
+    // 用 GitHub 镜像加速直链下载。全局生效（手动检查与开机自动检查都跟随所选源）。
+    enum UpdateSource { Official = 0, Mirror = 1 };
+    UpdateSource updateSource() const;
+    void setUpdateSource(UpdateSource source);
 
     // 调试模式（默认关闭）。开启后从下次启动起把运行日志写入启动器目录 HKSPL.log。
     // 是否写入在启动时按持久化值决定，因此开启本会话不写、下次启动生效；关闭则不再写入。

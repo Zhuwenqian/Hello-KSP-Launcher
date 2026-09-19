@@ -1,5 +1,6 @@
 #include "updatemanager.h"
 #include "appversion.h"
+#include "configmanager.h"
 #include "miniz.h"
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -17,9 +18,12 @@
 #include <chrono>
 #include <cstdlib>
 
-// 更新源仓库
+// 更新源仓库（官方源）
 static const char* const kRepoApi =
     "https://api.github.com/repos/Zhuwenqian/Hello-KSP-Launcher/releases/latest";
+// 镜像源 release 索引（博客发布；含版本号、主备 GitHub 加速直链、发布日志链接、SHA256）
+static const char* const kMirrorIndexUrl =
+    "https://zwqbook.cn/api/release/index.json";
 
 UpdaterManager& UpdaterManager::instance()
 {
@@ -87,6 +91,35 @@ void UpdaterManager::checkForUpdate(bool quiet)
     m_quiet = quiet;
     m_lastError.clear();
 
+    // 镜像源：读取博客的 release 索引（含主备加速直链 + 发布日志 + SHA256）
+    if (ConfigManager::instance().updateSource() == ConfigManager::Mirror) {
+        QNetworkRequest req(QUrl(QString::fromUtf8(kMirrorIndexUrl)));
+        req.setRawHeader("User-Agent", "HelloKSPLauncher");
+        req.setTransferTimeout(30000); // 30s 传输超时（连接+闲置）
+
+        QNetworkReply* reply = m_nam->get(req);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            const QString err = reply->errorString();
+            const bool ok = (reply->error() == QNetworkReply::NoError);
+            const QByteArray data = reply->readAll();
+            reply->deleteLater();
+            m_working = false;
+
+            if (!ok) {
+                m_lastError = tr("镜像更新源请求失败：%1").arg(err);
+                if (!m_quiet) emit updateCheckFailed(m_lastError);
+                return;
+            }
+            if (!parseMirrorIndex(data)) {
+                if (!m_quiet) emit updateCheckFailed(m_lastError);
+                return;
+            }
+            emit updateCheckDone();
+        });
+        return;
+    }
+
+    // 官方源（GitHub Releases/latest，行为与历史保持一致）
     QNetworkRequest req(QUrl(QString::fromUtf8(kRepoApi)));
     req.setRawHeader("User-Agent", "HelloKSPLauncher");
     req.setRawHeader("Accept", "application/vnd.github+json");
@@ -111,6 +144,51 @@ void UpdaterManager::checkForUpdate(bool quiet)
         }
         emit updateCheckDone();
     });
+}
+
+bool UpdaterManager::parseMirrorIndex(const QByteArray &json)
+{
+    QJsonParseError perr;
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &perr);
+    if (perr.error != QJsonParseError::NoError || !doc.isObject()) {
+        m_lastError = tr("镜像更新信息解析失败");
+        return false;
+    }
+    const QJsonObject root = doc.object();
+    QString version = root.value("version").toString().trimmed();
+    if (version.startsWith(QLatin1Char('v'))) version.remove(0, 1);
+
+    const QString zipUrl = root.value("zip_url").toString().trimmed();
+    const QString backupUrl = root.value("zip_backup_url").toString().trimmed();
+    const QString notesUrl = root.value("notes_url").toString().trimmed();
+    const QString digest = root.value("sha256").toString().trimmed();
+
+    if (version.isEmpty()) {
+        m_lastError = tr("镜像索引缺少版本号");
+        return false;
+    }
+    if (zipUrl.isEmpty()) {
+        m_lastError = tr("镜像索引缺少下载地址");
+        return false;
+    }
+    // 摘要缺失/非 64 位 hex：来源完整性无法验证，明确中止
+    if (digest.size() != 64) {
+        m_lastError = tr("镜像索引缺少有效的 SHA256 摘要，已中止（来源完整性校验失败）");
+        return false;
+    }
+
+    ReleaseInfo info;
+    info.version = version;
+    info.assetUrl = zipUrl;
+    info.backupAssetUrl = backupUrl;
+    info.notesUrl = notesUrl;
+    info.expectedDigest = digest.toLower();
+    info.assetName = QUrl(zipUrl).fileName();
+    if (info.assetName.isEmpty())
+        info.assetName = QStringLiteral("update-%1.zip").arg(version);
+    info.hasUpdate = versionLess(currentVersion(), info.version);
+    m_latest = info;
+    return true;
 }
 
 bool UpdaterManager::parseRelease(const QByteArray &json)
@@ -163,17 +241,39 @@ void UpdaterManager::downloadRelease()
     if (m_working) return;
     m_working = true;
 
+    // 按优先级收集候选地址：主链 + 备用链（备用存在且不同时加入）
+    m_downloadUrls.clear();
+    m_downloadUrls << m_latest.assetUrl;
+    if (!m_latest.backupAssetUrl.isEmpty() && m_latest.backupAssetUrl != m_latest.assetUrl)
+        m_downloadUrls << m_latest.backupAssetUrl;
+
+    beginDownloadAt(0);
+}
+
+void UpdaterManager::beginDownloadAt(int index)
+{
+    if (index >= m_downloadUrls.size()) {
+        // 所有候选地址都已用尽：统一失败处理
+        cleanupStagedZip();
+        m_working = false;
+        emit updateError(m_lastError.isEmpty()
+            ? tr("更新包下载失败：所有下载地址均不可用")
+            : m_lastError);
+        return;
+    }
+
     const QString path = stagingZipPath();
     QDir().mkpath(QFileInfo(path).absolutePath());
 
     m_file = new QFile(path, this);
     if (!m_file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        cleanupStagedZip();
         m_working = false;
         emit updateError(tr("无法创建更新暂存文件：%1").arg(path));
         return;
     }
 
-    QNetworkRequest req(QUrl(m_latest.assetUrl));
+    QNetworkRequest req(QUrl(m_downloadUrls.at(index)));
     req.setRawHeader("User-Agent", "HelloKSPLauncher");
     req.setRawHeader("Accept", "application/octet-stream");
     req.setTransferTimeout(30000);
@@ -184,8 +284,8 @@ void UpdaterManager::downloadRelease()
     connect(m_reply, &QNetworkReply::readyRead, this, [this]() {
         if (m_file) m_file->write(m_reply->readAll());
     });
-    connect(m_reply, &QNetworkReply::finished, this, [this]() {
-        const bool ok = (m_reply->error() == QNetworkReply::NoError);
+    connect(m_reply, &QNetworkReply::finished, this, [this, index]() {
+        const bool netOk = (m_reply->error() == QNetworkReply::NoError);
         const QString err = m_reply->errorString();
         m_reply->deleteLater();
         m_reply = nullptr;
@@ -194,15 +294,42 @@ void UpdaterManager::downloadRelease()
             m_file->deleteLater();
             m_file = nullptr;
         }
-        if (!ok) {
+
+        const bool hasNext = (index + 1 < m_downloadUrls.size());
+        const QString path = stagingZipPath();
+
+        // 网络失败：清理半成品，换备用地址重试
+        if (!netOk) {
             m_lastError = tr("下载失败：%1").arg(err);
-            cleanupStagedZip();
-            m_working = false;
-            emit updateError(m_lastError);
+            if (QFileInfo::exists(path)) QFile::remove(path);
+            beginDownloadAt(hasNext ? index + 1 : static_cast<int>(m_downloadUrls.size()));
             return;
         }
-        // 校验已下载 zip 的 SHA256 与 GitHub 提供的 release 摘要；校验通过才放行。
-        verifyAndFinish(stagingZipPath());
+
+        // 摘要缺失：来源完整性无法验证，明确中止更新（官方案/镜像案一致）。
+        if (m_latest.expectedDigest.isEmpty()) {
+            m_lastError = tr("未提供该资产的 SHA256 摘要，已中止更新（来源完整性校验失败）");
+            beginDownloadAt(static_cast<int>(m_downloadUrls.size()));
+            return;
+        }
+
+        QString actual;
+        if (!fileSha256(path, &actual)) {
+            m_lastError = tr("无法读取已下载的更新包计算 SHA256");
+            beginDownloadAt(static_cast<int>(m_downloadUrls.size()));
+            return;
+        }
+        if (QString::compare(actual, m_latest.expectedDigest, Qt::CaseInsensitive) != 0) {
+            m_lastError = tr("SHA256 校验失败：下载的更新包与摘要不一致");
+            if (QFileInfo::exists(path)) QFile::remove(path);
+            // 还有备用地址则换源重试；没有则走统一失败
+            beginDownloadAt(hasNext ? index + 1 : static_cast<int>(m_downloadUrls.size()));
+            return;
+        }
+
+        // 校验通过：放行进入应用阶段
+        m_working = false;
+        emit downloadFinished(path);
     });
 }
 
@@ -238,36 +365,6 @@ bool UpdaterManager::fileSha256(const QString &path, QString *hexOut)
         hash.addData(buf);
     if (hexOut) *hexOut = QString::fromLatin1(hash.result().toHex());
     return true;
-}
-
-void UpdaterManager::verifyAndFinish(const QString &zipPath)
-{
-    auto fail = [this, zipPath](const QString &msg) {
-        m_lastError = msg;
-        cleanupStagedZip();
-        m_working = false;
-        emit updateError(m_lastError);
-    };
-
-    // 摘要缺失：来源完整性无法验证，明确中止更新。
-    if (m_latest.expectedDigest.isEmpty()) {
-        fail(tr("GitHub 未提供该资产的 SHA256 摘要，已中止更新（来源完整性校验失败）"));
-        return;
-    }
-
-    QString actual;
-    if (!fileSha256(zipPath, &actual)) {
-        fail(tr("无法读取已下载的更新包计算 SHA256"));
-        return;
-    }
-    if (QString::compare(actual, m_latest.expectedDigest, Qt::CaseInsensitive) != 0) {
-        fail(tr("SHA256 校验失败：下载的更新包与 GitHub 提供的摘要不一致，更新已中止。"));
-        return;
-    }
-
-    // 校验通过：放行进入应用阶段
-    m_working = false;
-    emit downloadFinished(zipPath);
 }
 
 // 清理已下载但未通过校验的暂存 zip（尽力而为，忽略删除失败）。
