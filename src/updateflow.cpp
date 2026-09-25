@@ -145,7 +145,13 @@ static void onUpdateError(const QString &err)
 static void ensureConnected()
 {
     UpdaterManager &um = UpdaterManager::instance();
-    // 静态函数转发；Qt::UniqueConnection 避免重复检查时叠加连接
+    // 整个进程生命周期只连接一次（静态桥接函数转发）。若每次检查都 connect，
+    // 自动检查与多次手动检查会让同一信号叠加多个处理函数，信号只发一次却会
+    // 触发多个弹窗（且首个弹窗关闭后 s_parent 置空，后续弹窗无父窗口、样子
+    // 变成系统原生）。lambda 之间无法用 Qt::UniqueConnection 可靠判重，故用静态标记。
+    static bool connected = false;
+    if (connected) return;
+    connected = true;
     QObject::connect(&um, &UpdaterManager::updateCheckDone, []() { onCheckDone(); });
     QObject::connect(&um, &UpdaterManager::updateCheckFailed, [](const QString &e) { onCheckFailed(e); });
     QObject::connect(&um, &UpdaterManager::downloadProgress,

@@ -110,6 +110,9 @@ void ShipTabPage::setupUI()
     m_detailVersion = new QLabel(detailPage);
     m_detailVersion->setStyleSheet("color: #888; font-size: 10pt;");
 
+    m_detailPartCount = new QLabel(detailPage);
+    m_detailPartCount->setStyleSheet("color: #888; font-size: 10pt;");
+
     QLabel* descLabel = new QLabel(tr("描述"), detailPage);
     descLabel->setStyleSheet("font-size: 10pt; color: #666; margin-top: 8px;");
 
@@ -121,6 +124,7 @@ void ShipTabPage::setupUI()
 
     infoLayout->addWidget(m_detailName);
     infoLayout->addWidget(m_detailVersion);
+    infoLayout->addWidget(m_detailPartCount);
     infoLayout->addWidget(descLabel);
     infoLayout->addWidget(m_detailDescription, 1);
 
@@ -237,7 +241,7 @@ void ShipTabPage::addShipRow(QListWidget* list, const QString& craftPath, const 
     if (versionText.isEmpty()) {
         versionText = tr("未知");
     }
-    QLabel* infoLabel = new QLabel(tr("游戏版本: %1").arg(versionText), itemWidget);
+    QLabel* infoLabel = new QLabel(tr("游戏版本: %1 · 部件数: %2").arg(versionText).arg(info.partCount), itemWidget);
     infoLabel->setStyleSheet("color: #888; font-size: 9pt;");
 
     textLayout->addWidget(nameLabel);
@@ -290,6 +294,7 @@ void ShipTabPage::loadDetail(const QString& path, int typeIndex)
     ShipInfo info = InstanceManager::instance().loadCraftInfo(path);
     m_detailName->setText(info.name);
     m_detailVersion->setText(tr("游戏版本: %1").arg(info.version.isEmpty() ? tr("未知") : info.version));
+    m_detailPartCount->setText(tr("部件数: %1").arg(info.partCount));
     m_detailDescription->setPlainText(info.description);
 
     // 缩略图：Ships/@thumbs/{type}/{名字}.png|.jpg；缺失时用火箭 SVG 兜底
@@ -300,10 +305,13 @@ void ShipTabPage::loadDetail(const QString& path, int typeIndex)
         if (!pm.isNull()) {
             m_detailThumb->setPixmap(pm.scaled(m_detailThumb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         } else {
-            m_detailThumb->setPixmap(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff").pixmap(96, 96));
+            // 火箭兜底：按缩略图框实际尺寸渲染，避免 96px 位图拉伸到 260 框发糊
+            const QSize box = m_detailThumb->size();
+            m_detailThumb->setPixmap(IconUtils::tintedPixmap(":/icons/rocket.svg", "#ffffff", box));
         }
     } else {
-        m_detailThumb->setPixmap(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff").pixmap(96, 96));
+        const QSize box = m_detailThumb->size();
+        m_detailThumb->setPixmap(IconUtils::tintedPixmap(":/icons/rocket.svg", "#ffffff", box));
     }
 }
 

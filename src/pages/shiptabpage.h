@@ -69,6 +69,7 @@ private:
     QPushButton* m_backButton;
     QLabel* m_detailName;
     QLabel* m_detailVersion;
+    QLabel* m_detailPartCount;
     QPlainTextEdit* m_detailDescription;
     QLabel* m_detailThumb;
 

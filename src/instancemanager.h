@@ -57,6 +57,7 @@ struct ShipInfo {
     QString name;        // ship = XXX（飞船名）
     QString version;     // version = X.Y.Z（游戏版本）
     QString description; // description = XXXX
+    int partCount = 0;   // 顶层 PART{...} 块数量（部件数）
 };
 
 struct BackupInfo {

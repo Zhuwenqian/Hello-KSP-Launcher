@@ -50,34 +50,47 @@ ShipInfo InstanceManager::loadCraftInfo(const QString &craftFilePath) const
     // craft 为 KSP config 语法：ship/version/description 均位于顶层（braceDepth==0）
     QTextStream in(&file);
     int braceDepth = 0;
+    int partCount = 0;
+    bool partBlockPending = false; // 顶层的 PART 关键字后紧跟 '{' 才算一个完整部件块
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
         if (line.isEmpty()) {
             continue;
         }
         if (line.contains('{')) {
+            if (braceDepth == 0 && partBlockPending) {
+                partCount++;
+            }
             braceDepth++;
+            partBlockPending = false;
             continue;
         }
         if (line.contains('}')) {
             braceDepth--;
             continue;
         }
-        if (braceDepth == 0 && line.contains('=')) {
-            int eq = line.indexOf('=');
-            QString key = line.left(eq).trimmed();
-            QString value = line.mid(eq + 1).trimmed();
-            if (key == "ship") {
-                info.name = value;
-            } else if (key == "version") {
-                info.version = value;
-            } else if (key == "description") {
-                // 用首个 '=' 拆分，保证 description 值内出现 '=' 也不会被截断
-                info.description = value;
+        if (braceDepth == 0) {
+            // PART 独占一行且无 '='，标记为待开块的顶层部件（子块内的 key 均在 braceDepth>0，不会误计）
+            if (line.compare(QLatin1String("PART"), Qt::CaseInsensitive) == 0) {
+                partBlockPending = true;
+            } else if (line.contains('=')) {
+                int eq = line.indexOf('=');
+                QString key = line.left(eq).trimmed();
+                QString value = line.mid(eq + 1).trimmed();
+                if (key == "ship") {
+                    info.name = value;
+                } else if (key == "version") {
+                    info.version = value;
+                } else if (key == "description") {
+                    // 用首个 '=' 拆分，保证 description 值内出现 '=' 也不会被截断
+                    info.description = value;
+                }
             }
         }
     }
     file.close();
+
+    info.partCount = partCount;
 
     if (info.name.isEmpty()) {
         info.name = QFileInfo(craftFilePath).completeBaseName();

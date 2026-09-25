@@ -35,7 +35,7 @@ QString ConfigManager::getConfigPath() const
 
 void ConfigManager::loadDefaults()
 {
-    m_config["language"] = "zh_CN";
+    m_config["language"] = "en_US";
     m_config["launchBehavior"] = static_cast<int>(Minimize);
     m_config["theme"] = "dark";
     m_config["indexRefreshIntervalSecs"] = 6 * 60 * 60;

@@ -122,7 +122,7 @@ void SettingsPage::setupUI()
     m_updateSourceCombo = new QComboBox(generalGroup);
     m_updateSourceCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_updateSourceCombo->addItem(tr("官方源（GitHub）"), static_cast<int>(ConfigManager::Official));
-    m_updateSourceCombo->addItem(tr("镜像源（博客加速）"), static_cast<int>(ConfigManager::Mirror));
+    m_updateSourceCombo->addItem(tr("镜像源（zwqbook.cn）"), static_cast<int>(ConfigManager::Mirror));
     connect(m_updateSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onUpdateSourceChanged);
     QLabel* updateSourceLabel = new QLabel(tr("更新源："), generalGroup);

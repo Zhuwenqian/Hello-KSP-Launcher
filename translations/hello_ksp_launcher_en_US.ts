@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
@@ -1868,7 +1868,7 @@ Please choose how to proceed:</translation>
         <location filename="../src/moddecision.cpp" line="42"/>
         <location filename="../src/moddecision.cpp" line="188"/>
         <location filename="../src/moddecision.cpp" line="221"/>
-        <location filename="../src/updateflow.cpp" line="60"/>
+        <location filename="../src/updateflow.cpp" line="62"/>
         <source>取消</source>
         <translation>Cancel</translation>
     </message>
@@ -1979,64 +1979,69 @@ Continue anyway?</translation>
         <translation>Missing dependency: %1</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="33"/>
+        <location filename="../src/updateflow.cpp" line="35"/>
         <source>发现新版本</source>
         <translation>New version available</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="39"/>
+        <location filename="../src/updateflow.cpp" line="41"/>
         <source>检测到新版本 v%1（当前 v%2）。
 是否下载并更新？更新过程会自动替换文件并重启启动器。</source>
         <translation>A new version v%1 is available (current v%2).
 Do you want to download and update? The update will replace files and restart the launcher automatically.</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="47"/>
+        <location filename="../src/updateflow.cpp" line="49"/>
         <source>更新日志</source>
         <translation>Release notes</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="59"/>
+        <location filename="../src/updateflow.cpp" line="61"/>
         <source>更新</source>
         <translation>Update</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="71"/>
+        <location filename="../src/updateflow.cpp" line="66"/>
+        <source>查看发布日志</source>
+<translation>View release notes</translation>
+    </message>
+    <message>
+        <location filename="../src/updateflow.cpp" line="82"/>
         <source>更新下载</source>
         <translation>Update download</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="72"/>
+        <location filename="../src/updateflow.cpp" line="83"/>
         <source>正在下载更新...</source>
         <translation>Downloading update...</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="87"/>
+        <location filename="../src/updateflow.cpp" line="98"/>
         <source>检查更新</source>
         <translation>Check for updates</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="88"/>
+        <location filename="../src/updateflow.cpp" line="99"/>
         <source>当前已是最新版本 v%1。</source>
         <translation>You are already on the latest version v%1.</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="98"/>
+        <location filename="../src/updateflow.cpp" line="109"/>
         <source>检查更新失败</source>
         <translation>Update check failed</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="107"/>
+        <location filename="../src/updateflow.cpp" line="118"/>
         <source>正在下载更新...（已下载 %1 MB）</source>
         <translation>Downloading update... (%1 MB downloaded)</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="113"/>
+        <location filename="../src/updateflow.cpp" line="124"/>
         <source>正在下载更新...（%1%）</source>
         <translation>Downloading update... (%1%)</translation>
     </message>
     <message>
-        <location filename="../src/updateflow.cpp" line="130"/>
+        <location filename="../src/updateflow.cpp" line="141"/>
         <source>更新失败</source>
         <translation>Update failed</translation>
     </message>
@@ -2541,357 +2546,377 @@ The save will be moved to the Recycle Bin.</translation>
 <context>
     <name>SettingsPage</name>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="70"/>
+        <location filename="../src/pages/settingspage.cpp" line="71"/>
         <source>启动器设置</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="75"/>
+        <location filename="../src/pages/settingspage.cpp" line="76"/>
         <source>通用设置</source>
         <translation>General Settings</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="81"/>
+        <location filename="../src/pages/settingspage.cpp" line="82"/>
         <source>简体中文</source>
         <translation>简体中文</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="82"/>
+        <location filename="../src/pages/settingspage.cpp" line="83"/>
         <source>English</source>
         <translation>English</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="86"/>
+        <location filename="../src/pages/settingspage.cpp" line="87"/>
         <source>启动器语言：</source>
         <translation>Language:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="91"/>
+        <location filename="../src/pages/settingspage.cpp" line="92"/>
         <source>保持窗口打开</source>
         <translation>Keep window open</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="92"/>
+        <location filename="../src/pages/settingspage.cpp" line="93"/>
         <source>最小化到任务栏</source>
         <translation>Minimize to tray</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="93"/>
+        <location filename="../src/pages/settingspage.cpp" line="94"/>
         <source>自动关闭启动器</source>
         <translation>Auto-close launcher</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="97"/>
+        <location filename="../src/pages/settingspage.cpp" line="98"/>
         <source>游戏启动后行为：</source>
         <translation>After launch:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="102"/>
+        <location filename="../src/pages/settingspage.cpp" line="103"/>
         <source>深色主题</source>
         <translation>Dark theme</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="103"/>
+        <location filename="../src/pages/settingspage.cpp" line="104"/>
         <source>浅色主题</source>
         <translation>Light theme</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="107"/>
+        <location filename="../src/pages/settingspage.cpp" line="108"/>
         <source>主题：</source>
         <translation>Theme:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="113"/>
+        <location filename="../src/pages/settingspage.cpp" line="114"/>
         <source>启动启动器时自动检查 GitHub 是否有新版本（默认开启）；关闭后仅可在下方手动检查</source>
         <translation>Check GitHub for new versions automatically when the launcher starts (on by default); turn off to check manually with the button below</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="116"/>
+        <location filename="../src/pages/settingspage.cpp" line="117"/>
         <source>启动时自动检查更新：</source>
         <translation>Auto-check for updates on startup:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="122"/>
+        <location filename="../src/pages/settingspage.cpp" line="124"/>
+        <source>官方源（GitHub）</source>
+<translation>Official source (GitHub)</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="125"/>
+        <source>镜像源（zwqbook.cn）</source>
+<translation>Mirror source (zwqbook.cn)</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="128"/>
+        <source>更新源：</source>
+<translation>Update source:</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="130"/>
+        <source>官方源走 GitHub Releases；镜像源读取博客发布的 release 索引，用 GitHub 镜像加速直链下载。手动检查与开机自动检查都跟随所选源。</source>
+<translation>Official source uses GitHub Releases; mirror source reads the release index published on the blog and downloads via GitHub mirror acceleration links. Both manual check and automatic check at startup follow the selected source.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/settingspage.cpp" line="136"/>
         <source> 检查更新...</source>
         <translation>  Check for updates...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="133"/>
+        <location filename="../src/pages/settingspage.cpp" line="147"/>
         <source>开启后从下次启动起，把运行日志写入启动器目录下的 HKSPL.log（每次启动清空重写），便于排查问题；关闭则不再写入日志</source>
         <translation>When enabled, from the next launch the runtime log is written to HKSPL.log in the launcher directory (rewritten on each launch) for troubleshooting; when disabled, logging stops</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="136"/>
+        <location filename="../src/pages/settingspage.cpp" line="150"/>
         <source>调试模式（下次启动生效）：</source>
         <translation>Debug mode (effective from next launch):</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="142"/>
+        <location filename="../src/pages/settingspage.cpp" line="156"/>
         <source>游戏异常退出时，分析 KSP 的 Player.log 末尾是否发生硬崩溃（Caught fatal signal）或内存溢出（OutOfMemoryException），有则弹窗给出原因与建议</source>
         <translation>When the game exits abnormally, analyze the end of KSP&apos;s Player.log for a hard crash (Caught fatal signal) or an out-of-memory error (OutOfMemoryException), and show the cause and advice if found</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="145"/>
+        <location filename="../src/pages/settingspage.cpp" line="159"/>
         <source>游戏崩溃日志分析：</source>
         <translation>Game crash log analysis:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="152"/>
+        <location filename="../src/pages/settingspage.cpp" line="166"/>
         <source>背景图片</source>
         <translation>Background Image</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="157"/>
+        <location filename="../src/pages/settingspage.cpp" line="171"/>
         <source>选择一张图片作为启动器背景。支持 PNG / JPG / JPEG。</source>
         <translation>Choose an image as the launcher background. Supports PNG / JPG / JPEG.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="167"/>
-        <location filename="../src/pages/settingspage.cpp" line="476"/>
+        <location filename="../src/pages/settingspage.cpp" line="181"/>
+        <location filename="../src/pages/settingspage.cpp" line="497"/>
         <source>（无预览）</source>
         <translation>(No preview)</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="172"/>
+        <location filename="../src/pages/settingspage.cpp" line="186"/>
         <source>当前背景：</source>
         <translation>Current background:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="184"/>
+        <location filename="../src/pages/settingspage.cpp" line="198"/>
         <source> 选择图片...</source>
         <translation> Choose Image...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="190"/>
+        <location filename="../src/pages/settingspage.cpp" line="204"/>
         <source>重置为默认</source>
         <translation>Reset to default</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="203"/>
+        <location filename="../src/pages/settingspage.cpp" line="217"/>
         <source>模组管理</source>
         <translation>Mod Management</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="213"/>
+        <location filename="../src/pages/settingspage.cpp" line="227"/>
         <source>6 小时</source>
         <translation>6 hours</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="214"/>
+        <location filename="../src/pages/settingspage.cpp" line="228"/>
         <source>1 天</source>
         <translation>1 day</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="215"/>
+        <location filename="../src/pages/settingspage.cpp" line="229"/>
         <source>3 天</source>
         <translation>3 days</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="216"/>
+        <location filename="../src/pages/settingspage.cpp" line="230"/>
         <source>5 天</source>
         <translation>5 days</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="219"/>
+        <location filename="../src/pages/settingspage.cpp" line="233"/>
         <source>索引刷新间隔：</source>
         <translation>Index refresh interval:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="226"/>
-        <location filename="../src/pages/settingspage.cpp" line="237"/>
+        <location filename="../src/pages/settingspage.cpp" line="240"/>
+        <location filename="../src/pages/settingspage.cpp" line="251"/>
         <source>尽量选择官方源</source>
         <translation>Prefer official source</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="227"/>
-        <location filename="../src/pages/settingspage.cpp" line="238"/>
+        <location filename="../src/pages/settingspage.cpp" line="241"/>
+        <location filename="../src/pages/settingspage.cpp" line="252"/>
         <source>尽量选择镜像源</source>
         <translation>Prefer mirror source</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="230"/>
+        <location filename="../src/pages/settingspage.cpp" line="244"/>
         <source>索引下载源：</source>
         <translation>Index download source:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="241"/>
+        <location filename="../src/pages/settingspage.cpp" line="255"/>
         <source>模组下载源：</source>
         <translation>Mod download source:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="249"/>
+        <location filename="../src/pages/settingspage.cpp" line="263"/>
         <source>同时下载 %1 个</source>
         <translation>Download %1 at a time</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="252"/>
+        <location filename="../src/pages/settingspage.cpp" line="266"/>
         <source>下载并发数：</source>
         <translation>Download concurrency:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="259"/>
+        <location filename="../src/pages/settingspage.cpp" line="273"/>
         <source>0 = 不限速</source>
         <translation>0 = no limit</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="260"/>
+        <location filename="../src/pages/settingspage.cpp" line="274"/>
         <source>单个下载连接的限速上限（MB/秒）。0 表示不限速；输入正整数或正小数（如 2 或 0.5）即按该值限速；负数无效，会被忽略并保留上一个有效值</source>
         <translation>Per-connection download speed limit (MB/s). 0 means no limit; enter a positive integer or decimal (e.g. 2 or 0.5) to throttle by that value; negative values are invalid and ignored, keeping the previous valid value.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="267"/>
+        <location filename="../src/pages/settingspage.cpp" line="281"/>
         <source>下载限速（MB/秒）：</source>
         <translation>Download speed limit (MB/s):</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="273"/>
+        <location filename="../src/pages/settingspage.cpp" line="287"/>
         <source>安装模组时，如果它还有推荐安装的模组（Recommends），弹窗勾选（默认全选）；关闭后推荐模组自动安装</source>
         <translation>When installing a mod that has recommended mods (Recommends), prompt with checkboxes (all selected by default); when disabled, recommended mods are installed automatically</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="276"/>
+        <location filename="../src/pages/settingspage.cpp" line="290"/>
         <source>安装时显示推荐模组：</source>
         <translation>Show recommended mods during install:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="282"/>
+        <location filename="../src/pages/settingspage.cpp" line="296"/>
         <source>安装模组时，如果它还有建议安装的可选模组，弹窗勾选</source>
         <translation>When installing a mod, if it has optional suggested mods, show a popup to check them</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="285"/>
+        <location filename="../src/pages/settingspage.cpp" line="299"/>
         <source>安装时显示建议模组：</source>
         <translation>Show suggested mods during installation:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="291"/>
+        <location filename="../src/pages/settingspage.cpp" line="305"/>
         <source>下载/安装前检查磁盘剩余空间（按 1.15 倍缓冲估算），不足时弹窗提示，可忽略继续</source>
         <translation>Check free disk space before download/install (estimated with a 1.15x buffer); when insufficient, show a prompt and allow ignoring to continue</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="294"/>
+        <location filename="../src/pages/settingspage.cpp" line="308"/>
         <source>磁盘空间预检：</source>
         <translation>Disk space pre-check:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="304"/>
+        <location filename="../src/pages/settingspage.cpp" line="318"/>
         <source>选择文件夹...</source>
         <translation>Choose folder...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="307"/>
-        <location filename="../src/pages/settingspage.cpp" line="613"/>
+        <location filename="../src/pages/settingspage.cpp" line="321"/>
+        <location filename="../src/pages/settingspage.cpp" line="641"/>
         <source>清理缓存</source>
         <translation>Clear cache</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="313"/>
+        <location filename="../src/pages/settingspage.cpp" line="327"/>
         <source>下载缓存文件夹：</source>
         <translation>Download cache folder:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="320"/>
-        <location filename="../src/pages/settingspage.cpp" line="666"/>
+        <location filename="../src/pages/settingspage.cpp" line="334"/>
+        <location filename="../src/pages/settingspage.cpp" line="694"/>
         <source>仓库列表</source>
         <translation>Repositories</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="325"/>
+        <location filename="../src/pages/settingspage.cpp" line="339"/>
         <source>多个仓库的模组会按优先级合并，排在上方的优先级更高（冲突时优先采用）。修改仓库后会自动刷新索引。</source>
         <translation>Mods from multiple repositories are merged by priority; entries higher up have higher priority (taken first on conflict). The index refreshes automatically after changes.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="336"/>
+        <location filename="../src/pages/settingspage.cpp" line="350"/>
         <source>添加预设...</source>
         <translation>Add preset...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="339"/>
+        <location filename="../src/pages/settingspage.cpp" line="353"/>
         <source>KSP-CKAN 备用仓库</source>
         <translation>KSP-CKAN backup repository</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="340"/>
+        <location filename="../src/pages/settingspage.cpp" line="354"/>
         <source>Sol 仓库</source>
         <translation>Sol repository</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="341"/>
+        <location filename="../src/pages/settingspage.cpp" line="355"/>
         <source>MechJeb2-dev 仓库</source>
         <translation>MechJeb2-dev repository</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="354"/>
+        <location filename="../src/pages/settingspage.cpp" line="368"/>
         <source>自定义添加...</source>
         <translation>Add custom...</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="359"/>
+        <location filename="../src/pages/settingspage.cpp" line="373"/>
         <source>删除</source>
         <translation>Remove</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="364"/>
+        <location filename="../src/pages/settingspage.cpp" line="378"/>
         <source>上移</source>
         <translation>Move up</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="369"/>
+        <location filename="../src/pages/settingspage.cpp" line="383"/>
         <source>下移</source>
         <translation>Move down</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="374"/>
+        <location filename="../src/pages/settingspage.cpp" line="388"/>
         <source>立即刷新索引</source>
         <translation>Refresh index now</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="468"/>
+        <location filename="../src/pages/settingspage.cpp" line="489"/>
         <source>默认背景</source>
         <translation>Default background</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="502"/>
+        <location filename="../src/pages/settingspage.cpp" line="523"/>
         <source>选择背景图片</source>
         <translation>Select background image</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="504"/>
+        <location filename="../src/pages/settingspage.cpp" line="525"/>
         <source>图片文件 (*.png *.jpg *.jpeg);;PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;所有文件 (*.*)</source>
         <translation>Image files (*.png *.jpg *.jpeg);;PNG images (*.png);;JPEG images (*.jpg *.jpeg);;All files (*.*)</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="512"/>
+        <location filename="../src/pages/settingspage.cpp" line="533"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="513"/>
+        <location filename="../src/pages/settingspage.cpp" line="534"/>
         <source>无法应用所选图片。请确认文件是有效的 PNG/JPG/JPEG 格式，且未被占用。</source>
         <translation>Unable to apply the selected image. Please ensure the file is a valid PNG/JPG/JPEG and is not in use.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="526"/>
+        <location filename="../src/pages/settingspage.cpp" line="547"/>
         <source>切换语言</source>
         <translation>Switch Language</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="527"/>
+        <location filename="../src/pages/settingspage.cpp" line="548"/>
         <source>语言切换将在重启启动器后生效。</source>
         <translation>Language change will take effect after restarting the launcher.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="586"/>
+        <location filename="../src/pages/settingspage.cpp" line="614"/>
         <source>选择下载缓存文件夹</source>
         <translation>Choose download cache folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="591"/>
+        <location filename="../src/pages/settingspage.cpp" line="619"/>
         <source>迁移缓存</source>
         <translation>Migrate cache</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="592"/>
+        <location filename="../src/pages/settingspage.cpp" line="620"/>
         <source>是否将旧缓存目录中的文件移动到新目录？
 
 旧目录：%1
@@ -2902,7 +2927,7 @@ Old directory: %1
 New directory: %2</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="614"/>
+        <location filename="../src/pages/settingspage.cpp" line="642"/>
         <source>将删除下载缓存文件夹中的模组缓存文件（仅精确删除与已知模组对应的 .zip，不会误删其他文件）。
 
 目录：%1
@@ -2915,64 +2940,64 @@ Directory: %1
 Are you sure you want to clear the cache?</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="620"/>
-        <location filename="../src/pages/settingspage.cpp" line="622"/>
+        <location filename="../src/pages/settingspage.cpp" line="648"/>
+        <location filename="../src/pages/settingspage.cpp" line="650"/>
         <source>清理完成</source>
         <translation>Cache cleared</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="620"/>
+        <location filename="../src/pages/settingspage.cpp" line="648"/>
         <source>已清理 %1 个模组缓存文件。</source>
         <translation>Cleared %1 mod cache file(s).</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="622"/>
+        <location filename="../src/pages/settingspage.cpp" line="650"/>
         <source>没有可清理的模组缓存文件。</source>
         <translation>No mod cache files to clear.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="666"/>
+        <location filename="../src/pages/settingspage.cpp" line="694"/>
         <source>该仓库已在列表中。</source>
         <translation>This repository is already in the list.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="677"/>
-        <location filename="../src/pages/settingspage.cpp" line="699"/>
+        <location filename="../src/pages/settingspage.cpp" line="705"/>
+        <location filename="../src/pages/settingspage.cpp" line="727"/>
         <source>自定义添加仓库</source>
         <translation>Add custom repository</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="683"/>
+        <location filename="../src/pages/settingspage.cpp" line="711"/>
         <source>仓库名称（显示用，如 MyRepo）</source>
         <translation>Repository name (display only, e.g. MyRepo)</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="684"/>
+        <location filename="../src/pages/settingspage.cpp" line="712"/>
         <source>名称：</source>
         <translation>Name:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="686"/>
+        <location filename="../src/pages/settingspage.cpp" line="714"/>
         <source>https://.../CKAN-meta-xxx.tar.gz</source>
         <translation>https://.../CKAN-meta-xxx.tar.gz</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="687"/>
+        <location filename="../src/pages/settingspage.cpp" line="715"/>
         <source>地址：</source>
         <translation>URL:</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="699"/>
+        <location filename="../src/pages/settingspage.cpp" line="727"/>
         <source>名称和地址都不能为空。</source>
         <translation>Name and URL must not be empty.</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="715"/>
+        <location filename="../src/pages/settingspage.cpp" line="743"/>
         <source>删除仓库</source>
         <translation>Remove repository</translation>
     </message>
     <message>
-        <location filename="../src/pages/settingspage.cpp" line="716"/>
+        <location filename="../src/pages/settingspage.cpp" line="744"/>
         <source>确定删除仓库「%1」吗？</source>
         <translation>Remove repository &quot;%1&quot;?</translation>
     </message>
@@ -3018,7 +3043,7 @@ Are you sure you want to clear the cache?</translation>
     </message>
     <message>
         <location filename="../src/pages/shiptabpage.cpp" line="251"/>
-        <location filename="../src/pages/shiptabpage.cpp" line="322"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="325"/>
         <source>删除飞船</source>
         <translation>Delete Ship</translation>
     </message>
@@ -3033,49 +3058,49 @@ Are you sure you want to clear the cache?</translation>
         <translation>Loading ships...</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="323"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="326"/>
         <source>确定要删除飞船 &apos;%1&apos; 吗？
 该文件将被移动到回收站。</source>
         <translation>Are you sure you want to delete ship &apos;%1&apos;?
 The file will be moved to the Recycle Bin.</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="333"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="336"/>
         <source>删除失败</source>
         <translation>Delete Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="333"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="336"/>
         <source>无法删除飞船，请检查文件是否被占用。</source>
         <translation>Failed to delete ship. Check whether the file is in use.</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="341"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="344"/>
         <source>导入飞船</source>
         <translation>Import Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="341"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="344"/>
         <source>飞船文件 (*.craft)</source>
         <translation>Ship Files (*.craft)</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="402"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="405"/>
         <source>覆盖飞船</source>
         <translation>Overwrite Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="403"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="406"/>
         <source>飞船 &quot;%1&quot; 已存在，是否覆盖？</source>
         <translation>Ship &quot;%1&quot; already exists. Overwrite it?</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="419"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="422"/>
         <source>导入失败</source>
         <translation>Import failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="420"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="423"/>
         <source>无法导入 &quot;%1&quot;，请检查文件是否可读或磁盘空间。</source>
         <translation>Failed to import &quot;%1&quot;. Check whether the file is readable or disk space is available.</translation>
     </message>
@@ -3083,97 +3108,135 @@ The file will be moved to the Recycle Bin.</translation>
 <context>
     <name>UpdaterManager</name>
     <message>
-        <location filename="../src/updatemanager.cpp" line="104"/>
+        <location filename="../src/updatemanager.cpp" line="137"/>
         <source>网络请求失败：%1</source>
         <translation>Network request failed: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="121"/>
+        <location filename="../src/updatemanager.cpp" line="199"/>
         <source>更新信息解析失败</source>
         <translation>Failed to parse update info</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="144"/>
+        <location filename="../src/updatemanager.cpp" line="222"/>
         <source>仓库中未找到 x86_64 发布包</source>
         <translation>No x86_64 release package found in the repository</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="160"/>
+        <location filename="../src/updatemanager.cpp" line="238"/>
         <source>没有已下载的更新任务，请先检查更新</source>
         <translation>No update queued yet; please check for updates first</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="172"/>
+        <location filename="../src/updatemanager.cpp" line="272"/>
         <source>无法创建更新暂存文件：%1</source>
         <translation>Cannot create update staging file: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="198"/>
+        <location filename="../src/updatemanager.cpp" line="303"/>
         <source>下载失败：%1</source>
         <translation>Download failed: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="254"/>
         <source>GitHub 未提供该资产的 SHA256 摘要，已中止更新（来源完整性校验失败）</source>
-        <translation>GitHub did not provide a SHA256 digest for this asset; update aborted (source integrity check failed)</translation>
+        <translation type="vanished">GitHub did not provide a SHA256 digest for this asset; update aborted (source integrity check failed)</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="260"/>
+        <location filename="../src/updatemanager.cpp" line="318"/>
         <source>无法读取已下载的更新包计算 SHA256</source>
         <translation>Could not read the downloaded update package to compute its SHA256</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="264"/>
         <source>SHA256 校验失败：下载的更新包与 GitHub 提供的摘要不一致，更新已中止。</source>
-        <translation>SHA256 verification failed: the downloaded update package does not match the digest provided by GitHub; update aborted.</translation>
+        <translation type="vanished">SHA256 verification failed: the downloaded update package does not match the digest provided by GitHub; update aborted.</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="284"/>
+        <location filename="../src/updatemanager.cpp" line="109"/>
+        <source>镜像更新源请求失败：%1</source>
+<translation>Mirror update source request failed: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="154"/>
+        <source>镜像更新信息解析失败</source>
+<translation>Failed to parse mirror update information</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="167"/>
+        <source>镜像索引缺少版本号</source>
+<translation>Mirror index is missing a version number</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="171"/>
+        <source>镜像索引缺少下载地址</source>
+<translation>Mirror index is missing a download URL</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="176"/>
+        <source>镜像索引缺少有效的 SHA256 摘要，已中止（来源完整性校验失败）</source>
+<translation>Mirror index lacks a valid SHA256 digest; aborted (source integrity verification failed)</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="260"/>
+        <source>更新包下载失败：所有下载地址均不可用</source>
+<translation>Update package download failed: all download URLs are unavailable</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="311"/>
+        <source>未提供该资产的 SHA256 摘要，已中止更新（来源完整性校验失败）</source>
+<translation>No SHA256 digest provided for this asset; update aborted (source integrity verification failed)</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="323"/>
+        <source>SHA256 校验失败：下载的更新包与摘要不一致</source>
+<translation>SHA256 verification failed: the downloaded package does not match the digest</translation>
+    </message>
+    <message>
+        <location filename="../src/updatemanager.cpp" line="381"/>
         <source>更新包不存在：%1</source>
         <translation>Update package not found: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="307"/>
+        <location filename="../src/updatemanager.cpp" line="404"/>
         <source>未找到更新组件：%1</source>
         <translation>Update component not found: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="311"/>
+        <location filename="../src/updatemanager.cpp" line="408"/>
         <source>未找到主程序：%1</source>
         <translation>Main program not found: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="328"/>
+        <location filename="../src/updatemanager.cpp" line="425"/>
         <source>准备更新组件失败</source>
         <translation>Failed to prepare update components</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="333"/>
+        <location filename="../src/updatemanager.cpp" line="430"/>
         <source>准备更新组件失败（缺少 %1）</source>
         <translation>Failed to prepare update components (missing %1)</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="362"/>
+        <location filename="../src/updatemanager.cpp" line="459"/>
         <source>无法启动更新组件：%1</source>
         <translation>Cannot launch the update component: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="466"/>
+        <location filename="../src/updatemanager.cpp" line="563"/>
         <source>保留的更新包缺失：%1</source>
         <translation>Retained update package missing: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="472"/>
+        <location filename="../src/updatemanager.cpp" line="569"/>
         <source>更新包中未找到 updater.exe：%1</source>
         <translation>No updater.exe found in the update package: %1</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="475"/>
+        <location filename="../src/updatemanager.cpp" line="572"/>
         <source>从更新包解压 updater.exe 失败</source>
         <translation>Failed to extract updater.exe from the update package</translation>
     </message>
     <message>
-        <location filename="../src/updatemanager.cpp" line="482"/>
+        <location filename="../src/updatemanager.cpp" line="579"/>
         <source>覆盖 %1 失败</source>
         <translation>Failed to overwrite %1</translation>
     </message>
