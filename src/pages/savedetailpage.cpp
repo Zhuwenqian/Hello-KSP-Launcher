@@ -14,12 +14,38 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QSlider>
+#include <QToolButton>
+#include <QMenu>
+#include <QAction>
+#include <QInputDialog>
+#include <QLineEdit>
 #include "../iconutils.h"
+
+// 类型(type)显示翻译：只改界面显示，SFS 文件内的 type 保持英文原文
+static QString translateKerbalType(const QString& t)
+{
+    if (t == "Crew") return QObject::tr("乘员");
+    if (t == "Applicant") return QObject::tr("应聘者");
+    return t;
+}
 
 // 自定义委托：控制哪些列可编辑，bool用永久开关，gender用下拉框，数值用浮点输入
 class KerbalItemDelegate : public QStyledItemDelegate {
 public:
     explicit KerbalItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    // 类型/性别显示翻译：数据里保存英文原文，绘制时译为中文（值列 key 在 UserRole）
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        QString key = index.data(Qt::UserRole).toString();
+        QStyleOptionViewItem opt(option);
+        if (key == "gender" || key == "type") {
+            QString v = index.data(Qt::DisplayRole).toString();
+            if (key == "gender") opt.text = (v == "Male") ? tr("男") : tr("女");
+            else opt.text = translateKerbalType(v);
+        }
+        QStyledItemDelegate::paint(painter, opt, index);
+    }
 
     QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         if (index.column() != 1) return nullptr;
@@ -27,26 +53,18 @@ public:
         QString key = index.data(Qt::UserRole).toString();
         QString value = index.data(Qt::DisplayRole).toString();
 
-        // 布尔类型由永久ToggleSwitch控件处理，不需要编辑器
-        if (key == "badS" || key == "veteran" || key == "hero") {
+        // 布尔/勇敢度/愚蠢度类型用永久控件处理（ToggleSwitch / QSlider），不需要编辑器
+        if (key == "badS" || key == "veteran" || key == "hero" || key == "brave" || key == "dumb") {
             return nullptr;
         }
-        // 性别
+        // 性别：显示中译，保存仍为 Male/Female（存为 item data）
         if (key == "gender") {
             QComboBox* combo = new QComboBox(parent);
-            combo->addItem("Male");
-            combo->addItem("Female");
-            combo->setCurrentText(value);
+            combo->addItem(tr("男"), "Male");
+            combo->addItem(tr("女"), "Female");
+            int bi = combo->findData(value);
+            if (bi >= 0) combo->setCurrentIndex(bi);
             return combo;
-        }
-        // 浮点数值：brave, dumb (0.0-1.0)
-        if (key == "brave" || key == "dumb") {
-            QDoubleSpinBox* spin = new QDoubleSpinBox(parent);
-            spin->setRange(0.0, 1.0);
-            spin->setSingleStep(0.1);
-            spin->setDecimals(1);
-            spin->setValue(value.toDouble());
-            return spin;
         }
         return QStyledItemDelegate::createEditor(parent, option, index);
     }
@@ -57,7 +75,8 @@ public:
         QString value = index.data(Qt::DisplayRole).toString();
 
         if (combo) {
-            combo->setCurrentText(value);
+            int bi = combo->findData(value);
+            if (bi >= 0) combo->setCurrentIndex(bi);
             return;
         }
         if (spin) {
@@ -72,7 +91,7 @@ public:
         QDoubleSpinBox* spin = qobject_cast<QDoubleSpinBox*>(editor);
 
         if (combo) {
-            model->setData(index, combo->currentText());
+            model->setData(index, combo->currentData());
             return;
         }
         if (spin) {
@@ -230,18 +249,6 @@ void SaveDetailPage::setupKerbalsTab()
     detailLayout->setContentsMargins(15, 10, 15, 15);
     detailLayout->setSpacing(10);
 
-    QWidget* detailTopBar = new QWidget(m_kerbalDetailWidget);
-    QHBoxLayout* detailTopLayout = new QHBoxLayout(detailTopBar);
-    detailTopLayout->setContentsMargins(0, 0, 0, 0);
-
-    m_backToKerbalListBtn = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回列表"), detailTopBar);
-    m_backToKerbalListBtn->setObjectName("backButton");
-    m_backToKerbalListBtn->setMinimumHeight(36);
-    connect(m_backToKerbalListBtn, &QPushButton::clicked, this, &SaveDetailPage::onBackToKerbalList);
-    detailTopLayout->addWidget(m_backToKerbalListBtn);
-    detailTopLayout->addStretch();
-    detailLayout->addWidget(detailTopBar);
-
     m_kerbalDetailTree = new QTreeWidget(m_kerbalDetailWidget);
     m_kerbalDetailTree->setColumnCount(2);
     m_kerbalDetailTree->setHeaderLabels({tr("属性"), tr("值")});
@@ -375,10 +382,11 @@ void SaveDetailPage::loadSaveData()
 
     // 填充Kerbal列表
     m_kerbalList->clear();
-    for (const KerbalInfo& k : m_kerbals) {
+    for (int ki = 0; ki < m_kerbals.size(); ++ki) {
+        const KerbalInfo& k = m_kerbals[ki];
         QWidget* itemWidget = new QWidget(m_kerbalList);
         QHBoxLayout* layout = new QHBoxLayout(itemWidget);
-        layout->setContentsMargins(20, 14, 20, 14);
+        layout->setContentsMargins(20, 14, 10, 14);
 
         QVBoxLayout* textLayout = new QVBoxLayout();
         textLayout->setSpacing(4);
@@ -391,7 +399,7 @@ void SaveDetailPage::loadSaveData()
         else if (traitDisplay == "Engineer") traitDisplay = tr("工程师");
         else if (traitDisplay == "Scientist") traitDisplay = tr("科学家");
         QString genderDisplay = (k.gender == "Male") ? tr("男") : tr("女");
-        QString statusText = QString("%1 | %2 | %3").arg(genderDisplay, k.type, traitDisplay);
+        QString statusText = QString("%1 | %2 | %3").arg(genderDisplay, translateKerbalType(k.type), traitDisplay);
         if (k.veteran) statusText += tr(" | 老兵");
         if (k.hero) statusText += tr(" | 英雄");
         if (k.badS) statusText += tr(" | 坏蛋");
@@ -402,6 +410,22 @@ void SaveDetailPage::loadSaveData()
         textLayout->addWidget(nameLabel);
         textLayout->addWidget(statusLabel);
         layout->addLayout(textLayout, 1);
+
+        // 行右侧「...」菜单：删除小绿人 / 重命名小绿人
+        QToolButton* moreBtn = new QToolButton(itemWidget);
+        moreBtn->setObjectName("iconButton");
+        moreBtn->setIcon(IconUtils::tintedIcon(":/icons/more-vertical.svg", "#ffffff"));
+        moreBtn->setFixedSize(36, 36);
+        moreBtn->setCursor(Qt::PointingHandCursor);
+        moreBtn->setToolTip(tr("操作"));
+        QMenu* menu = new QMenu(moreBtn);
+        QAction* delAct = menu->addAction(tr("删除小绿人"));
+        QAction* renAct = menu->addAction(tr("重命名小绿人"));
+        moreBtn->setMenu(menu);
+        moreBtn->setPopupMode(QToolButton::InstantPopup);
+        connect(delAct, &QAction::triggered, this, [this, ki]() { onKerbalDeleteRequested(ki); });
+        connect(renAct, &QAction::triggered, this, [this, ki]() { onKerbalRenameRequested(ki); });
+        layout->addWidget(moreBtn);
 
         QListWidgetItem* item = new QListWidgetItem(m_kerbalList);
         item->setSizeHint(QSize(0, 70));
@@ -452,16 +476,47 @@ void SaveDetailPage::showKerbalDetail(const KerbalInfo &kerbal)
         m_kerbalDetailTree->setItemWidget(item, 1, toggle);
     };
 
-    QString genderDisplay = (kerbal.gender == "Male") ? "Male" : "Female";
-    QString traitDisplay = kerbal.trait;
-    // trait保留原始值，不翻译因为需要保存回SFS
+    // 勇敢度/愚蠢度：永久滑块(0-1，步进0.1)+右侧数值，拖动实时更新 item 文本供保存收集
+    auto addSliderItem = [this](const QString& displayName, const QString& key, double value) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_kerbalDetailTree);
+        item->setText(0, displayName);
+        item->setText(1, QString()); // 不显示项文本，避免与滑块右侧数值重复
+        item->setData(0, Qt::UserRole, key);
+        item->setData(1, Qt::UserRole, key);
+        // 数值存入自定 role，供保存收集使用（不写进显示文本）
+        item->setData(1, Qt::UserRole + 2, QString::number(value, 'f', 1));
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
+        QWidget* host = new QWidget(m_kerbalDetailTree);
+        QHBoxLayout* h = new QHBoxLayout(host);
+        h->setContentsMargins(4, 2, 4, 2);
+        h->setSpacing(8);
+        QSlider* slider = new QSlider(Qt::Horizontal, host);
+        slider->setObjectName("kerbalSlider");
+        slider->setRange(0, 10);
+        slider->setSingleStep(1);
+        slider->setPageStep(1);
+        slider->setValue(qRound(value * 10.0));
+        QLabel* valLabel = new QLabel(QString::number(value, 'f', 1), host);
+        valLabel->setMinimumWidth(36);
+        valLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        h->addWidget(slider, 1);
+        h->addWidget(valLabel);
+        m_kerbalDetailTree->setItemWidget(item, 1, host);
+
+        connect(slider, &QSlider::valueChanged, this, [item, valLabel](int v) {
+            QString s = QString::number(v / 10.0, 'f', 1);
+            valLabel->setText(s);
+            item->setData(1, Qt::UserRole + 2, s);
+        });
+    };
 
     addEditItem(tr("姓名"), "name", kerbal.name, true); // 姓名可编辑
     addEditItem(tr("性别"), "gender", kerbal.gender);
     addEditItem(tr("类型"), "type", kerbal.type, false); // type不可编辑
     addEditItem(tr("职业"), "trait", kerbal.trait);
-    addEditItem(tr("勇敢度"), "brave", QString::number(kerbal.brave, 'f', 1));
-    addEditItem(tr("愚蠢度"), "dumb", QString::number(kerbal.dumb, 'f', 1));
+    addSliderItem(tr("勇敢度"), "brave", kerbal.brave);
+    addSliderItem(tr("愚蠢度"), "dumb", kerbal.dumb);
     addBoolItem(tr("坏蛋"), "badS", kerbal.badS);
     addBoolItem(tr("老兵"), "veteran", kerbal.veteran);
     addBoolItem(tr("英雄"), "hero", kerbal.hero);
@@ -497,7 +552,7 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
                     k.trait = value;
                 } else if (key == "brave") {
                     bool ok;
-                    double v = value.toDouble(&ok);
+                    double v = item->data(1, Qt::UserRole + 2).toString().toDouble(&ok);
                     if (!ok || v < 0.0 || v > 1.0) {
                         QMessageBox::warning(this, tr("输入错误"), tr("勇敢度必须是0.0-1.0之间的数值"));
                         return false;
@@ -505,7 +560,7 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
                     k.brave = v;
                 } else if (key == "dumb") {
                     bool ok;
-                    double v = value.toDouble(&ok);
+                    double v = item->data(1, Qt::UserRole + 2).toString().toDouble(&ok);
                     if (!ok || v < 0.0 || v > 1.0) {
                         QMessageBox::warning(this, tr("输入错误"), tr("愚蠢度必须是0.0-1.0之间的数值"));
                         return false;
@@ -527,6 +582,16 @@ bool SaveDetailPage::collectKerbalData(QList<KerbalInfo> &kerbals)
 
 void SaveDetailPage::onBackClicked()
 {
+    // 小绿人详情复用顶部「返回」：先回小绿人列表（含未保存修改确认），再回列表为存档列表
+    if (m_contentStack->currentIndex() == 1 && m_kerbalsStack->currentIndex() == 1) {
+        onBackToKerbalList();
+        return;
+    }
+    // 飞船详情复用顶部「返回」：处于飞船详情时先回飞船列表，其余情况返回存档列表
+    if (m_contentStack->currentIndex() == 2 && m_shipsPage->isDetailVisible()) {
+        m_shipsPage->goBackToList();
+        return;
+    }
     emit backClicked();
 }
 
@@ -568,6 +633,44 @@ void SaveDetailPage::onKerbalItemClicked(QListWidgetItem *item)
             showKerbalDetail(k);
             break;
         }
+    }
+}
+
+void SaveDetailPage::onKerbalDeleteRequested(int index)
+{
+    if (index < 0 || index >= m_kerbals.size()) return;
+    const KerbalInfo& k = m_kerbals[index];
+
+    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("移除小绿人"),
+        tr("确定要移除小绿人 '%1' 吗？\n此操作不可撤销。").arg(k.name),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply != QMessageBox::Yes) return;
+
+    if (InstanceManager::instance().deleteKerbal(m_saveFolderPath, k.originalName)) {
+        loadSaveData();
+    } else {
+        QMessageBox::warning(this, tr("移除失败"),
+            tr("无法移除该小绿人，请检查文件权限或格式。"));
+    }
+}
+
+void SaveDetailPage::onKerbalRenameRequested(int index)
+{
+    if (index < 0 || index >= m_kerbals.size()) return;
+    const KerbalInfo& k = m_kerbals[index];
+
+    bool ok = false;
+    QString newName = QInputDialog::getText(this, tr("重命名小绿人"), tr("新名称:"),
+        QLineEdit::Normal, k.name, &ok);
+    if (!ok) return;
+    newName = newName.trimmed();
+    if (newName.isEmpty() || newName == k.name) return;
+
+    if (InstanceManager::instance().renameKerbal(m_saveFolderPath, k.originalName, newName)) {
+        loadSaveData();
+    } else {
+        QMessageBox::warning(this, tr("重命名失败"),
+            tr("无法重命名，请检查文件权限或格式。"));
     }
 }
 
@@ -633,7 +736,6 @@ void SaveDetailPage::refreshIcons(const QString &color)
     m_backupsBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
 
     m_shipsPage->refreshIcons(color);
-    m_backToKerbalListBtn->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
     m_saveKerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_refreshBackupsBtn->setIcon(IconUtils::tintedIcon(":/icons/refresh.svg", color));
     m_createBackupBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));

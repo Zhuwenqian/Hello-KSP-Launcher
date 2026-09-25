@@ -53,8 +53,11 @@ void ShipTabPage::setupUI()
     listLayout->setContentsMargins(15, 10, 15, 15);
     listLayout->setSpacing(10);
 
-    // 顶栏：右侧「导入飞船」按钮
+    // 顶栏：左侧页面标题 + 右侧「导入飞船」按钮
     QHBoxLayout* listHeader = new QHBoxLayout();
+    QLabel* listTitle = new QLabel(tr("飞船列表"), listPage);
+    listTitle->setObjectName("pageTitle");
+    listHeader->addWidget(listTitle);
     m_importBtn = new QPushButton(IconUtils::tintedIcon(":/icons/download.svg", "#ffffff"),
                                   tr("  导入飞船"), listPage);
     m_importBtn->setObjectName("primaryButton");
@@ -89,15 +92,9 @@ void ShipTabPage::setupUI()
     detailLayout->setSpacing(12);
 
     QHBoxLayout* topRow = new QHBoxLayout();
-    m_backButton = new QPushButton(IconUtils::tintedIcon(":/icons/back.svg", "#ffffff"), tr(" 返回"), detailPage);
-    m_backButton->setObjectName("backButton");
-    m_backButton->setFixedHeight(40);
-    m_backButton->setMinimumWidth(100);
-    connect(m_backButton, &QPushButton::clicked, this, &ShipTabPage::onBackToListClicked);
     QLabel* detailTitle = new QLabel(tr("飞船详情"), detailPage);
     detailTitle->setObjectName("pageTitle");
-    topRow->addWidget(m_backButton);
-    topRow->addWidget(detailTitle, 1);
+    topRow->addWidget(detailTitle);
     detailLayout->addLayout(topRow);
 
     QHBoxLayout* body = new QHBoxLayout();
@@ -424,7 +421,12 @@ void ShipTabPage::loadDetail(const QString& path, int typeIndex)
     }
 }
 
-void ShipTabPage::onBackToListClicked()
+bool ShipTabPage::isDetailVisible() const
+{
+    return m_stack->currentIndex() == 1;
+}
+
+void ShipTabPage::goBackToList()
 {
     m_stack->setCurrentIndex(0);
 }
@@ -604,6 +606,5 @@ bool ShipTabPage::eventFilter(QObject* obj, QEvent* event)
 
 void ShipTabPage::refreshIcons(const QString &color)
 {
-    m_backButton->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
     m_importBtn->setIcon(IconUtils::tintedIcon(":/icons/download.svg", color));
 }

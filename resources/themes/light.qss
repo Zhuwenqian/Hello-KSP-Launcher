@@ -722,3 +722,19 @@ QPushButton#winCloseBtn:hover {
     background-color: #e81123;
     border-radius: 0px;
 }
+QSlider#kerbalSlider::groove:horizontal {
+    height: 6px;
+    border-radius: 3px;
+    background-color: #d0d0d0; /* 滑块右侧（未填充） */
+}
+QSlider#kerbalSlider::sub-page:horizontal {
+    background-color: #0e639c; /* 滑块左侧（已填充） */
+    border-radius: 3px;
+}
+QSlider#kerbalSlider::handle:horizontal {
+    width: 14px;
+    margin: -4px 0;
+    border-radius: 7px;
+    background-color: #ffffff;
+    border: 1px solid #aaaaaa;
+}

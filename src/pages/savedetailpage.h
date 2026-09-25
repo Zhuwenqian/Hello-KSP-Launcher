@@ -33,6 +33,8 @@ private slots:
     void onKerbalItemClicked(QListWidgetItem* item);
     void onSaveKerbalsClicked();
     void onBackToKerbalList();
+    void onKerbalDeleteRequested(int index);
+    void onKerbalRenameRequested(int index);
     void onCreateBackupClicked();
     void onRefreshBackupsClicked();
     void onDeleteBackupClicked(const QString& filePath);
@@ -76,7 +78,6 @@ private:
     QListWidget* m_kerbalList;
     QWidget* m_kerbalDetailWidget;
     QTreeWidget* m_kerbalDetailTree;
-    QPushButton* m_backToKerbalListBtn;
     QPushButton* m_saveKerbalsBtn;
     QString m_currentKerbalName;
 

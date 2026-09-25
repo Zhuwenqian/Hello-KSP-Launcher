@@ -372,3 +372,209 @@ bool InstanceManager::saveKerbals(const QString &saveFolderPath, const QList<Ker
     file.close();
     return true;
 }
+
+bool InstanceManager::deleteKerbal(const QString &saveFolderPath, const QString &originalName) const
+{
+    QString sfsPath = getPersistentSfsPath(saveFolderPath);
+    QFile file(sfsPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QStringList lines;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        lines.append(in.readLine());
+    }
+    file.close();
+
+    // 括号匹配验证
+    int openBraces = 0;
+    for (const QString& l : lines) {
+        openBraces += l.count('{');
+        openBraces -= l.count('}');
+    }
+    if (openBraces != 0) {
+        return false; // 括号不匹配，拒绝修改
+    }
+
+    // 定位匹配 originalName 的 KERBAL 块
+    int braceDepth = 0;
+    bool inRoster = false;
+    int rosterDepth = 0;
+    bool inKerbal = false;
+    int kerbalDepth = 0;
+    QString kerbalName;
+    int blockStart = -1;
+    int blockEnd = -1;
+
+    for (int i = 0; i < lines.size(); ++i) {
+        QString trimmed = lines[i].trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+            continue;
+        }
+
+        if (trimmed == "ROSTER") {
+            inRoster = true;
+            rosterDepth = braceDepth;
+            continue;
+        }
+
+        if (inRoster && trimmed == "KERBAL" && braceDepth == rosterDepth + 1) {
+            inKerbal = true;
+            kerbalDepth = braceDepth;
+            kerbalName.clear();
+            blockStart = i;
+            continue;
+        }
+
+        if (trimmed.contains('{')) {
+            braceDepth++;
+            continue;
+        }
+        if (trimmed.contains('}')) {
+            braceDepth--;
+            if (inKerbal && braceDepth <= kerbalDepth) {
+                if (kerbalName == originalName) {
+                    blockEnd = i;
+                    break;
+                }
+                inKerbal = false;
+                kerbalName.clear();
+            }
+            if (inRoster && braceDepth <= rosterDepth) {
+                inRoster = false;
+            }
+            continue;
+        }
+
+        if (inKerbal && braceDepth == kerbalDepth + 1 && trimmed.contains('=')) {
+            int eqPos = trimmed.indexOf('=');
+            if (trimmed.left(eqPos).trimmed() == "name") {
+                kerbalName = trimmed.mid(eqPos + 1).trimmed();
+            }
+        }
+    }
+
+    if (blockStart < 0 || blockEnd < 0) {
+        return false; // 未找到匹配的小绿人
+    }
+
+    lines.erase(lines.begin() + blockStart, lines.begin() + blockEnd + 1);
+
+    // 括号再次验证
+    openBraces = 0;
+    for (const QString& l : lines) {
+        openBraces += l.count('{');
+        openBraces -= l.count('}');
+    }
+    if (openBraces != 0) {
+        return false;
+    }
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        return false;
+    }
+    QTextStream out(&file);
+    for (const QString& l : lines) {
+        out << l << "\n";
+    }
+    file.close();
+    return true;
+}
+
+bool InstanceManager::renameKerbal(const QString &saveFolderPath, const QString &originalName, const QString &newName) const
+{
+    QString sfsPath = getPersistentSfsPath(saveFolderPath);
+    QFile file(sfsPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QStringList lines;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        lines.append(in.readLine());
+    }
+    file.close();
+
+    // 括号匹配验证
+    int openBraces = 0;
+    for (const QString& l : lines) {
+        openBraces += l.count('{');
+        openBraces -= l.count('}');
+    }
+    if (openBraces != 0) {
+        return false;
+    }
+
+    int braceDepth = 0;
+    bool inRoster = false;
+    int rosterDepth = 0;
+    bool inKerbal = false;
+    int kerbalDepth = 0;
+    bool renamed = false;
+
+    for (QString& line : lines) {
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+            continue;
+        }
+
+        if (trimmed == "ROSTER") {
+            inRoster = true;
+            rosterDepth = braceDepth;
+        } else if (inRoster && trimmed == "KERBAL" && braceDepth == rosterDepth + 1) {
+            inKerbal = true;
+            kerbalDepth = braceDepth;
+        }
+
+        if (trimmed.contains('{')) {
+            braceDepth++;
+        }
+        if (trimmed.contains('}')) {
+            braceDepth--;
+            if (inKerbal && braceDepth <= kerbalDepth) {
+                inKerbal = false;
+            }
+            if (inRoster && braceDepth <= rosterDepth) {
+                inRoster = false;
+            }
+        }
+
+        if (inKerbal && braceDepth == kerbalDepth + 1 && trimmed.contains('=')) {
+            int eqPos = trimmed.indexOf('=');
+            if (trimmed.left(eqPos).trimmed() == "name") {
+                if (trimmed.mid(eqPos + 1).trimmed() == originalName) {
+                    int origEqPos = line.indexOf('=');
+                    QString prefix = line.left(origEqPos + 1);
+                    line = prefix + " " + newName;
+                    renamed = true;
+                }
+            }
+        }
+    }
+
+    if (!renamed) {
+        return false;
+    }
+
+    openBraces = 0;
+    for (const QString& l : lines) {
+        openBraces += l.count('{');
+        openBraces -= l.count('}');
+    }
+    if (openBraces != 0) {
+        return false;
+    }
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        return false;
+    }
+    QTextStream out(&file);
+    for (const QString& l : lines) {
+        out << l << "\n";
+    }
+    file.close();
+    return true;
+}

@@ -90,6 +90,9 @@ public:
     SaveInfo loadSaveInfo(const QString& saveFolderPath) const;
     QList<KerbalInfo> loadKerbals(const QString& saveFolderPath) const;
     bool saveKerbals(const QString& saveFolderPath, const QList<KerbalInfo>& kerbals) const;
+    // 从 ROSTER 区块移除指定（原名称）小绿人的 KERBAL 数据块；重命名其姓名（均立即写盘）
+    bool deleteKerbal(const QString& saveFolderPath, const QString& originalName) const;
+    bool renameKerbal(const QString& saveFolderPath, const QString& originalName, const QString& newName) const;
     QString getSavesDir(const QString& gamePath) const;
     QString getPersistentSfsPath(const QString& saveFolderPath) const;
     // 将存档文件夹移动到系统回收站（Windows）。其他平台（macOS/Linux）无统一回收站 API，

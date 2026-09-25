@@ -176,6 +176,11 @@ void InstanceDetailPage::loadCurrentInstance()
 
 void InstanceDetailPage::onBackClicked()
 {
+    // 飞船详情复用顶部「返回」：处于飞船详情时先回飞船列表，其余情况返回实例列表
+    if (m_contentStack->currentIndex() == 5 && m_shipsTabPage->isDetailVisible()) {
+        m_shipsTabPage->goBackToList();
+        return;
+    }
     emit backClicked();
 }
 

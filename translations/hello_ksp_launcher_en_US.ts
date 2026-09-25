@@ -472,106 +472,106 @@ Install the repository version (%3) instead?
         <translation>Import Modpack</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="287"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="292"/>
         <source>导出失败</source>
         <translation>Export Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="287"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="292"/>
         <source>实例路径为空，无法导出整合包。</source>
         <translation>Instance path is empty, cannot export modpack.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="294"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="299"/>
         <source>打包 GameData 为 ZIP</source>
         <translation>Pack GameData as ZIP</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="295"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="300"/>
         <source>导出为 CKAN 文件</source>
         <translation>Export as CKAN file</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="309"/>
-        <location filename="../src/pages/instancedetailpage.cpp" line="313"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="314"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="318"/>
         <source>导入失败</source>
         <translation>Import failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="309"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="314"/>
         <source>实例路径为空，无法导入整合包。</source>
         <translation>Instance path is empty; cannot import modpack.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="313"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="318"/>
         <source>GameData 目录不存在，无法导入整合包。</source>
         <translation>GameData directory does not exist; cannot import modpack.</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="319"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="324"/>
         <source>从 ZIP 导入</source>
         <translation>Import from ZIP</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="320"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="325"/>
         <source>从 .ckan 文件导入</source>
         <translation>Import from .ckan file</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="360"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="365"/>
         <source>游戏根目录</source>
         <translation>Game Root</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="368"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="373"/>
         <source>KSP.log</source>
         <translation>KSP.log</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="369"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="374"/>
         <source>模块日志</source>
         <translation>Mod Logs</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="370"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="375"/>
         <source>Principia日志文件夹</source>
         <translation>Principia Log Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="371"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="376"/>
         <source>模组文件夹</source>
         <translation>Mods Folder (GameData)</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="372"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="377"/>
         <source>飞船文件夹</source>
         <translation>Ships Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="373"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="378"/>
         <source>kOS代码文件夹</source>
         <translation>kOS Scripts Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="374"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="379"/>
         <source>存档文件夹</source>
         <translation>Saves Folder</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="448"/>
         <location filename="../src/pages/instancedetailpage.cpp" line="453"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="458"/>
         <source>浏览</source>
         <translation>Browse</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="448"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="453"/>
         <source>目标不存在：
 %1</source>
         <translation>Target does not exist:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancedetailpage.cpp" line="453"/>
+        <location filename="../src/pages/instancedetailpage.cpp" line="458"/>
         <source>无法打开：
 %1</source>
         <translation>Unable to open:
@@ -626,6 +626,21 @@ Game files will not be deleted.</translation>
         <location filename="../src/instancemanager_backup.cpp" line="481"/>
         <source>恢复前</source>
         <translation>Before restore</translation>
+    </message>
+</context>
+<context>
+    <name>KerbalItemDelegate</name>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="44"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="63"/>
+        <source>男</source>
+        <translation type="unfinished">Male</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="44"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="64"/>
+        <source>女</source>
+        <translation type="unfinished">Female</translation>
     </message>
 </context>
 <context>
@@ -2045,403 +2060,465 @@ Do you want to download and update? The update will replace files and restart th
         <source>更新失败</source>
         <translation>Update failed</translation>
     </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="28"/>
+        <source>乘员</source>
+        <translation>Crew</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="29"/>
+        <source>应聘者</source>
+        <translation>Applicant</translation>
+    </message>
 </context>
 <context>
     <name>SaveDetailPage</name>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="147"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="166"/>
         <source> 返回</source>
         <translation> Back</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="158"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="177"/>
         <source>存档详情</source>
         <translation>Save Details</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="106"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="125"/>
         <source>  存档信息</source>
         <translation>  Save Info</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="113"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="132"/>
         <source>  管理小绿人</source>
         <translation>  Manage Kerbals</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="119"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="138"/>
         <source>  飞船管理</source>
         <translation>  Ship Management</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="125"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="144"/>
         <source>  备份管理</source>
         <translation>  Backup Mgt</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="185"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="204"/>
         <source>注：存档信息为只读显示</source>
         <translation>Note: Save info is read-only</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="191"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="210"/>
         <source>项目</source>
         <translation>Item</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="191"/>
-        <location filename="../src/pages/savedetailpage.cpp" line="247"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="210"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="254"/>
         <source>值</source>
         <translation>Value</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="217"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="236"/>
         <source>双击小绿人可编辑其属性</source>
         <translation>Double-click a Kerbal to edit its attributes</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="237"/>
         <source> 返回列表</source>
-        <translation> Back to List</translation>
+        <translation type="vanished"> Back to List</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="247"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="254"/>
         <source>属性</source>
         <translation>Attribute</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="261"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="268"/>
         <source> 保存修改</source>
         <translation> Save Changes</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="308"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="315"/>
         <source> 刷新</source>
         <translation> Refresh</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="313"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="320"/>
         <source> 创建新备份</source>
         <translation> Create Backup</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="362"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="369"/>
         <source>沙盒模式</source>
         <translation>Sandbox</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="363"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="370"/>
         <source>生涯模式</source>
         <translation>Career</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="364"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="371"/>
         <source>科学模式</source>
         <translation>Science</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="366"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="373"/>
         <source>存档标题</source>
         <translation>Save Title</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="367"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="374"/>
         <source>游戏版本</source>
         <translation>Game Version</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="368"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="375"/>
         <source>游戏模式</source>
         <translation>Game Mode</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="369"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="376"/>
         <source>种子</source>
         <translation>Seed</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="370"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="377"/>
         <source>有模组</source>
         <translation>Modded</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="370"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="377"/>
         <source>是</source>
         <translation>Yes</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="370"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="377"/>
         <source>否</source>
         <translation>No</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="371"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="378"/>
         <source>游戏完整版本号</source>
         <translation>Full Version</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="372"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="379"/>
         <source>创建存档版本</source>
         <translation>Created With Version</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="373"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="380"/>
         <source>时间戳</source>
         <translation>Timestamp</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="374"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="381"/>
         <source>环境信息</source>
         <translation>Environment Info</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="390"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="398"/>
         <source>飞行员</source>
         <translation>Pilot</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="391"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="399"/>
         <source>工程师</source>
         <translation>Engineer</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="392"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="400"/>
         <source>科学家</source>
         <translation>Scientist</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="393"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="401"/>
         <source>男</source>
         <translation>Male</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="393"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="401"/>
         <source>女</source>
         <translation>Female</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="395"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="403"/>
         <source> | 老兵</source>
         <translation> | Veteran</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="396"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="404"/>
         <source> | 英雄</source>
         <translation> | Hero</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="397"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="405"/>
         <source> | 坏蛋</source>
         <translation> | BadS</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="414"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="420"/>
+        <source>操作</source>
+        <translation>Actions</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="422"/>
+        <source>删除小绿人</source>
+        <translation>Delete Kerbal</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="423"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="660"/>
+        <source>重命名小绿人</source>
+        <translation>Rename Kerbal</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="438"/>
         <source>（未检测到小绿人）</source>
         <translation>(No Kerbals detected)</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="459"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="511"/>
         <source>姓名</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="460"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="512"/>
         <source>性别</source>
         <translation>Gender</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="461"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="513"/>
         <source>类型</source>
         <translation>Type</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="462"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="514"/>
         <source>职业</source>
         <translation>Trait</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="463"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="515"/>
         <source>勇敢度</source>
         <translation>Bravery</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="464"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="516"/>
         <source>愚蠢度</source>
         <translation>Stupidity</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="465"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="517"/>
         <source>坏蛋</source>
         <translation>BadS</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="466"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="518"/>
         <source>老兵</source>
         <translation>Veteran</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="467"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="519"/>
         <source>英雄</source>
         <translation>Hero</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="492"/>
-        <location filename="../src/pages/savedetailpage.cpp" line="502"/>
-        <location filename="../src/pages/savedetailpage.cpp" line="510"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="544"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="554"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="562"/>
         <source>输入错误</source>
         <translation>Input Error</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="492"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="544"/>
         <source>性别必须是 Male 或 Female</source>
         <translation>Gender must be Male or Female</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="502"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="554"/>
         <source>勇敢度必须是0.0-1.0之间的数值</source>
         <translation>Bravery must be a value between 0.0 and 1.0</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="510"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="562"/>
         <source>愚蠢度必须是0.0-1.0之间的数值</source>
         <translation>Stupidity must be a value between 0.0 and 1.0</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="598"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="641"/>
+        <source>移除小绿人</source>
+        <translation>Remove Kerbal</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="642"/>
+        <source>确定要移除小绿人 &apos;%1&apos; 吗？
+此操作不可撤销。</source>
+        <translation>Are you sure you want to remove the Kerbal &apos;%1&apos;?
+This cannot be undone.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="649"/>
+        <source>移除失败</source>
+        <translation>Removal Failed</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="650"/>
+        <source>无法移除该小绿人，请检查文件权限或格式。</source>
+        <translation>Unable to remove the Kerbal. Please check file permissions or format.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="660"/>
+        <source>新名称:</source>
+        <translation>New name:</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="669"/>
+        <source>重命名失败</source>
+        <translation>Rename Failed</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="670"/>
+        <source>无法重命名，请检查文件权限或格式。</source>
+        <translation>Unable to rename. Please check file permissions or format.</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/savedetailpage.cpp" line="698"/>
         <source>保存成功</source>
         <translation>Saved</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="598"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="698"/>
         <source>小绿人数据已保存！</source>
         <translation>Kerbal data has been saved!</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="610"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="710"/>
         <source>保存失败</source>
         <translation>Save Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="610"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="710"/>
         <source>无法保存小绿人数据，请检查文件权限或文件格式是否损坏。</source>
         <translation>Unable to save Kerbal data. Please check file permissions or if the file format is corrupted.</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="617"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="717"/>
         <source>确认</source>
         <translation>Confirm</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="618"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="718"/>
         <source>返回列表将放弃未保存的修改，确定吗？</source>
         <translation>Going back will discard unsaved changes. Are you sure?</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="662"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="761"/>
         <source>（</source>
         <translation>(</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="662"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="761"/>
         <source>）</source>
         <translation>)</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="676"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="775"/>
         <source>从备份恢复</source>
         <translation>Restore from backup</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="684"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="783"/>
         <source>在文件资源管理器中显示</source>
         <translation>Show in File Explorer</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="692"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="791"/>
         <source>删除备份</source>
         <translation>Delete backup</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="709"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="808"/>
         <source>（暂无备份）</source>
         <translation>(No backups)</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="721"/>
-        <location filename="../src/pages/savedetailpage.cpp" line="727"/>
-        <location filename="../src/pages/savedetailpage.cpp" line="783"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="820"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="826"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="882"/>
         <source>备份失败</source>
         <translation>Backup Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="721"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="820"/>
         <source>存档文件夹不存在！</source>
         <translation>Save folder does not exist!</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="727"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="826"/>
         <source>存档文件夹为空，无法备份！</source>
         <translation>Save folder is empty, cannot backup!</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="731"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="830"/>
         <source>正在创建备份...</source>
         <translation>Creating backup...</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="780"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="879"/>
         <source>备份成功</source>
         <translation>Backup Successful</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="780"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="879"/>
         <source>存档备份已创建！</source>
         <translation>Save backup has been created!</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="783"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="882"/>
         <source>创建备份时发生错误，请检查磁盘空间或文件权限。</source>
         <translation>An error occurred while creating the backup. Please check disk space and permissions.</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="795"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="894"/>
         <source>确认删除</source>
         <translation>Confirm Delete</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="796"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="895"/>
         <source>确定要删除备份 &apos;%1&apos; 吗？
 此操作不可撤销。</source>
         <translation>Are you sure you want to delete backup &apos;%1&apos;?
 This action cannot be undone.</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="803"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="902"/>
         <source>删除失败</source>
         <translation>Delete Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="803"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="902"/>
         <source>无法删除备份文件，请检查文件是否被占用。</source>
         <translation>Unable to delete backup file. Please check if the file is in use.</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="811"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="910"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="811"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="910"/>
         <source>无法打开文件资源管理器。</source>
         <translation>Unable to open file explorer.</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="820"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="919"/>
         <source>确认恢复</source>
         <translation>Confirm restore</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="821"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="920"/>
         <source>将从备份 &apos;%1&apos; 恢复存档 &apos;%2&apos;。
 恢复前会自动创建一份当前存档的备份（标注为“恢复前备份”），
 然后删除当前存档中的全部文件，并用备份内容替换。
@@ -2454,27 +2531,27 @@ then all files in the current save will be deleted and replaced with the backup 
 Continue?</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="833"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="932"/>
         <source>正在恢复存档...</source>
         <translation>Restoring save...</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="870"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="969"/>
         <source>恢复成功</source>
         <translation>Restore succeeded</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="870"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="969"/>
         <source>存档已从备份恢复！</source>
         <translation>Save restored from backup!</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="872"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="971"/>
         <source>恢复失败</source>
         <translation>Restore failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/savedetailpage.cpp" line="873"/>
+        <location filename="../src/pages/savedetailpage.cpp" line="972"/>
         <source>存档恢复失败，可能存在文件占用或备份损坏。
 恢复前的存档已自动备份，可在备份列表中找回。</source>
         <translation>Failed to restore the save; a file may be in use or the backup damaged.
@@ -3005,150 +3082,154 @@ Are you sure you want to clear the cache?</translation>
 <context>
     <name>ShipTabPage</name>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="59"/>
-        <location filename="../src/pages/shiptabpage.cpp" line="342"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="62"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="367"/>
         <source>  导入飞船</source>
         <translation>  Import Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="96"/>
         <source> 返回</source>
-        <translation> Back</translation>
+        <translation type="vanished"> Back</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="101"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="95"/>
         <source>飞船详情</source>
         <translation>Ship Details</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="122"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="115"/>
         <source>描述</source>
         <translation>Description</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="128"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="121"/>
         <source>（无描述）</source>
         <translation>(No description)</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="306"/>
-        <location filename="../src/pages/shiptabpage.cpp" line="365"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="331"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="390"/>
         <source>未知</source>
         <translation>Unknown</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="365"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="390"/>
         <source>游戏版本: %1</source>
         <translation>Game version: %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="319"/>
-        <location filename="../src/pages/shiptabpage.cpp" line="401"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="344"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="442"/>
         <source>删除飞船</source>
         <translation>Delete Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="286"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="311"/>
         <source>（未检测到飞船）</source>
         <translation>(No ships detected)</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="228"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="247"/>
         <source>正在加载飞船...</source>
         <translation>Loading ships...</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="184"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="58"/>
+        <source>飞船列表</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/shiptabpage.cpp" line="180"/>
         <source>预制件</source>
         <translation>Subassemblies</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="285"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="310"/>
         <source>（未检测到预制件）</source>
         <translation>(No subassemblies detected)</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="308"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="333"/>
         <source>游戏版本: %1 · 部件数: %2</source>
         <translation>Game version: %1 · Parts: %2</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="319"/>
-        <location filename="../src/pages/shiptabpage.cpp" line="401"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="344"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="442"/>
         <source>删除预制件</source>
         <translation>Delete Subassembly</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="342"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="367"/>
         <source>  导入预制件</source>
         <translation>  Import Subassembly</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="366"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="391"/>
         <source>部件数: %1</source>
         <translation>Parts: %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="403"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="444"/>
         <source>确定要删除预制件 &apos;%1&apos; 吗？
 该文件将被移动到回收站。</source>
         <translation>Are you sure you want to delete subassembly &apos;%1&apos;?
 The file will be moved to the Recycle Bin.</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="404"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="445"/>
         <source>确定要删除飞船 &apos;%1&apos; 吗？
 该文件将被移动到回收站。</source>
         <translation>Are you sure you want to delete ship &apos;%1&apos;?
 The file will be moved to the Recycle Bin.</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="415"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="456"/>
         <source>删除失败</source>
         <translation>Delete Failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="415"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="456"/>
         <source>无法删除飞船，请检查文件是否被占用。</source>
         <translation>Failed to delete ship. Check whether the file is in use.</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="423"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="464"/>
         <source>导入飞船</source>
         <translation>Import Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="423"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="464"/>
         <source>飞船文件 (*.craft)</source>
         <translation>Ship Files (*.craft)</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="497"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="538"/>
         <source>覆盖飞船</source>
         <translation>Overwrite Ship</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="497"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="538"/>
         <source>覆盖预制件</source>
         <translation>Overwrite Subassembly</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="498"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="539"/>
         <source>预制件 &quot;%1&quot; 已存在，是否覆盖？</source>
         <translation>Subassembly &quot;%1&quot; already exists. Overwrite it?</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="499"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="540"/>
         <source>飞船 &quot;%1&quot; 已存在，是否覆盖？</source>
         <translation>Ship &quot;%1&quot; already exists. Overwrite it?</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="515"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="556"/>
         <source>导入失败</source>
         <translation>Import failed</translation>
     </message>
     <message>
-        <location filename="../src/pages/shiptabpage.cpp" line="516"/>
+        <location filename="../src/pages/shiptabpage.cpp" line="557"/>
         <source>无法导入 &quot;%1&quot;，请检查文件是否可读或磁盘空间。</source>
         <translation>Failed to import &quot;%1&quot;. Check whether the file is readable or disk space is available.</translation>
     </message>
