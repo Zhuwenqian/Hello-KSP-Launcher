@@ -101,10 +101,16 @@ public:
     QString getShipsDir(const QString& gamePath) const;
     // 列出 type 子目录下的 .craft 文件（排除 .loadmeta、*.craft.original 等），按文件名排序
     QStringList listCraftFiles(const QString& gamePath, const QString& type) const;
+    // 列出任意目录下的 .craft 文件（与 listCraftFiles 相同过滤）；预制件目录（存档名/Subassemblies）用它获取
+    QStringList listCraftFilesIn(const QString& dirPath) const;
     // 解析 craft 顶层的 ship/version/description；name 缺失时回退为文件名（去 .craft 后缀）
     ShipInfo loadCraftInfo(const QString& craftFilePath) const;
     // 缩略图路径（Ships/@thumbs/{type}/{名称}.png|.jpg），找不到返回空串
     QString getShipThumbPath(const QString& gamePath, const QString& type, const QString& craftFileName) const;
+    // 玩家自制载具缩略图：游戏根目录 thumbs/{存档名}_{type}_{基名}.png（大小写不敏感、仅 .png），找不到返回空串。
+    // 仅存档模式飞船管理使用；实例模式飞船多存档共享、无单一存档名，不读取这里。
+    QString getPlayerShipThumbPath(const QString& gamePath, const QString& saveName,
+                                   const QString& type, const QString& craftFileName) const;
     // 将单个 craft 文件移动到系统回收站（Windows）；其他平台直接永久删除
     bool moveCraftToTrash(const QString& craftFilePath) const;
 

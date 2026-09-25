@@ -285,6 +285,8 @@ void SaveDetailPage::setupShipsTab()
     layout->setSpacing(0);
 
     m_shipsPage = new ShipTabPage(tab);
+    // 存档模式启用「预制件」tab（实例根/saves/存档名/Subassemblies）；实例详情页不经此路径，保持 VAB/SPH
+    m_shipsPage->setSubassembliesEnabled(true);
     layout->addWidget(m_shipsPage);
 
     m_contentStack->addWidget(tab);

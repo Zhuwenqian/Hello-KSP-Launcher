@@ -19,8 +19,12 @@ QString InstanceManager::getShipsDir(const QString &gamePath) const
 
 QStringList InstanceManager::listCraftFiles(const QString &gamePath, const QString &type) const
 {
+    return listCraftFilesIn(QDir(getShipsDir(gamePath)).filePath(type));
+}
+
+QStringList InstanceManager::listCraftFilesIn(const QString &dirPath) const
+{
     QStringList result;
-    QString dirPath = QDir(getShipsDir(gamePath)).filePath(type);
     QDir dir(dirPath);
     if (!dir.exists()) {
         return result;
@@ -112,6 +116,28 @@ QString InstanceManager::getShipThumbPath(const QString &gamePath, const QString
     const QString jpg = QDir(dir).filePath(base + QStringLiteral(".jpg"));
     if (QFileInfo::exists(jpg)) {
         return jpg;
+    }
+    return QString();
+}
+
+QString InstanceManager::getPlayerShipThumbPath(const QString &gamePath, const QString &saveName,
+                                                const QString &type, const QString &craftFileName) const
+{
+    // 玩家自制载具缩略图在 游戏根目录/thumbs/，命名 <存档名>_<type>_<载具基名>.png，与 Ships/@thumbs
+    // 的原版图不同目录。KSP 生成的缩略图固定 .png，故只查 .png；文件名做大小写不敏感匹配，
+    // 兼容 Windows/Linux/macOS 之间大小写不一致的场景。
+    const QString base = QFileInfo(craftFileName).completeBaseName();
+    const QDir dir(QDir(gamePath).filePath(QStringLiteral("thumbs")));
+    if (!dir.exists()) {
+        return QString();
+    }
+    const QString needle = saveName + QLatin1Char('_') + type + QLatin1Char('_')
+                           + base + QLatin1String(".png");
+    const QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QString& f : files) {
+        if (f.compare(needle, Qt::CaseInsensitive) == 0) {
+            return dir.filePath(f);
+        }
     }
     return QString();
 }
