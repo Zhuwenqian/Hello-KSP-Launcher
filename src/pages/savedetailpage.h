@@ -53,6 +53,7 @@ private:
     void populateKerbalList();
     bool collectKerbalData(QList<KerbalInfo>& kerbals);
     void refreshBackupList();
+    void rebuildBackupList();
 
     QString m_saveFolderPath;
     QString m_saveName;
@@ -90,6 +91,8 @@ private:
     // 备份管理页面
     QWidget* m_backupsTab;
     QListWidget* m_backupList;
+    QLineEdit* m_backupSearchEdit;
+    QList<BackupInfo> m_backups; // 最近一次读取的全部备份（供搜索过滤）
     QPushButton* m_createBackupBtn;
     QPushButton* m_refreshBackupsBtn;
 

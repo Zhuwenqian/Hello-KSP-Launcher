@@ -31,6 +31,37 @@ static QString translateKerbalType(const QString& t)
     return t;
 }
 
+// 备份搜索：把查询串按数字分词（分隔符任意），与备份时间按 年/月/日/时/分/秒 宽松匹配
+// 例："2026-01-01 12:30" -> {"2026","01","01","12","30"}；"10-02" -> {"10","02"}
+static bool backupMatchesDateTimeQuery(const BackupInfo& backup, const QStringList& tokens)
+{
+    if (tokens.isEmpty()) return true;
+
+    const QDate d = backup.timestamp.date();
+    const QTime t = backup.timestamp.time();
+    const int comps[6] = { d.year(), d.month(), d.day(), t.hour(), t.minute(), t.second() };
+
+    const int n = qMin(tokens.size(), 6);
+    int q[6] = { 0, 0, 0, 0, 0, 0 };
+    for (int i = 0; i < n; ++i) {
+        bool ok = false;
+        q[i] = tokens[i].toInt(&ok);
+        if (!ok) return false;
+    }
+
+    if (tokens.size() == 1) {
+        // 单个数字：与任一时间分量（年/月/日/时/分/秒）相等即命中
+        for (int i = 0; i < 6; ++i)
+            if (comps[i] == q[0]) return true;
+        return false;
+    }
+    if (tokens.size() > 6) return false;
+    // 多个数字：按 年 月 日 时 分 秒 顺序依次匹配
+    for (int i = 0; i < n; ++i)
+        if (comps[i] != q[i]) return false;
+    return true;
+}
+
 // 自定义委托：控制哪些列可编辑，bool用永久开关，gender用下拉框，数值用浮点输入
 class KerbalItemDelegate : public QStyledItemDelegate {
 public:
@@ -333,6 +364,13 @@ void SaveDetailPage::setupBackupsTab()
     m_refreshBackupsBtn->setMinimumHeight(36);
     connect(m_refreshBackupsBtn, &QPushButton::clicked, this, &SaveDetailPage::onRefreshBackupsClicked);
 
+    m_backupSearchEdit = new QLineEdit(toolBar);
+    m_backupSearchEdit->setPlaceholderText(tr("按日期/时间筛选，如 2026-01-01、10-02 或 12:30"));
+    m_backupSearchEdit->setClearButtonEnabled(true);
+    m_backupSearchEdit->setMinimumHeight(36);
+    m_backupSearchEdit->setMinimumWidth(300);
+    connect(m_backupSearchEdit, &QLineEdit::textChanged, this, &SaveDetailPage::rebuildBackupList);
+
     m_createBackupBtn = new QPushButton(IconUtils::tintedIcon(":/icons/save.svg", "#ffffff"), tr(" 创建新备份"), toolBar);
     m_createBackupBtn->setObjectName("primaryButton");
     m_createBackupBtn->setMinimumHeight(36);
@@ -340,6 +378,7 @@ void SaveDetailPage::setupBackupsTab()
     connect(m_createBackupBtn, &QPushButton::clicked, this, &SaveDetailPage::onCreateBackupClicked);
 
     toolBarLayout->addWidget(m_refreshBackupsBtn);
+    toolBarLayout->addWidget(m_backupSearchEdit);
     toolBarLayout->addStretch();
     toolBarLayout->addWidget(m_createBackupBtn);
     layout->addWidget(toolBar);
@@ -799,10 +838,33 @@ void SaveDetailPage::refreshIcons(const QString &color)
 
 void SaveDetailPage::refreshBackupList()
 {
-    m_backupList->clear();
-    QList<BackupInfo> backups = InstanceManager::instance().listBackups(m_instanceName, m_instanceId, m_saveName);
+    m_backups = InstanceManager::instance().listBackups(m_instanceName, m_instanceId, m_saveName);
+    rebuildBackupList();
+}
 
-    for (const BackupInfo& backup : backups) {
+void SaveDetailPage::rebuildBackupList()
+{
+    m_backupList->clear();
+
+    // 把搜索框内容按数字分词（分隔符任意）："2026-01-01 12:30" -> {"2026","01","01","12","30"}
+    QStringList tokens;
+    QString cur;
+    const QString query = m_backupSearchEdit ? m_backupSearchEdit->text() : QString();
+    for (const QChar& c : query) {
+        if (c.isDigit()) {
+            cur += c;
+        } else if (!cur.isEmpty()) {
+            tokens << cur;
+            cur.clear();
+        }
+    }
+    if (!cur.isEmpty()) tokens << cur;
+
+    int shownCount = 0;
+    for (const BackupInfo& backup : m_backups) {
+        if (!backupMatchesDateTimeQuery(backup, tokens)) continue;
+        ++shownCount;
+
         QWidget* itemWidget = new QWidget(m_backupList);
         QHBoxLayout* layout = new QHBoxLayout(itemWidget);
         layout->setContentsMargins(20, 14, 10, 14);
@@ -863,8 +925,13 @@ void SaveDetailPage::refreshBackupList()
         m_backupList->setItemWidget(item, itemWidget);
     }
 
-    if (backups.isEmpty()) {
+    if (m_backups.isEmpty()) {
         QListWidgetItem* emptyItem = new QListWidgetItem(tr("（暂无备份）"), m_backupList);
+        emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
+        emptyItem->setTextAlignment(Qt::AlignCenter);
+        emptyItem->setForeground(QColor("#888888"));
+    } else if (shownCount == 0) {
+        QListWidgetItem* emptyItem = new QListWidgetItem(tr("（没有匹配的备份）"), m_backupList);
         emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
         emptyItem->setTextAlignment(Qt::AlignCenter);
         emptyItem->setForeground(QColor("#888888"));
