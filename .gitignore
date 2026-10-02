@@ -11,3 +11,4 @@ berr.txt
 bout.txt
 upload-index-example.ps1
 .vscode/
+*-setup.exe
