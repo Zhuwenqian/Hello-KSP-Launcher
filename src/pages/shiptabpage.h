@@ -15,6 +15,7 @@ class QListWidgetItem;
 class QPushButton;
 class QLabel;
 class QPlainTextEdit;
+class QLineEdit;
 
 // 后台线程返回的一条飞船列表项：类型(VAB/SPH) + 完整路径 + 解析信息
 struct ShipListEntry {
@@ -61,6 +62,8 @@ private slots:
 private:
     void setupUI();
     void addShipRow(QListWidget* list, const QString& craftPath, const QString& type, const ShipInfo& info);
+    // 按搜索框关键词过滤三个类型列表（显示名/文件名包含匹配，不区分大小写）；清空则全部恢复
+    void applyShipFilter();
     void showDetail(const QString& path, int typeIndex);
     void loadDetail(const QString& path, int typeIndex);
     void importShipFiles(const QStringList& paths, int typeIndex);
@@ -83,6 +86,7 @@ private:
     QListWidget* m_lists[3];     // 0=VAB, 1=SPH, 2=Subassemblies(预制件，仅存档模式启用)
     QStackedWidget* m_stack;
     QPushButton* m_importBtn;
+    QLineEdit* m_searchEdit;     // 飞船名称搜索框（列表页）
 
     // 详情页控件
     QLabel* m_detailName;

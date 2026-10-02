@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QPlainTextEdit>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QFile>
@@ -66,6 +67,13 @@ void ShipTabPage::setupUI()
     listHeader->addStretch();
     listHeader->addWidget(m_importBtn);
     listLayout->addLayout(listHeader);
+
+    // 搜索框：按飞船名过滤三个类型列表（实例/存档共用本页）
+    m_searchEdit = new QLineEdit(listPage);
+    m_searchEdit->setPlaceholderText(tr("搜索飞船名称"));
+    m_searchEdit->setClearButtonEnabled(true);
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &ShipTabPage::applyShipFilter);
+    listLayout->addWidget(m_searchEdit);
 
     m_typeTabs = new QTabWidget(listPage);
     m_typeTabs->setObjectName("shipTypeTabs");
@@ -311,6 +319,54 @@ void ShipTabPage::onShipsLoadFinished()
                                                         : tr("（未检测到飞船）"));
         }
     }
+    // 列表重填后按当前搜索词重新过滤（保持搜索状态）
+    applyShipFilter();
+}
+
+void ShipTabPage::applyShipFilter()
+{
+    const QString query = m_searchEdit->text().trimmed();
+    const bool filtering = !query.isEmpty();
+
+    for (int i = 0; i < kShipTypeCount; ++i) {
+        QListWidget* list = m_lists[i];
+        if (!list) {
+            continue;
+        }
+
+        // 移除上一轮的「无匹配」提示项（标记于 UserRole+3，列表 clear 后自然消失，无需额外清理）
+        for (int r = list->count() - 1; r >= 0; --r) {
+            if (list->item(r)->data(Qt::UserRole + 3).toBool()) {
+                delete list->item(r);
+            }
+        }
+
+        int visibleCount = 0;
+        for (int r = 0; r < list->count(); ++r) {
+            QListWidgetItem* item = list->item(r);
+            const QString name = item->data(Qt::UserRole + 2).toString();
+            if (name.isEmpty()) {
+                // 空态/加载中提示项：仅在未过滤时可见
+                item->setHidden(filtering);
+                continue;
+            }
+            const bool match = name.contains(query, Qt::CaseInsensitive);
+            item->setHidden(filtering && !match);
+            if (!item->isHidden()) {
+                ++visibleCount;
+            }
+        }
+
+        // 过滤激活且当前类型无匹配：追加居中灰字提示（复用小绿人列表的空态样式）
+        if (filtering && visibleCount == 0) {
+            QListWidgetItem* emptyItem = new QListWidgetItem(
+                i == kSubassembliesIdx ? tr("（无匹配预制件）") : tr("（无匹配飞船）"), list);
+            emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
+            emptyItem->setTextAlignment(Qt::AlignCenter);
+            emptyItem->setForeground(QColor("#888888"));
+            emptyItem->setData(Qt::UserRole + 3, true);
+        }
+    }
 }
 
 void ShipTabPage::addShipRow(QListWidget* list, const QString& craftPath, const QString& type,
@@ -352,6 +408,7 @@ void ShipTabPage::addShipRow(QListWidget* list, const QString& craftPath, const 
     item->setSizeHint(QSize(0, 78));
     item->setData(Qt::UserRole, craftPath);
     item->setData(Qt::UserRole + 1, type);
+    item->setData(Qt::UserRole + 2, info.name); // 搜索过滤用（显示名）
     list->addItem(item);
     list->setItemWidget(item, itemWidget);
 }
