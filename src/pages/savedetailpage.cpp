@@ -16,6 +16,7 @@
 #include <QUrl>
 #include <QSlider>
 #include <QToolButton>
+#include <QTabWidget>
 #include <QMenu>
 #include <QAction>
 #include <QInputDialog>
@@ -232,14 +233,29 @@ void SaveDetailPage::setupKerbalsTab()
     QWidget* listPage = new QWidget(m_kerbalsStack);
     QVBoxLayout* listLayout = new QVBoxLayout(listPage);
     listLayout->setContentsMargins(15, 10, 15, 15);
+    listLayout->setSpacing(8);
 
     QLabel* listNote = new QLabel(tr("双击小绿人可编辑其属性"), listPage);
     listNote->setStyleSheet("color: #888; font-size: 9pt;");
     listLayout->addWidget(listNote);
 
-    m_kerbalList = new QListWidget(listPage);
-    connect(m_kerbalList, &QListWidget::itemClicked, this, &SaveDetailPage::onKerbalItemClicked);
-    listLayout->addWidget(m_kerbalList, 1);
+    // 搜索框：直接搜姓名，或 @jobs:职业英文（如 @jobs:Pilot）按职业过滤
+    m_kerbalSearchEdit = new QLineEdit(listPage);
+    m_kerbalSearchEdit->setPlaceholderText(tr("搜索姓名，或 @jobs:职业英文（如 @jobs:Pilot）"));
+    m_kerbalSearchEdit->setClearButtonEnabled(true);
+    connect(m_kerbalSearchEdit, &QLineEdit::textChanged, this, &SaveDetailPage::populateKerbalList);
+    listLayout->addWidget(m_kerbalSearchEdit);
+
+    // 类型分页：应聘者(Applicant) / 乘员(Crew)
+    m_kerbalTabWidget = new QTabWidget(listPage);
+    m_kerbalTabWidget->setObjectName("kerbalTypeTabs");
+    m_applicantList = new QListWidget(m_kerbalTabWidget);
+    m_crewList = new QListWidget(m_kerbalTabWidget);
+    m_kerbalTabWidget->addTab(m_applicantList, translateKerbalType("Applicant"));
+    m_kerbalTabWidget->addTab(m_crewList, translateKerbalType("Crew"));
+    connect(m_applicantList, &QListWidget::itemClicked, this, &SaveDetailPage::onKerbalItemClicked);
+    connect(m_crewList, &QListWidget::itemClicked, this, &SaveDetailPage::onKerbalItemClicked);
+    listLayout->addWidget(m_kerbalTabWidget, 1);
 
     m_kerbalsStack->addWidget(listPage);
 
@@ -380,11 +396,41 @@ void SaveDetailPage::loadSaveData()
     addInfoItem(tr("时间戳"), m_saveInfo.persistentTimestamp);
     addInfoItem(tr("环境信息"), m_saveInfo.envInfo);
 
-    // 填充Kerbal列表
-    m_kerbalList->clear();
+    // 填充Kerbal列表（按当前搜索条件过滤）
+    populateKerbalList();
+
+    m_kerbalsStack->setCurrentIndex(0);
+}
+
+void SaveDetailPage::populateKerbalList()
+{
+    const QString query = m_kerbalSearchEdit->text().trimmed();
+    // 解析搜索条件：@jobs:XXX → 按职业英文过滤（不区分大小写，支持部分匹配）；否则按姓名包含过滤
+    const bool byTrait = query.startsWith("@jobs:", Qt::CaseInsensitive);
+    const QString traitFilter = byTrait ? query.mid(6).trimmed() : QString();
+    const QString nameFilter = byTrait ? QString() : query;
+    const bool filtering = byTrait ? !traitFilter.isEmpty() : !nameFilter.isEmpty();
+
+    m_applicantList->clear();
+    m_crewList->clear();
+    int applicantCount = 0;
+    int crewCount = 0;
+
     for (int ki = 0; ki < m_kerbals.size(); ++ki) {
         const KerbalInfo& k = m_kerbals[ki];
-        QWidget* itemWidget = new QWidget(m_kerbalList);
+
+        if (byTrait) {
+            if (!k.trait.contains(traitFilter, Qt::CaseInsensitive)) continue;
+        } else if (!nameFilter.isEmpty()) {
+            if (!k.name.contains(nameFilter, Qt::CaseInsensitive)) continue;
+        }
+
+        // Crew 进乘员页；Applicant（及未识别类型）进应聘者页，未识别类型在状态行会显示原文
+        const bool isCrew = (k.type == "Crew");
+        QListWidget* targetList = isCrew ? m_crewList : m_applicantList;
+        if (isCrew) ++crewCount; else ++applicantCount;
+
+        QWidget* itemWidget = new QWidget(targetList);
         QHBoxLayout* layout = new QHBoxLayout(itemWidget);
         layout->setContentsMargins(20, 14, 10, 14);
 
@@ -427,18 +473,28 @@ void SaveDetailPage::loadSaveData()
         connect(renAct, &QAction::triggered, this, [this, ki]() { onKerbalRenameRequested(ki); });
         layout->addWidget(moreBtn);
 
-        QListWidgetItem* item = new QListWidgetItem(m_kerbalList);
+        QListWidgetItem* item = new QListWidgetItem(targetList);
         item->setSizeHint(QSize(0, 70));
         item->setData(Qt::UserRole, k.name);
-        m_kerbalList->addItem(item);
-        m_kerbalList->setItemWidget(item, itemWidget);
+        targetList->setItemWidget(item, itemWidget);
     }
 
-    if (m_kerbals.isEmpty()) {
-        m_kerbalList->addItem(tr("（未检测到小绿人）"));
-    }
+    // 空态提示：未选中/未检测到用原有文案；搜索无结果则提示无匹配
+    auto addEmptyItem = [this](QListWidget* list, const QString& text) {
+        QListWidgetItem* emptyItem = new QListWidgetItem(text, list);
+        emptyItem->setFlags(emptyItem->flags() & ~Qt::ItemIsSelectable);
+        emptyItem->setTextAlignment(Qt::AlignCenter);
+        emptyItem->setForeground(QColor("#888888"));
+    };
 
-    m_kerbalsStack->setCurrentIndex(0);
+    if (m_applicantList->count() == 0) {
+        addEmptyItem(m_applicantList, (m_kerbals.isEmpty() && !filtering)
+            ? tr("（未检测到小绿人）") : tr("（无匹配应聘者）"));
+    }
+    if (m_crewList->count() == 0) {
+        addEmptyItem(m_crewList, (m_kerbals.isEmpty() && !filtering)
+            ? tr("（未检测到小绿人）") : tr("（无匹配乘员）"));
+    }
 }
 
 void SaveDetailPage::showKerbalDetail(const KerbalInfo &kerbal)

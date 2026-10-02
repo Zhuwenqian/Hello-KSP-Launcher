@@ -420,6 +420,14 @@ QTabWidget#shipTypeTabs::pane {
     top: -1px;
 }
 
+/* 小绿人类型分页（应聘者/乘员） */
+QTabWidget#kerbalTypeTabs::pane {
+    background-color: rgba(248, 248, 248, 205);
+    border: 1px solid rgba(206, 206, 206, 170);
+    border-radius: 6px;
+    top: -1px;
+}
+
 /* 飞船详情：半透明背板，与存档详情/实例详情一致 */
 QWidget#shipDetailPanel {
     background-color: rgba(243, 243, 243, 204);

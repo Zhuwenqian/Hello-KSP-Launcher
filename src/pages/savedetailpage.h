@@ -11,6 +11,8 @@
 #include "../instancemanager.h"
 
 class ShipTabPage;
+class QLineEdit;
+class QTabWidget;
 
 class SaveDetailPage : public QWidget
 {
@@ -48,6 +50,7 @@ private:
     void setupShipsTab();
     void setupBackupsTab();
     void showKerbalDetail(const KerbalInfo& kerbal);
+    void populateKerbalList();
     bool collectKerbalData(QList<KerbalInfo>& kerbals);
     void refreshBackupList();
 
@@ -75,7 +78,10 @@ private:
 
     // Kerbals页面
     QStackedWidget* m_kerbalsStack;
-    QListWidget* m_kerbalList;
+    QLineEdit* m_kerbalSearchEdit;
+    QTabWidget* m_kerbalTabWidget;
+    QListWidget* m_applicantList; // type=Applicant（及未识别类型的兜底）
+    QListWidget* m_crewList;      // type=Crew
     QWidget* m_kerbalDetailWidget;
     QTreeWidget* m_kerbalDetailTree;
     QPushButton* m_saveKerbalsBtn;
