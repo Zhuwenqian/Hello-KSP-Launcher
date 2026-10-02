@@ -63,7 +63,9 @@ static bool backupMatchesDateTimeQuery(const BackupInfo& backup, const QStringLi
 }
 
 // 自定义委托：控制哪些列可编辑，bool用永久开关，gender用下拉框，数值用浮点输入
+// 注意：必须带 Q_OBJECT，否则 tr() 回落到 QStyledItemDelegate 上下文，翻译查不到
 class KerbalItemDelegate : public QStyledItemDelegate {
+    Q_OBJECT
 public:
     explicit KerbalItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
 
@@ -1100,3 +1102,5 @@ void SaveDetailPage::onRestoreBackupClicked(const QString &filePath)
     }
     refreshBackupList();
 }
+
+#include "savedetailpage.moc"

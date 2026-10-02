@@ -1,62 +1,47 @@
 # Release Notes
 
-## v1.4.0 — Ship Management, Progressive Mod Selection & UI Performance (2026-09-18)
+## v1.4.1 — Part Counting, Subassemblies & Kerbal Management (2026-10-02)
 
-This release adds a full ship (`.craft`) manager for instances and saves with drag-and-drop import, makes the recommends/suggests dialogs progressive and per-module, speeds up the instance detail page through lazy loading, and lets the mod list persist its view state per instance.
+This release enriches the ship manager with part counts, search and player-made vessel thumbnails, adds a Subassemblies tab for saves, introduces full kerbal management (tabs, search, delete/rename, sliders), adds backup date filtering, fixes duplicate update popups, and ships an Inno Setup installer.
 
-### Ship Management (Instances & Saves)
+### Ship Management
 
-A new ship manager lists, inspects and imports `.craft` files for any instance and for any save, mirroring the save manager's tabbed placement.
+- **Part counting** (`instancemanager_ships.cpp`) — `loadCraftInfo` now derives `ShipInfo::partCount` by counting top-level `PART { … }` blocks in a `.craft` (the parser ignores nested keys). The count shows on every list row ("Game version: X · Parts: N") and on the detail page.
+- **Player-made vessel thumbnails** (`instancemanager_ships.cpp`) — when the stock `Ships/@thumbs` image is missing, save-mode ship management now looks up `<game root>/thumbs/<save>_<VAB|SPH>_<craft>.png` (case-insensitive, `.png` only). Instance mode keeps stock-only thumbnails (ships are shared across saves, no single save name); subassemblies always fall back to the rocket icon.
+- **Sharp fallback icon** (`iconutils.{h,cpp}`) — new `tintedPixmap` rasterizes a tinted SVG at the target pixel size; the rocket fallback renders at the thumbnail box's real size instead of an upscaled 96px bitmap.
+- **Ship search** (`shiptabpage.{h,cpp}`) — a search box on the list page live-filters VAB/SPH/Subassemblies by case-insensitive display-name match; clear button, gray centered "no matching ships/subassemblies" empty states, placeholder rows hidden while filtering, and the filter is re-applied after refresh (delete/import).
+- **Detail back handled by the parent** — the per-page "Back" button is gone; the parent save/instance detail page's top "Back" pops the ship detail first (`isDetailVisible()` / `goBackToList()`).
 
-- **Instance ship manager** (`shiptabpage.{h,cpp}`, new) — an `QTabWidget` with **VAB / SPH** tabs listing `.craft` files (auto-excluding `.loadmeta`, `.craft.original`, etc.); each row shows the ship name (sans `.craft`) and game version (parsed from `version = X.Y.Z`, "Unknown" when missing).
-- **Ship detail (second page in-list)** — clicking a row opens name (`ship = XXX`), game version, and a read-only description (`description = XXX`), with the matching thumbnail from `Ships/@thumbs/VAB|SPH` on the right (rocket SVG fallback when missing).
-- **Parsing** (`instancemanager_ships.cpp`) — `listCraftFiles` (filename-sorted, `.craft` only), `loadCraftInfo` (read-only `ship/version/description`, name falls back to filename), `getShipThumbPath` (png/jpg), `moveCraftToTrash`.
-- **Entry points** — the instance detail sidebar gained a "Ship Management" 5th tab (`showSection(5)`, `rocket.svg`); the save detail page gained a "Ship Management" 3rd tab reusing the same `ShipTabPage` via a settable base path (`setShipsBase`) that auto-locates `instanceRoot/saves/saveName/Ships/VAB|SPH`.
-- **Import ships** — the list toolbar gained an "Import Ships" button (`download.svg`); import via `QFileDialog` (multi-select) or by directly **dragging-and-dropping** `.craft` onto a VAB/SPH tab; imports into the current tab's folder; case-insensitive name collisions prompt an "Overwrite Ship" confirm (Yes = overwrite / No = skip / Cancel = abort the rest), preserving the target's original casing.
-- **Delete to recycle bin** — each row now has a trash button (replacing the old decorative arrow in the save list too); deletion moves the `.craft` / save folder to the system recycle bin on Windows (`SHFileOperation(FO_DELETE + FOF_ALLOWUNDO)`), permanent delete elsewhere.
-- **Translations / tests** — new ShipTabPage strings fully translated to en_US (0 unfinished); `test_launcher` adds `TestShips` (top-level key parsing, nested keys don't override, name fallback, list filtering, thumbnail location). No automated tests for the import / trash flows (they depend on modal dialogs and instance paths, consistent with project convention).
+### Subassemblies (Saves Only)
 
-### Progressive, Per-Module Recommends/Suggests Dialogs
+- **Third "Subassemblies" tab** (`shiptabpage.{h,cpp}`) — enabled via `setSubassembliesEnabled(true)` for the save detail page's ship manager; lists `<save root>/Subassemblies/` (sibling of `Ships/`). The instance manager stays VAB/SPH, as subassemblies belong to a single save.
+- **Fully wired** — import (button label follows the tab; directory auto-created on first import; importing from its own directory blocked), drag-and-drop, delete to trash, overwrite prompts, and the "（未检测到预制件）" empty state, all worded for subassemblies. Listed through the new `listCraftFilesIn(dir)` helper.
 
-Installing a module now resolves and asks for its recommendations/suggestions **module by module**, instead of aggregating everything into one giant list.
+### Kerbal Management (Save Detail)
 
-- **Collection** (`relationshipresolver.{h,cpp}`, `ckan.{h,cpp}`) — new `collectOptionalFor(parent, curInstallSet, wantRecommends)` collects only a **single parent module's** own Recommends/Suggests candidates, skipping already-installed/selected/conflicting ones, with **no auto-cascade**. The old all-in-one aggregation is no longer used for popups.
-- **Install flow** (`installservice.cpp` `resolveInstallSet`) — two-phase progressive resolution:
-  - **Phase 1 (Recommends)** — for each explicitly-installed module, show a recommends dialog one at a time; merge selections into the install set and queue newly added modules (FIFO) until nothing new appears.
-  - **Phase 2 (Suggests)** — show a suggests dialog per explicit module; if a newly-chosen module's recommends weren't shown in phase 1, ask them first, then its suggests.
-  - Each module is installed once (deduplicated by identifier); modules with no candidates are silently skipped; each dialog is titled with its source parent.
-- **Selection dialog** (`moddecision.{h,cpp}`) — `askOptionalModules` gained a Trak-a-dock **"Select all / Select none"** toggle button that flips with the current state, plus a `parentName` context header. The **Cancel button has been removed** — the only way out is "Install Selected"; abandoning an install returns you to mod management.
-- **Tests** — `test_libckan` adds `collectOptionalNoCascade` (per-module, no cascade, no cross-contamination) and `collectOptionalSkipsInstalledAndSelected`. All green.
+- **Applicant/Crew tabs** (`savedetailpage.{h,cpp}`) — the kerbal list is split into a `QTabWidget` ("Applicants" / "Crew"); only `type == "Crew"` goes to the Crew page, everything else falls back to Applicants, with unrecognized types shown verbatim. Pane styling added to both `dark.qss` / `light.qss`.
+- **Search box** — case-insensitive name matching, or `@jobs:Pilot` filtering by trait (English trait name, case-insensitive partial match); the filter survives refreshes, with distinct "no kerbals detected" vs "no matching applicants/crew" empty states.
+- **Delete & rename** (`instancemanager_saves.cpp`) — a per-row "…" menu offers delete (removes the `KERBAL` block from `persistent.sfs`'s `ROSTER`) and rename (rewrites the `name =` line); both validate brace balance before and after writing, and write to disk immediately.
+- **Sliders for brave/dumb** — double-spin editors are replaced by permanent sliders (0–1.0, step 0.1) with a live value label; values are collected from a custom role on save. Styled in both themes. The gender combo shows 男/女 while still saving `Male`/`Female`; type/gender are translated on display.
 
-### Mod Management UI (Splitter & Per-Instance State)
+### Backup Date Filtering
 
-- **Draggable list/detail splitter** (`modstabpage.cpp`, `configmanager.{h,cpp}`) — a vertical `QSplitter` (`modSplitter`) sits between the mod table and the 4 detail tabs (metadata/files/relationships/versions); dragging it resizes the list height (list stays on top, detail tabs move down). Initial 3:2 split, both panes non-collapsible; the bottom action bar stays put. The top-pane height persists to `HKSPL.json` (`modSplitterTopHeight`, global) with 250ms debounced saving; applied exactly in the first `showEvent` by the splitter's real height.
-- **Per-instance list state** (`configmanager.{h,cpp}`, `modstabpage.cpp`) — each instance's mod list restores its exact view across instance switches/restarts: search text, status filter (All/Installed/Upgradable/Not installed), tag filter, detail tab index, sort column+order, vertical scroll, and the selected module. Saved on change (300ms debounce; flushed before switching instances) into a dedicated `modListViewState` section keyed by instance id. Restored after the async list load (`restoreListStateAfterLoad`) with an `m_restorePending` flag distinguishing first-entry load from same-instance refresh.
+- **Time filter** (`savedetailpage.cpp`) — a search box on the backups toolbar tokenizes the query into digits: a single number matches any timestamp component (year/month/day/hour/minute/second), multiple numbers match the parts in order starting from year (e.g. `2026-01-01 12:30`, `10-02`). The list is cached so keystrokes don't re-read the disk; a "（没有匹配的备份）" empty state appears when nothing matches.
 
-### Instance Detail Page — Lazy Loading
+### Fixes & Behavior Changes
 
-Entering instance management no longer loads everything ahead of time; each secondary tab fetches its data only when entered.
+- **Update popups** (`updateflow.cpp`) — updater signals are connected once per process (static guard) instead of re-connected on every check; previously auto plus repeated manual checks stacked handlers and fired multiple dialogs, with later ones parentless.
+- **Default language** for fresh configs is now `en_US`; the mirror update source is renamed to "Mirror (zwqbook.cn)" (`configmanager.cpp`, `settingspage.cpp`).
 
-- `instancedetailpage.cpp` `showSection` — mod manager tab triggers `prepareMods()` (async index + DLL scan), save tab `loadSaves()`, ship tab `loadShips()`. The page opens on "Game Settings" and does no heavy work up front.
-- **Mods tab** (`modstabpage.{h,cpp}`) — `setInstance` only records the instance, and `setTabActive(true)` re-prepares mods on each entry.
-- **Saves tab** (`savestabpage.{h,cpp}`) — `loadSaves()` runs in a `QtConcurrent::run` background thread iterating the directory and parsing `persistent.sfs` per file, filling the list via a `QFutureWatcher` (with a "Loading saves..." placeholder); post-delete refresh reuses the same async path.
-- **Ships tab** (`shiptabpage.{h,cpp}`) — `loadShips()` parses VAB + SPH in a background thread and fills via watcher; row construction is split out as `addShipRow`.
-- **Thread safety** — `InstanceManager::listSaves/loadSaveInfo/listCraftFiles/loadCraftInfo` are pure file reads with no shared mutable state, safe to call off the main thread.
+### Packaging & Build
 
-### Crash Log Dialog — Context & One-Click Log Packing
-
-- **Context window** (`playerloganalyzer.{h,cpp}`) — `analyzePlayerLog` gained a `context` field; `extractPlayerLogContext` takes the key error line (crash marker `Caught fatal signal` / OOM) and walks back up to 40 lines (`kContextLeadingLines`) from there to the end of the log.
-- **Dialog** (`mainwindow.cpp` `maybeShowCrashAnalysis`) — a read-only, selectable `QPlainTextEdit` (min height 240px) now pastes the error context inside the message box, plus a new "Save Log" button.
-- **One-click packing** (`mainwindow.{h,cpp}` `packLogToZip`) — streams the whole `Player.log` into a zip (miniz callbacks, never loading a multi-hundred-MB log into memory), saved next to the launcher as `<cleaned-instance>-<id8>_<yyMMdd_HHmmss>.zip`; illegal filename characters are folded to underscores. Success shows the full path; failure warns without leaving a partial zip.
-- **Tests** — `test_launcher` adds three `extractPlayerLogContext` cases (≥40-line backtrace start, short-log head start, no crash returns empty).
-
-### UI Polish
-
-- **Secondary sidebar alignment** — the instance-detail and save-detail secondary menus now run the full window height as a left column, width unified to **220px** matching the home sidebar (the back/title bar moves into the content area top).
+- **Inno Setup installer** (`installer/helloksplauncher.iss`, `make-installer.ps1`, new) — builds a per-user installer (`{userpf}`, no UAC requirement, admin override allowed) with a language dialog, desktop-icon task and lzma2/max compression. Runtime-written files (`HKSPL.json`, `backups`, `ckan_cache`, `generic`, logs) are excluded and removed by the uninstaller; the version is auto-synced from `src/appversion.h`. Output: `HelloKSPLauncher-<version>-setup.exe`.
+- **Qt 6.12 toolchain** (`build.ps1`) — configures from scratch (MinGW Makefiles, explicit compiler/prefix paths), runs `windeployqt` to keep `dist/` DLLs in sync with the build Qt, and copies `Qt6Concurrent.dll` for `libckan.dll`.
+- Misc: version bumped to 1.4.1; `.gitignore` adds `.vscode/` and `*-setup.exe`; `_gen_icons.py` renamed to `gen_icons.py`; all new strings translated to en_US/zh_CN with `.qm` rebuilt.
 
 ### Tech Stack
 
-- **Framework**: Qt 6 (Widgets, Svg, Network, Concurrent)
+- **Framework**: Qt 6.12 (Widgets, Svg, Network, Concurrent)
 - **Language**: C++17
-- **Build**: CMake ≥ 3.16; Windows uses Qt's bundled mingw toolchain
+- **Build**: CMake ≥ 3.16; MinGW (Qt-bundled); Inno Setup 7 installer
 - **Testing**: `test_libckan` + `test_launcher` (all passed)
