@@ -193,8 +193,7 @@ void ModsTabPage::setupUi()
     m_showIncompatCheck->setChecked(ConfigManager::instance().showIncompatibleMods());
     connect(m_showIncompatCheck, &QCheckBox::toggled, this, &ModsTabPage::onShowIncompatibleToggled);
 
-    m_compatBtn = new QPushButton(IconUtils::tintedIcon(":/icons/rocket.svg", "#ffffff"),
-                                  tr(" 兼容版本"), topBar);
+    m_compatBtn = new QPushButton(tr(" 兼容版本"), topBar);
     m_compatBtn->setMinimumHeight(34);
     connect(m_compatBtn, &QPushButton::clicked, this, &ModsTabPage::onCompatVersionsClicked);
 
@@ -402,7 +401,7 @@ void ModsTabPage::setupUi()
     btnLayout->setSpacing(8);
 
     // 文件操作（左侧）：导入单模组 / 查看安装历史
-    m_importModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"),
+    m_importModBtn = new QPushButton(IconUtils::tintedIcon(":/icons/download.svg", "#ffffff"),
                                      tr(" 导入模组"), btnBar);
     m_importModBtn->setMinimumHeight(36);
     connect(m_importModBtn, &QPushButton::clicked, this, &ModsTabPage::onImportModClicked);
@@ -595,7 +594,6 @@ void ModsTabPage::refreshIcons(const QString &color)
     m_installModBtn->setIcon(IconUtils::tintedIcon(":/icons/add.svg", color));
     m_uninstallModBtn->setIcon(IconUtils::tintedIcon(":/icons/trash-2.svg", color));
     m_upgradeModBtn->setIcon(IconUtils::tintedIcon(":/icons/check.svg", color));
-    m_compatBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
 }
 
 // 注册表写锁被其他进程占用：弹窗告知，清空表格、禁用模组按钮，启动 10s 轮询等待。

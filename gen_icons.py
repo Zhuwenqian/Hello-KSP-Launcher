@@ -68,6 +68,12 @@ svgs = {
 
     # 勾选/复选框选中
     'check': '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+
+    # 导出/分享 - 右弯箭头
+    'export': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>',
+
+    # 小绿人/宇航员 - 头盔轮廓（无五官）
+    'kerbal': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="5"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg>',
 }
 
 for name, svg_content in svgs.items():

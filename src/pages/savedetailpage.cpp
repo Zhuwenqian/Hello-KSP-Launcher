@@ -157,14 +157,14 @@ void SaveDetailPage::setupUI()
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
-    m_saveInfoBtn = new QPushButton(IconUtils::tintedIcon(":/icons/sliders.svg", "#ffffff"), tr("  存档信息"), m_sidebar);
+    m_saveInfoBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  存档信息"), m_sidebar);
     m_saveInfoBtn->setObjectName("detailNavButton");
     m_saveInfoBtn->setCheckable(true);
     m_saveInfoBtn->setChecked(true);
     m_saveInfoBtn->setMinimumHeight(40);
     connect(m_saveInfoBtn, &QPushButton::clicked, this, &SaveDetailPage::onNavButtonClicked);
 
-    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/list.svg", "#ffffff"), tr("  管理小绿人"), m_sidebar);
+    m_kerbalsBtn = new QPushButton(IconUtils::tintedIcon(":/icons/kerbal.svg", "#ffffff"), tr("  管理小绿人"), m_sidebar);
     m_kerbalsBtn->setObjectName("detailNavButton");
     m_kerbalsBtn->setCheckable(true);
     m_kerbalsBtn->setMinimumHeight(40);
@@ -837,8 +837,8 @@ void SaveDetailPage::refreshIcons(const QString &color)
 {
     m_backButton->setIcon(IconUtils::tintedIcon(":/icons/back.svg", color));
     m_homeButton->setIcon(IconUtils::tintedIcon(":/icons/home.svg", color));
-    m_saveInfoBtn->setIcon(IconUtils::tintedIcon(":/icons/sliders.svg", color));
-    m_kerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
+    m_saveInfoBtn->setIcon(IconUtils::tintedIcon(":/icons/list.svg", color));
+    m_kerbalsBtn->setIcon(IconUtils::tintedIcon(":/icons/kerbal.svg", color));
     m_shipsBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
     m_backupsBtn->setIcon(IconUtils::tintedIcon(":/icons/package.svg", color));
 

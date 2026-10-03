@@ -76,7 +76,7 @@ void InstanceDetailPage::setupUI()
     m_advancedBtn->setMinimumHeight(40);
     connect(m_advancedBtn, &QPushButton::clicked, this, &InstanceDetailPage::onNavButtonClicked);
 
-    m_exportModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/database.svg", "#ffffff"), tr("  导出整合包"), m_detailSidebar);
+    m_exportModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/export.svg", "#ffffff"), tr("  导出整合包"), m_detailSidebar);
     m_exportModpackBtn->setObjectName("detailNavButton");
     m_exportModpackBtn->setCheckable(true);
     m_exportModpackBtn->setMinimumHeight(40);
@@ -88,7 +88,7 @@ void InstanceDetailPage::setupUI()
     m_browseBtn->setMinimumHeight(40);
     connect(m_browseBtn, &QPushButton::clicked, this, &InstanceDetailPage::onBrowseClicked);
 
-    m_importModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/folder-open.svg", "#ffffff"), tr("  导入整合包"), m_detailSidebar);
+    m_importModpackBtn = new QPushButton(IconUtils::tintedIcon(":/icons/download.svg", "#ffffff"), tr("  导入整合包"), m_detailSidebar);
     m_importModpackBtn->setObjectName("detailNavButton");
     m_importModpackBtn->setCheckable(true);
     m_importModpackBtn->setMinimumHeight(40);
@@ -275,8 +275,8 @@ void InstanceDetailPage::refreshIcons(const QString &color)
     m_savesBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
     m_shipsBtn->setIcon(IconUtils::tintedIcon(":/icons/rocket.svg", color));
     m_advancedBtn->setIcon(IconUtils::tintedIcon(":/icons/settings.svg", color));
-    m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/database.svg", color));
-    m_importModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
+    m_exportModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/export.svg", color));
+    m_importModpackBtn->setIcon(IconUtils::tintedIcon(":/icons/download.svg", color));
     m_browseBtn->setIcon(IconUtils::tintedIcon(":/icons/folder-open.svg", color));
     m_advancedTabPage->refreshIcons(color);
     m_modsTabPage->refreshIcons(color);
