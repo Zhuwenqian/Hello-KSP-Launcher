@@ -16,6 +16,8 @@
 #include "pages/aboutpage.h"
 #include "pages/savedetailpage.h"
 
+class QTimer;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -130,6 +132,10 @@ private:
     QString m_currentTheme;
     bool m_gameRunning;
     bool m_stoppingGame;
+
+    // 背景图精确重缩放的合并定时器：拖拽缩放期间不做逐帧平滑缩放（开销大、掉帧），
+    // 停止 150ms 后触发一次 updateBackgroundPixmap 精缩（拖拽期间由 scaledContents 拉伸兜底）
+    QTimer* m_bgScaleTimer = nullptr;
 };
 
 #endif // MAINWINDOW_H

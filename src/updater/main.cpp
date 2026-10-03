@@ -17,6 +17,7 @@
 #include <QVector>
 #include <QDateTime>
 #include <cstdio>
+#include <cstdlib>
 
 #include "miniz.h"
 
@@ -64,7 +65,13 @@ void fatal(const QString &msg)
 #else
     fflush(stderr);
 #endif
-    QCoreApplication::exit(1);
+    // 失败即终止：QCoreApplication::exit 只对已运行的事件循环生效，在 main() 顺序
+    // 流程中调用它不会中断执行，后续 clearAppDir()/moveTopLevel() 会继续跑——最坏
+    // 把安装目录清空而新版未就位。此处必须真正退出进程。
+    // 同时清除"正在更新"标记：若失败发生在清理之前，旧版启动器仍可用，
+    // 用户手动重开不应被更新提示永久挡住。
+    QFile::remove(QDir(g_installDir).filePath(QStringLiteral(".updating")));
+    std::exit(1);
 }
 
 // 等待指定 pid 的进程退出（进程已不存在视为已退出）

@@ -18,11 +18,17 @@ CKanManager::CKanManager(QObject *parent)
     // InstallService），业务层不直接弹窗。ModsController 在模组页创建时即构造，
     // 早于任何安装/卸载流程，故钩子在使用前必已注入。
     // 索引镜像前缀：拼接在仓库自身 URL 前（仅 GitHub 托管的仓库适用；官方 GitHub 优先，镜像回退）
+    // 模组下载镜像前缀：拼接在官方下载 URL 前（gh 代理，可代理任意 GitHub 资源）
+    // 【安全说明 / 信任模型】gh-proxy.com 与 ghfast.top 为第三方公共代理：TLS 终止在代理侧，
+    // 代理运营方有能力查看乃至篡改经它转发的索引 JSON 与模组 zip。仓库索引未做数字签名，
+    // 模组下载 URL 与 SHA256 摘要均来自索引本身，因此"摘要校验"只能防御传输损坏，
+    // 不能防御恶意索引/恶意镜像源。当前取舍：镜像仅用于提升可用性，官方 GitHub 源优先、
+    // 镜像仅作回退，内容完整性依赖 HTTPS + SHA256（对损坏有效，对恶意镜像无效）。
+    // 若需更强的供应链安全，可改为镜像下载后与官方源摘要交叉比对。
     m_indexMirrorPrefixes = {
         QStringLiteral("https://gh-proxy.com/"),
         QStringLiteral("https://ghfast.top/"),
     };
-    // 模组下载镜像前缀：拼接在官方下载 URL 前（gh 代理，可代理任意 GitHub 资源）
     m_moduleMirrorPrefixes = {
         QStringLiteral("https://gh-proxy.com/"),
         QStringLiteral("https://ghfast.top/"),

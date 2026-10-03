@@ -61,6 +61,9 @@ bool Downloader::download(const QString &url, const QStringList &mirrors,
         req.setRawHeader("User-Agent", "HelloKSPLauncher/1.0");
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+        // 与 downloadProgressed 一致：30s 传输超时（连接建立+传输空闲），
+        // 避免服务器停滞时 QEventLoop 永久等待
+        req.setTransferTimeout(kTransferTimeoutMs);
 
         QNetworkReply *reply = m_nam.get(req);
         QEventLoop loop;
@@ -223,11 +226,19 @@ bool Downloader::downloadProgressed(const QString &url, const QStringList &mirro
                 break;
             }
 
-            // 网络错误（如 connection closed）：保留已收字节，尝试续传
-            partial.append(chunk);
-            if (retriesLeft > 0) {
-                --retriesLeft;
-                continue; // 同一 URL 续传
+            // 区分两类网络错误：
+            // · HTTP 状态级错误（404/403/5xx 等）：响应体是错误页而非数据，绝不能
+            //   混入 partial（否则已收偏移错位），也不值得同址续传——换下一个镜像。
+            // · 传输中断（连接被掐断等，无 HTTP 状态码）：保留已收字节，同址续传。
+            const int errStatus =
+                reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const bool httpStatusError = errStatus >= 400;
+            if (!httpStatusError) {
+                partial.append(chunk);
+                if (retriesLeft > 0) {
+                    --retriesLeft;
+                    continue; // 同一 URL 续传
+                }
             }
             lastError = QStringLiteral("网络错误: %1").arg(errStr);
             break;

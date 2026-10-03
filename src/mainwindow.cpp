@@ -91,6 +91,12 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1000, 650);
     setMinimumSize(800, 500);
 
+    // 背景图重缩放合并定时器：拖拽窗口时不逐帧平滑缩放大图，停止 150ms 后精缩一次
+    m_bgScaleTimer = new QTimer(this);
+    m_bgScaleTimer->setSingleShot(true);
+    m_bgScaleTimer->setInterval(150);
+    connect(m_bgScaleTimer, &QTimer::timeout, this, &MainWindow::updateBackgroundPixmap);
+
     setupUI();
     applyTheme(ConfigManager::instance().theme());
     applyTransparency();
@@ -598,7 +604,10 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     // 背景图和内容容器都跟随 centralWidget 尺寸,保证 launch bar 贴底
     if (m_backgroundLabel) {
         m_backgroundLabel->setGeometry(r);
-        updateBackgroundPixmap();
+        // 拖拽过程中不做逐帧 SmoothTransformation 重缩放（每个 resize 事件一次，
+        // 大图缩放开销大导致拖拽掉帧）：label 已 setScaledContents(true)，
+        // 旧位图会被即时拉伸保持铺满，视觉连续；停止缩放后再精缩一次消除拉伸模糊。
+        m_bgScaleTimer->start();
     }
     if (m_contentContainer) {
         m_contentContainer->setGeometry(r);
