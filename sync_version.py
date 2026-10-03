@@ -9,7 +9,7 @@ Hello KSP Launcher 版本号同步脚本。
 所有版本号均以 1.1.1 之类 X.Y.Z 形式给出。脚本会同步三处：
   1. CMakeLists.txt           project(HelloKSPLauncher VERSION x.y.z ...)
   2. src/appversion.h         #define HKSPL_APP_VERSION "x.y.z"
-  3. docs/功能更新.md        最新一条 "## 日期：标题" 记录补上 v 版本号
+  3. docs/功能更新.md        最新一条 "## 日期 标题" 记录补上 v 版本号（冒号可省略）
 
 脚本把 功能更新.md 当作变更记录参照：每次发版升号时，把当前(最新)一条更新
 记录统一标注上本次版本号，与记忆库中沉淀的功能更新版本号保持一致。
@@ -77,9 +77,11 @@ def sync_changelog(ver):
     with open(path, "r", encoding="utf-8") as f:
         lines = f.read().splitlines(keepends=True)
 
-    # 匹配最新(第一条)更新记录标题，形如 "## 2026-08-29：xxx" 或已带版本 "## ... v1.1.1：xxx"
+    # 匹配最新(第一条)更新记录标题，兼容两种写法：
+    #   "## 2026-08-29：xxx" / "## 2026-08-29 xxx"（冒号可省略），
+    #   以及已带版本 "## ... v1.1.1：xxx" / "## ... v1.1.1 xxx"
     header = re.compile(
-        r"^(## \d{4}-\d{2}-\d{2})\s*(?:v\d+\.\d+\.\d+)?\s*([：:])"
+        r"^(## \d{4}-\d{2}-\d{2})(?:\s+v\d+\.\d+\.\d+)?\s*([：:]?)\s*"
     )
     done = False
     for i, line in enumerate(lines):
@@ -87,13 +89,15 @@ def sync_changelog(ver):
         if not m:
             continue
         prefix, colon = m.group(1), m.group(2)
+        # 无冒号时用空格分隔，保证版本号与标题不粘连
+        sep = colon if colon else " "
         # 已是目标版本则无需改动
-        if line.startswith(prefix + " v" + ver + colon):
+        if line.startswith(prefix + " v" + ver + sep):
             print("[sync] 功能更新.md 最新记录已标注 v{}".format(ver))
             return
         # 只插入版本号，保留该行原有行尾（\n 或 \r\n），避免与下一行标题粘连
-        lines[i] = "{prefix} v{ver}{colon}{rest}".format(
-            prefix=prefix, ver=ver, colon=colon, rest=line[m.end():]
+        lines[i] = "{prefix} v{ver}{sep}{rest}".format(
+            prefix=prefix, ver=ver, sep=sep, rest=line[m.end():]
         )
         done = True
         break

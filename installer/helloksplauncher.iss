@@ -3,7 +3,7 @@
 ; from src/appversion.h on every build -- do not bump it manually here.
 
 #define MyAppName "Hello KSP Launcher"
-#define MyAppVersion "1.4.1"
+#define MyAppVersion "1.4.2"
 #define MyAppPublisher "Zhu Wenqian"
 #define MyAppExeName "HelloKSPLauncher.exe"
 

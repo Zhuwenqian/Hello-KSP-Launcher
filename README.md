@@ -21,7 +21,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Instance Management** — Add, rename, delete, and switch between multiple KSP installations with ease. The detail page lazy-loads mods/saves/ships only when you enter each tab, so navigation stays snappy on large instances.
 - **Steam Discovery** — On startup, automatically scans Steam libraries (via Windows registry + libraryfolders.vdf), finds KSP installations, and adds them to the instance list (named with the detected version, deduplicated by path).
 - **One-Click Launch** — Launch your selected KSP instance immediately. Configurable post-launch behavior: keep the launcher open, minimize to tray, or auto-close.
-- **Game Settings Editor** — Browse and edit KSP settings.cfg values in a tree view. Boolean values use a smooth toggle switch. Save changes directly.
+- **Game Settings Editor** — Browse and edit KSP settings.cfg values in a tree view. Boolean values use a smooth toggle switch; volume entries (master/ship/ambience/music/UI/voice) use sliders (step 0.01) with a live numeric readout. Save changes directly.
 - **Mod & DLC Detection** — Automatically list installed DLCs and third-party mods in the GameData directory.
 - **Mod Management (CKAN)** — Install, upgrade, and uninstall mods from the CKAN repository with automatic dependency resolution (depends/recommends/suggests), strict KSP version compatibility checks based on your actual game version, and SHA256 integrity verification for every download.
 - **Parallel Downloads** — Modules download concurrently (configurable up to 8 at a time) with a unified progress view and cancel button.
@@ -36,7 +36,7 @@ A modern, lightweight launcher for Kerbal Space Program — manage instances, tw
 - **Modpack Export / Import** — Export GameData as a ZIP or as a CKAN metapackage, with sensible exclusions (Squad, SquadExpansion, ModuleManager cache files). Export embeds an `hkspl_package.json` metadata file (launcher version, precise game version, name, description); import validates it first and rejects mismatched or corrupt packages. Import from a ZIP (replaces mods, keeps Squad/SquadExpansion) or from a .ckan file (jumps to mod management to install via dependency resolution).
 - **Custom Background** — Choose any PNG/JPG as the launcher background. Cover-mode scaling. Resets to default with one click.
 - **Theme Support** — Dark and light themes with translucent UI and automatic icon tinting.
-- **Launch Configuration (Profile)** — Each instance carries its own launch profile: custom command-line arguments (e.g. `-force-d3d11 -popupwindow`), a system-level process memory cap (Job Object on Windows / `RLIMIT_AS` on POSIX), and process priority (High first closes Edge/Chrome/Firefox then raises the game's priority; Low leaves everything untouched).
+- **Launch Configuration (Profile)** — Each instance carries its own launch profile: a graphics backend selector (experimental — DirectX 9/11/12 and OpenGL offered by detected game version, reserved `-force-*` args stripped from custom args), a temporary PhysicsRangeExtender disable toggle (auto-restores when the game exits), custom command-line arguments (e.g. `-popupwindow -screen-fullscreen 0`), a system-level process memory cap (Job Object on Windows / `RLIMIT_AS` on POSIX), and process priority (High first closes Edge/Chrome/Firefox then raises the game's priority; Low leaves everything untouched).
 - **Custom Title Bar** — A frameless, semi-transparent theme-colored title bar with custom minimize/maximize(restore)/close buttons, drag-to-move, double-click maximize, Aero snap, and edge resizing (Windows).
 - **Self-Update** — A standalone `updater.exe` queries GitHub Releases, semantically compares versions, downloads the x86_64 ZIP, replaces every file while preserving your data (`HKSPL.json`, `ckan_cache`, `backups`), and relaunches the new build. The built-in updater can also update itself — a pending `updater.exe` replacement is silently applied on the next launch. Optional auto-check on startup plus a manual "Check for Updates" button.
 - **About Page Release Link** — The version entry in the About page opens its corresponding GitHub Release.
@@ -180,7 +180,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **实例管理** — 轻松添加、重命名、删除和切换多个 KSP 游戏实例。详情页仅在进入对应 tab 时才异步加载模组/存档/飞船数据，大实例下进入页面依然流畅。
 - **Steam 发现** — 启动时自动扫描 Steam 库（通过 Windows 注册表 + libraryfolders.vdf），找到 KSP 安装并自动加入实例列表（按检测到的版本命名，按路径去重）。
 - **一键启动** — 立即启动所选 KSP 实例。支持启动后行为：保持打开、最小化到任务栏或自动关闭启动器。
-- **游戏设置编辑** — 以树形视图浏览和编辑 KSP 的 settings.cfg 配置。布尔值使用平滑动画开关控件，修改后一键保存。
+- **游戏设置编辑** — 以树形视图浏览和编辑 KSP 的 settings.cfg 配置。布尔值使用平滑动画开关控件；音量项（主/飞船/环境/音乐/界面/语音）使用拖动条（步进 0.01）并带实时数字显示。修改后一键保存。
 - **模组与 DLC 检测** — 自动检测已安装的 DLC 和 GameData 目录下的第三方模组。
 - **模组管理（CKAN）** — 从 CKAN 仓库安装、升级、卸载模组，自动解析依赖（Depends/Recommends/Suggests），根据实际游戏版本做严格兼容性检查，并对每次下载做 SHA256 完整性校验。
 - **高级搜索 / 筛选** — 搜索框除匹配名称/标识符/摘要的关键词外，支持 `@字段:值` 专有字段语法（作者 `@author`、描述 `@desc/@description`、许可证 `@license`、依赖 `@depend(s)`、虚拟包 `@provides`、标签 `@tag(s)`；大小写不敏感，多个词空格分隔按 AND 过滤）。另可按状态（已安装/可升级/未安装）、仓库自带标签下拉叠加筛选。
@@ -196,7 +196,7 @@ Copyright (C) 2026 Zhu Wenqian. Licensed under the **GNU General Public License 
 - **整合包导出 / 导入** — 将 GameData 目录打包为 ZIP 或导出为 CKAN 元包；导出时写入 `hkspl_package.json` 元数据（启动器版本、精确游戏版本、名称、描述），导入时先行校验并拒绝不匹配或损坏的包；也可从 ZIP（替换模组，保留 Squad/SquadExpansion）或 .ckan 文件（跳转到模组管理界面经依赖解析下载安装）导入整合包。
 - **自定义背景** — 选择任意 PNG/JPG 图片作为启动器背景，Cover 模式缩放填充，一键恢复默认。
 - **主题支持** — 深色和浅色主题，半透明 UI 搭配自动图标色调适配。
-- **启动配置（Profile）** — 每个实例独立携带一份启动配置：自定义命令行参数（如 `-force-d3d11 -popupwindow`）、系统级进程内存上限（Windows 用 Job Object、POSIX 用 `RLIMIT_AS`）以及进程优先级（「高」先结束 Edge/Chrome/Firefox 再把游戏进程设为高优先，「低」不做任何处理）。
+- **启动配置（Profile）** — 每个实例独立携带一份启动配置：图形后端选择（实验性——按检测到的游戏版本提供 DirectX 9/11/12 与 OpenGL，保留的 `-force-*` 参数会从自定义参数中剔除）、PhysicsRangeExtender 临时禁用开关（游戏退出后自动还原）、自定义命令行参数（如 `-popupwindow -screen-fullscreen 0`）、系统级进程内存上限（Windows 用 Job Object、POSIX 用 `RLIMIT_AS`）以及进程优先级（「高」先结束 Edge/Chrome/Firefox 再把游戏进程设为高优先，「低」不做任何处理）。
 - **自绘标题栏** — 无边框、半透明主题色标题栏，含自定义最小化/最大化→还原/关闭按钮，支持拖动、双击最大化、Aero 贴靠与边缘缩放（Windows）。
 - **自更新** — 独立 `updater.exe` 查询 GitHub Releases、语义化版本比较、下载 x86_64 发布包，替换全部文件但保留用户数据（`HKSPL.json`、`ckan_cache`、`backups`）后重启新版；内置更新器自身也可自更新（下次启动静默替换 `updater.exe`）；可选启动时自动检查，另设手动「检查更新」按钮。
 - **关于页 Release 链接** — 关于页版本首条可点击，跳转对应 GitHub Release。

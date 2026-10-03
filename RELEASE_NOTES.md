@@ -1,43 +1,33 @@
 # Release Notes
+> **重要提示 / Important Note:** 本 Release 含有更新器（`updater.exe`）的更新。如果您正在使用早期的 v1.2.0 系列版本，由于其自带的老版更新器无法获取到自身的新二进制，自动更新可能无法替换本组件——届时请手动替换 `updater.exe`。
+>
+> This release ships an updated built-in updater (`updater.exe`). If you are still on the older v1.2.0 series, its built-in updater cannot fetch its own new binary, so the auto-update may fail to replace this component — please replace `updater.exe` manually in that case.
 
-## v1.4.1 — Part Counting, Subassemblies & Kerbal Management (2026-10-02)
+## v1.4.2 — Graphics Backend, PRE Toggle, Volume Sliders & Safer Mod Operations (2026-10-03)
 
-This release enriches the ship manager with part counts, search and player-made vessel thumbnails, adds a Subassemblies tab for saves, introduces full kerbal management (tabs, search, delete/rename, sliders), adds backup date filtering, fixes duplicate update popups, and ships an Inno Setup installer.
+This release adds a per-instance graphics backend selector and a temporary PhysicsRangeExtender disable toggle to the advanced page, turns game volume entries into sliders, locks mod operations against concurrent runs, and fixes a UI freeze when browsing large cached packages, an updater failure path that could wipe the install directory, download resume corruption, and slow background resizing.
 
-### Ship Management
+### Launch Configuration
 
-- **Part counting** (`instancemanager_ships.cpp`) — `loadCraftInfo` now derives `ShipInfo::partCount` by counting top-level `PART { … }` blocks in a `.craft` (the parser ignores nested keys). The count shows on every list row ("Game version: X · Parts: N") and on the detail page.
-- **Player-made vessel thumbnails** (`instancemanager_ships.cpp`) — when the stock `Ships/@thumbs` image is missing, save-mode ship management now looks up `<game root>/thumbs/<save>_<VAB|SPH>_<craft>.png` (case-insensitive, `.png` only). Instance mode keeps stock-only thumbnails (ships are shared across saves, no single save name); subassemblies always fall back to the rocket icon.
-- **Sharp fallback icon** (`iconutils.{h,cpp}`) — new `tintedPixmap` rasterizes a tinted SVG at the target pixel size; the rocket fallback renders at the thumbnail box's real size instead of an upscaled 96px bitmap.
-- **Ship search** (`shiptabpage.{h,cpp}`) — a search box on the list page live-filters VAB/SPH/Subassemblies by case-insensitive display-name match; clear button, gray centered "no matching ships/subassemblies" empty states, placeholder rows hidden while filtering, and the filter is re-applied after refresh (delete/import).
-- **Detail back handled by the parent** — the per-page "Back" button is gone; the parent save/instance detail page's top "Back" pops the ship detail first (`isDetailVisible()` / `goBackToList()`).
+- **Graphics backend selector (experimental)** (`configmanager.{h,cpp}`, `advancedtabpage.{h,cpp}`, `mainwindow.cpp`) — a per-instance dropdown above the custom launch-args box. Options follow the detected game version: pre-1.8 defaults DirectX 9 (no argument) with OpenGL (`-force-opengl`) and DirectX 11 (`-force-d3d11`) offered; 1.8+ defaults DirectX 11 with OpenGL and DirectX 12 (`-force-d3d12`) offered. The six reserved `-force-*` renderer arguments are stripped from custom launch args on save and again at launch, so stale configs can never leak into the game. The choice persists per instance (`graphicsBackend` in `HKSPL.json`) and is applied even when launching without visiting the advanced page; version-mismatched picks silently fall back to the default renderer. When a backend was explicitly selected, the crash-analysis dialog now shows "Graphics backend used for this launch: OpenGL (-force-opengl)" as its first line, ready to paste into mod-author bug reports.
+- **Temporary PhysicsRangeExtender disable** (`instancemanager.{h,cpp}`, `advancedtabpage.{h,cpp}`) — a toggle below process priority (visible only when `GameData\PhysicsRangeExtender\Plugins\PhysicsRangeExtender.dll` exists) renames the DLL to `.disabled` immediately (no "confirm" needed) and restores it automatically when the game exits — including force-kill and launcher shutdown. The switch reflects on-disk state: a leftover `.disabled` from a previous run shows as enabled and can be restored by hand; a failed rename (DLL in use) snaps the toggle back with a warning.
 
-### Subassemblies (Saves Only)
+### Game Settings
 
-- **Third "Subassemblies" tab** (`shiptabpage.{h,cpp}`) — enabled via `setSubassembliesEnabled(true)` for the save detail page's ship manager; lists `<save root>/Subassemblies/` (sibling of `Ships/`). The instance manager stays VAB/SPH, as subassemblies belong to a single save.
-- **Fully wired** — import (button label follows the tab; directory auto-created on first import; importing from its own directory blocked), drag-and-drop, delete to trash, overwrite prompts, and the "no subassemblies detected" empty state, all worded for subassemblies. Listed through the new `listCraftFilesIn(dir)` helper.
+- **Volume sliders** (`instancemanager_keymap.{h,cpp}`, `instancemanager_settings.cpp`, `gamesettingstabpage.cpp`, `dark.qss` / `light.qss`) — master/ship/ambience/music/UI/voice volume entries render as sliders (0–1, step 0.01) with a two-decimal numeric readout on the right that updates live while dragging. The slider flag travels with the keymap data instead of hard-coded key names; unparseable values still fall back to the plain text editor, and saving goes through the existing path (the value is read from a `Qt::UserRole` so the number never ghosts through the transparent row).
 
-### Kerbal Management (Save Detail)
+### Mod Management
 
-- **Applicant/Crew tabs** (`savedetailpage.{h,cpp}`) — the kerbal list is split into a `QTabWidget` ("Applicants" / "Crew"); only `type == "Crew"` goes to the Crew page, everything else falls back to Applicants, with unrecognized types shown verbatim. Pane styling added to both `dark.qss` / `light.qss`.
-- **Search box** — case-insensitive name matching, or `@jobs:Pilot` filtering by trait (English trait name, case-insensitive partial match); the filter survives refreshes, with distinct "no kerbals detected" vs "no matching applicants/crew" empty states.
-- **Delete & rename** (`instancemanager_saves.cpp`) — a per-row "…" menu offers delete (removes the `KERBAL` block from `persistent.sfs`'s `ROSTER`) and rename (rewrites the `name =` line); both validate brace balance before and after writing, and write to disk immediately.
-- **Sliders for brave/dumb** — double-spin editors are replaced by permanent sliders (0–1.0, step 0.1) with a live value label; values are collected from a custom role on save. Styled in both themes. The gender combo shows localized male/female labels while still saving `Male`/`Female`; type/gender are translated on display.
+- **Operation locking** (`modstabpage.{h,cpp}`) — install/upgrade/uninstall (and import) buttons stay disabled for the entire duration of any mod operation and until `operationFinished` (success, failure, or cancel). Previously, changing the selection, toggling checkboxes, select-all, or a background index/DLL-scan completing would recompute button state and re-enable the action buttons mid-operation, allowing a second concurrent write. All entry points are covered — including version-history install and automatic `.ckan` modpack batch installs, which previously never locked at all. Cancel remains available and unlocks through the same path.
+- **Files tab no longer freezes on big packages** (`modstabpage.{h,cpp}`, `moduleinstaller.{h,cpp}`) — selecting a cached 1 GB package used to stall the UI for seconds. Two root causes fixed: details loading no longer builds the file tree eagerly (the tab shows a hint until opened, and rebuilding happens immediately only when the Files tab is already open), and the tree is now built on a background thread (`QtConcurrent::run`). A new `findCacheZipFast()` identifies the cached zip by reading only its central directory (milliseconds) instead of hashing the entire file into memory; the full SHA256 check still guards actual installs. Child nodes materialize lazily on expand (UI cost proportional to what you open, not the package size), directories sort off-thread, and rapid selection changes cancel stale scans via a generation counter.
 
-### Backup Date Filtering
+### Fixes
 
-- **Time filter** (`savedetailpage.cpp`) — a search box on the backups toolbar tokenizes the query into digits: a single number matches any timestamp component (year/month/day/hour/minute/second), multiple numbers match the parts in order starting from year (e.g. `2026-01-01 12:30`, `10-02`). The list is cached so keystrokes don't re-read the disk; a "no matching backups" empty state appears when nothing matches.
-
-### Fixes & Behavior Changes
-
-- **Update popups** (`updateflow.cpp`) — updater signals are connected once per process (static guard) instead of re-connected on every check; previously auto plus repeated manual checks stacked handlers and fired multiple dialogs, with later ones parentless.
-- **Default language** for fresh configs is now `en_US`; the mirror update source is renamed to "Mirror (zwqbook.cn)" (`configmanager.cpp`, `settingspage.cpp`).
-
-### Packaging & Build
-
-- **Inno Setup installer** (`installer/helloksplauncher.iss`, `make-installer.ps1`, new) — builds a per-user installer (`{userpf}`, no UAC requirement, admin override allowed) with a language dialog, desktop-icon task and lzma2/max compression. Runtime-written files (`HKSPL.json`, `backups`, `ckan_cache`, `generic`, logs) are excluded and removed by the uninstaller; the version is auto-synced from `src/appversion.h`. Output: `HelloKSPLauncher-<version>-setup.exe`.
-- **Qt 6.12 toolchain** (`build.ps1`) — configures from scratch (MinGW Makefiles, explicit compiler/prefix paths), runs `windeployqt` to keep `dist/` DLLs in sync with the build Qt, and copies `Qt6Concurrent.dll` for `libckan.dll`.
-- Misc: version bumped to 1.4.1; `.gitignore` adds `.vscode/` and `*-setup.exe`; `_gen_icons.py` renamed to `gen_icons.py`; all new strings translated to en_US/zh_CN with `.qm` rebuilt.
+- **Updater failure flow** (`updater/main.cpp`) — `fatal()` now really terminates the process. Previously a missing or corrupt update package logged the error and *kept running*, clearing the app directory and moving an empty stage — worst case, the launcher was wiped with no new version in place. `fatal()` also clears the `.updating` flag so the old version remains launchable after a failed update.
+- **Download robustness** (`ckan/downloader.cpp`) — synchronous downloads now carry a transfer timeout (a stalled server no longer hangs the event loop forever), and HTTP ≥ 400 responses are no longer appended to the partial file and resumed from a wrong offset — the downloader abandons that mirror and moves to the next one; only genuine transport interruptions resume in place.
+- **Downloader async handler stacking** (`ckan/downloader.{h,cpp}`) — the async completion handler is connected once in the constructor instead of on every `downloadAsync()` call, which previously stacked one handler per call and fired the completion path multiple times per reply.
+- **Background scaling performance** (`mainwindow.{h,cpp}`) — window resizing no longer smooth-rescales the background image on every event; during the drag the current pixmap is stretched instantly via `scaledContents`, and a 150 ms idle timer triggers a single precise rescale once resizing stops.
+- **Kerbal search debounce** (`savedetailpage.{h,cpp}`) — typing in the kerbal search box is debounced (250 ms) instead of clearing and rebuilding both lists on every keystroke; programmatic refreshes still populate immediately and keep the search term.
 
 ### Tech Stack
 
