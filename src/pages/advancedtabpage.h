@@ -24,7 +24,11 @@ public:
     void refreshIcons(const QString &color);
 
 private:
+    // 按检测到的 KSP 版本重建图形后端可选项（1.8 前默认 DX9，1.8+ 默认 DX11 且多 DX12）
+    void rebuildBackendOptions(bool dx11Era);
+
     QLineEdit*   m_launchArgsEdit = nullptr;
+    QComboBox*   m_graphicsBackendCombo = nullptr; // 数据为附加参数：""=版本默认 / -force-opengl 等
     QSpinBox*    m_launchMemorySpin = nullptr;     // 内存上限 MB，0=不限制
     QComboBox*   m_launchPriorityCombo = nullptr;  // 0=低(不处理) 1=高
     QPushButton* m_saveLaunchArgsBtn = nullptr;

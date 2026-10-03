@@ -17,6 +17,10 @@ struct KSPInstance {
     QString path;
     QString exePath;
     QString launchArgs;
+    // 图形后端（高级页下拉框）：以参数形式存储，""=版本默认渲染器，
+    // 合法值 "-force-opengl" / "-force-d3d11" / "-force-d3d12"。
+    // 与实例实际游戏版本不符的选择（如 1.8 前存了 DX12）由 graphicsBackendParam() 兜底忽略。
+    QString graphicsBackend;
     // 启动配置（每个实例的高级页即一份启动 Profile）
     int launchMemoryMB = 0;          // 内存上限 MB，0=不限制。KSP 是 64 位 Unity 无 -Xmx，
                                      // 该值为系统级进程内存上限（Job Object / RLIMIT_AS）。
@@ -154,11 +158,24 @@ public:
     QVector<ckan::Repository> repositories() const;
     void setRepositories(const QVector<ckan::Repository> &repos);
 
+    // ---- 图形后端（高级页下拉框，供高级页与启动流程共用）----
+    // KSP 1.8 起默认渲染器由 DirectX 9 换为 DirectX 11，并新增 -force-d3d12；
+    // 版本检测失败按 1.8+ 处理（现网安装几乎均为 1.8+）。
+    static bool isDx11Era(const ckan::GameVersion &ver);
+    // 剔除启动参数中由图形后端下拉框统一管理的保留参数
+    // （-force-d3d9/-force-d3d10/-force-d3d11/-force-d3d12/-force-opengl/-force-vulkan，
+    // 不区分大小写），返回剔除后的参数串；removed 输出是否发生过剔除。
+    static QString stripReservedGraphicsArgs(const QString &args, bool *removed = nullptr);
+    // 把存储的图形后端选择换算为启动时附加的参数；""=版本默认渲染器无参数。
+    // 与版本不符的选择按空处理（如 1.8 前的 DX12；1.8+ 的 DX11 即默认渲染器亦无参数）。
+    static QString graphicsBackendParam(const QString &backend, const ckan::GameVersion &ver);
+
     QList<KSPInstance> instances() const;
     void addInstance(const KSPInstance& inst);
     void removeInstance(const QString& id);
     void renameInstance(const QString& id, const QString& newName);
     void updateInstanceLaunchArgs(const QString& id, const QString& args);
+    void setInstanceGraphicsBackend(const QString& id, const QString& backend);
     int instanceLaunchMemoryMB(const QString& id) const;
     void setInstanceLaunchMemoryMB(const QString& id, int mb);
     bool instanceLaunchHighPriority(const QString& id) const;

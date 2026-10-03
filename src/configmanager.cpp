@@ -101,6 +101,7 @@ bool ConfigManager::load()
         inst.path = obj["path"].toString();
         inst.exePath = obj["exePath"].toString();
         inst.launchArgs = obj["launchArgs"].toString();
+        inst.graphicsBackend = obj["graphicsBackend"].toString();
         inst.launchMemoryMB = obj["launchMemoryMB"].toInt(0);
         inst.launchHighPriority = obj["launchHighPriority"].toBool(false);
         // 兼容版本勾选：字段存在（可能为空数组）按持久化值，空即"未勾选任何版本"；
@@ -134,6 +135,7 @@ bool ConfigManager::save()
         obj["path"] = inst.path;
         obj["exePath"] = inst.exePath;
         obj["launchArgs"] = inst.launchArgs;
+        obj["graphicsBackend"] = inst.graphicsBackend;
         obj["launchMemoryMB"] = inst.launchMemoryMB;
         obj["launchHighPriority"] = inst.launchHighPriority;
         // 仅持久化用户显式配置的兼容版本；未配置时省略该字段，
@@ -246,6 +248,44 @@ QStringList ConfigManager::defaultCompatibleVersions(const ckan::GameVersion &de
                   QStringLiteral("1.10"), QStringLiteral("1.9") };
     }
     return lines;
+}
+
+bool ConfigManager::isDx11Era(const ckan::GameVersion &ver)
+{
+    return ver.isValid() ? ver >= ckan::GameVersion(1, 8, 0) : true;
+}
+
+QString ConfigManager::stripReservedGraphicsArgs(const QString &args, bool *removed)
+{
+    static const QStringList reserved = {
+        QStringLiteral("-force-d3d9"),  QStringLiteral("-force-d3d10"),
+        QStringLiteral("-force-d3d11"), QStringLiteral("-force-d3d12"),
+        QStringLiteral("-force-opengl"), QStringLiteral("-force-vulkan")
+    };
+    if (removed) *removed = false;
+    QStringList kept;
+    const QStringList tokens = args.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    for (const QString &tok : tokens) {
+        if (reserved.contains(tok, Qt::CaseInsensitive)) {
+            if (removed) *removed = true;
+            continue;
+        }
+        kept.append(tok);
+    }
+    return kept.join(QLatin1Char(' '));
+}
+
+QString ConfigManager::graphicsBackendParam(const QString &backend, const ckan::GameVersion &ver)
+{
+    if (backend.isEmpty())
+        return QString(); // 版本默认渲染器（1.8 前 DX9 / 1.8+ DX11），无参数
+    if (backend == QLatin1String("-force-opengl"))
+        return backend;   // 全版本可用
+    if (backend == QLatin1String("-force-d3d11"))
+        return isDx11Era(ver) ? QString() : backend; // 1.8+ 默认即 DX11，无需参数
+    if (backend == QLatin1String("-force-d3d12"))
+        return isDx11Era(ver) ? backend : QString(); // 1.8 前无 DX12，忽略
+    return QString(); // 未知值兜底
 }
 
 QStringList ConfigManager::compatibleVersions(const QString &instanceId,
@@ -615,6 +655,19 @@ void ConfigManager::updateInstanceLaunchArgs(const QString &id, const QString &a
     for (int i = 0; i < m_instances.size(); ++i) {
         if (m_instances[i].id == id) {
             m_instances[i].launchArgs = args;
+            save();
+            emit instancesChanged();
+            return;
+        }
+    }
+}
+
+void ConfigManager::setInstanceGraphicsBackend(const QString &id, const QString &backend)
+{
+    for (KSPInstance &inst : m_instances) {
+        if (inst.id == id) {
+            if (inst.graphicsBackend == backend) return;
+            inst.graphicsBackend = backend;
             save();
             emit instancesChanged();
             return;

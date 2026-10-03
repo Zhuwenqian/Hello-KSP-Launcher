@@ -144,72 +144,113 @@
 <context>
     <name>AdvancedTabPage</name>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="29"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="30"/>
         <source>启动配置</source>
         <translation type="unfinished">启动配置</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="33"/>
         <source>在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。</source>
-        <translation type="unfinished">在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。</translation>
+        <translation type="obsolete">在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="39"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="50"/>
         <source>自定义启动参数</source>
         <translation type="unfinished">自定义启动参数</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="41"/>
         <source>输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow</source>
-        <translation type="unfinished">输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow</translation>
+        <translation type="obsolete">输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="46"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="40"/>
+        <source>图形后端（实验性）</source>
+        <translation>图形后端（实验性）</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="57"/>
         <source>内存限制（MB）</source>
         <translation type="unfinished">内存限制（MB）</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="50"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="61"/>
         <source>不限制</source>
         <translation type="unfinished">不限制</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="58"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="69"/>
         <source>此处为系统级进程内存上限，0 表示不限制。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="64"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="75"/>
         <source>进程优先级</source>
         <translation type="unfinished">进程优先级</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="66"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="77"/>
         <source>低</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="67"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="78"/>
         <source>高</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="75"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="86"/>
         <source> 确认保存</source>
         <translation type="unfinished"> 确认保存</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="109"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="124"/>
+        <source>DirectX 11（默认）</source>
+        <translation>DirectX 11（默认）</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="128"/>
+        <source>DirectX 9（默认）</source>
+        <translation>DirectX 9（默认）</translation>
+    </message>
+    <message>
+        <source>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl）已移除，请改用图形后端下拉框。</source>
+        <translation type="vanished">已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl）已移除，请改用图形后端下拉框。</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="155"/>
         <source>提示</source>
         <translation type="unfinished">提示</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="110"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="150"/>
         <source>已保存。高优先级将在启动时结束 Edge/Chrome/Firefox 的所有进程，并提升游戏进程优先级。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="111"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="34"/>
+        <source>在这里配置该实例的启动方式：图形后端、附加启动参数、内存上限与进程优先级。</source>
+        <translation>在这里配置该实例的启动方式：图形后端、附加启动参数、内存上限与进程优先级。</translation>
+    </message>
+    <message>
+        <source>图形后端</source>
+        <translation type="vanished">图形后端</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="44"/>
+        <source>决定游戏使用的渲染 API；对应启动参数由启动器自动附加，无需在自定义启动参数中填写。</source>
+        <translation>决定游戏使用的渲染 API；对应启动参数由启动器自动附加，无需在自定义启动参数中填写。</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="52"/>
+        <source>输入启动参数，多个参数用空格分隔，例如：-popupwindow -screen-fullscreen 0</source>
+        <translation>输入启动参数，多个参数用空格分隔，例如：-popupwindow -screen-fullscreen 0</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="152"/>
+        <source>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl、-force-vulkan）已移除，请改用图形后端下拉框。</source>
+        <translation>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl、-force-vulkan）已移除，请改用图形后端下拉框。</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="154"/>
         <source>启动配置已保存</source>
         <translation type="unfinished">启动配置已保存</translation>
     </message>
@@ -1495,7 +1536,7 @@
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="516"/>
-        <location filename="../src/mainwindow.cpp" line="1142"/>
+        <location filename="../src/mainwindow.cpp" line="1152"/>
         <source>未选择实例</source>
         <translation>未选择实例</translation>
     </message>
@@ -1506,7 +1547,7 @@
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="530"/>
-        <location filename="../src/mainwindow.cpp" line="948"/>
+        <location filename="../src/mainwindow.cpp" line="958"/>
         <source> 启动游戏</source>
         <translation> 启动游戏</translation>
     </message>
@@ -1535,8 +1576,8 @@
         <location filename="../src/mainwindow.cpp" line="719"/>
         <location filename="../src/mainwindow.cpp" line="865"/>
         <location filename="../src/mainwindow.cpp" line="870"/>
-        <location filename="../src/mainwindow.cpp" line="877"/>
-        <location filename="../src/mainwindow.cpp" line="1135"/>
+        <location filename="../src/mainwindow.cpp" line="887"/>
+        <location filename="../src/mainwindow.cpp" line="1145"/>
         <source>错误</source>
         <translation>错误</translation>
     </message>
@@ -1577,12 +1618,12 @@
         <translation type="vanished">继续</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="877"/>
+        <location filename="../src/mainwindow.cpp" line="887"/>
         <source>启动游戏失败。</source>
         <translation>启动游戏失败。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="897"/>
+        <location filename="../src/mainwindow.cpp" line="907"/>
         <source>（无可用实例）</source>
         <translation>（无可用实例）</translation>
     </message>
@@ -1597,17 +1638,17 @@
         <translation>您确定要终止游戏进程吗，这可能会丢失数据。</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="923"/>
+        <location filename="../src/mainwindow.cpp" line="933"/>
         <source> 停止</source>
         <translation> 停止</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="989"/>
+        <location filename="../src/mainwindow.cpp" line="999"/>
         <source>游戏因内存不足而崩溃</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="990"/>
+        <location filename="../src/mainwindow.cpp" line="1000"/>
         <source>检测到游戏因内存溢出（Out of Memory）而崩溃。
 
 建议尝试：
@@ -1619,12 +1660,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="997"/>
+        <location filename="../src/mainwindow.cpp" line="1007"/>
         <source>游戏发生硬崩溃（Hard Crash）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="998"/>
+        <location filename="../src/mainwindow.cpp" line="1008"/>
         <source>%1
 
 建议：
@@ -1634,38 +1675,38 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1017"/>
+        <location filename="../src/mainwindow.cpp" line="1027"/>
         <source>（未提取到关键错误上下文）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1025"/>
+        <location filename="../src/mainwindow.cpp" line="1035"/>
         <source>打开日志文件</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1026"/>
+        <location filename="../src/mainwindow.cpp" line="1036"/>
         <source>保存日志</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1032"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>日志打包失败，请确认日志文件存在且可读取。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1035"/>
+        <location filename="../src/mainwindow.cpp" line="1045"/>
         <source>日志已保存到启动器目录：
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1060"/>
+        <location filename="../src/mainwindow.cpp" line="1070"/>
         <source>日志</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1135"/>
+        <location filename="../src/mainwindow.cpp" line="1145"/>
         <source>游戏进程发生错误。</source>
         <translation>游戏进程发生错误。</translation>
     </message>

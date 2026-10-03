@@ -2,6 +2,7 @@
 #include "advancedtabpage.h"
 #include "../configmanager.h"
 #include "../iconutils.h"
+#include "../ckan/gameinstance.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -30,15 +31,25 @@ AdvancedTabPage::AdvancedTabPage(QWidget *parent)
     titleLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
     layout->addWidget(titleLabel);
 
-    QLabel* descLabel = new QLabel(tr("在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。"), panel);
+    QLabel* descLabel = new QLabel(tr("在这里配置该实例的启动方式：图形后端、附加启动参数、内存上限与进程优先级。"), panel);
     descLabel->setStyleSheet("color: #888; font-size: 9pt;");
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
+    // 图形后端（按 KSP 版本提供可选项，对应参数由启动器自动附加）
+    layout->addWidget(new QLabel(tr("图形后端（实验性）"), panel));
+    m_graphicsBackendCombo = new QComboBox(panel);
+    m_graphicsBackendCombo->setMinimumHeight(36);
+    layout->addWidget(m_graphicsBackendCombo);
+    QLabel* backendHint = new QLabel(tr("决定游戏使用的渲染 API；对应启动参数由启动器自动附加，无需在自定义启动参数中填写。"), panel);
+    backendHint->setStyleSheet("color: #888; font-size: 9pt;");
+    backendHint->setWordWrap(true);
+    layout->addWidget(backendHint);
+
     // 启动参数
     layout->addWidget(new QLabel(tr("自定义启动参数"), panel));
     m_launchArgsEdit = new QLineEdit(panel);
-    m_launchArgsEdit->setPlaceholderText(tr("输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow"));
+    m_launchArgsEdit->setPlaceholderText(tr("输入启动参数，多个参数用空格分隔，例如：-popupwindow -screen-fullscreen 0"));
     m_launchArgsEdit->setMinimumHeight(36);
     layout->addWidget(m_launchArgsEdit);
 
@@ -91,24 +102,57 @@ void AdvancedTabPage::loadLaunchArgs(const QString &instanceId)
     m_instanceId = instanceId;
     if (m_instanceId.isEmpty()) return;
     const KSPInstance inst = ConfigManager::instance().getInstance(m_instanceId);
-    m_launchArgsEdit->setText(inst.launchArgs);
+
+    // 按检测到的 KSP 版本重建图形后端可选项（1.8 前默认 DX9；1.8+ 默认 DX11 且多 DX12），
+    // 再回填已保存的选择；版本不符的历史值（findData 找不到）回退默认项。
+    const ckan::GameVersion ver = ckan::GameInstance::detectVersionFromDir(inst.path);
+    rebuildBackendOptions(ConfigManager::isDx11Era(ver));
+    const int bidx = m_graphicsBackendCombo->findData(inst.graphicsBackend);
+    m_graphicsBackendCombo->setCurrentIndex(bidx >= 0 ? bidx : 0);
+
+    // 展示即剔除保留的图形后端参数（旧配置/手改配置可能残留），实际落盘以保存为准
+    m_launchArgsEdit->setText(ConfigManager::stripReservedGraphicsArgs(inst.launchArgs));
     m_launchMemorySpin->setValue(inst.launchMemoryMB);
     const int idx = m_launchPriorityCombo->findData(inst.launchHighPriority ? 1 : 0);
     m_launchPriorityCombo->setCurrentIndex(idx >= 0 ? idx : 0);
 }
 
+void AdvancedTabPage::rebuildBackendOptions(bool dx11Era)
+{
+    m_graphicsBackendCombo->clear();
+    if (dx11Era) {
+        m_graphicsBackendCombo->addItem(tr("DirectX 11（默认）"), QString());
+        m_graphicsBackendCombo->addItem(QStringLiteral("OpenGL"), QStringLiteral("-force-opengl"));
+        m_graphicsBackendCombo->addItem(QStringLiteral("DirectX 12"), QStringLiteral("-force-d3d12"));
+    } else {
+        m_graphicsBackendCombo->addItem(tr("DirectX 9（默认）"), QString());
+        m_graphicsBackendCombo->addItem(QStringLiteral("OpenGL"), QStringLiteral("-force-opengl"));
+        m_graphicsBackendCombo->addItem(QStringLiteral("DirectX 11"), QStringLiteral("-force-d3d11"));
+    }
+}
+
 void AdvancedTabPage::saveLaunchArgs()
 {
-    QString args = m_launchArgsEdit->text().trimmed();
+    // 保留图形后端参数（-force-d3d9/10/11/12、-force-opengl）由下拉框统一管理，
+    // 自定义启动参数中不允许出现，保存前剔除
+    bool removedReserved = false;
+    QString args = ConfigManager::stripReservedGraphicsArgs(m_launchArgsEdit->text(), &removedReserved);
+    m_launchArgsEdit->setText(args);
     ConfigManager &cfg = ConfigManager::instance();
     cfg.updateInstanceLaunchArgs(m_instanceId, args);
+    cfg.setInstanceGraphicsBackend(m_instanceId, m_graphicsBackendCombo->currentData().toString());
     cfg.setInstanceLaunchMemoryMB(m_instanceId, m_launchMemorySpin->value());
     const bool high = m_launchPriorityCombo->currentData().toInt() == 1;
     cfg.setInstanceLaunchHighPriority(m_instanceId, high);
-    // 高优先级的“结束浏览器”说明仅在保存时提示一次
-    QMessageBox::information(this, tr("提示"),
-        high ? tr("已保存。高优先级将在启动时结束 Edge/Chrome/Firefox 的所有进程，并提升游戏进程优先级。")
-             : tr("启动配置已保存"));
+    // 高优先级的“结束浏览器”说明仅在保存时提示一次；剔除保留参数时附带说明
+    QString msg;
+    if (high)
+        msg = tr("已保存。高优先级将在启动时结束 Edge/Chrome/Firefox 的所有进程，并提升游戏进程优先级。");
+    else if (removedReserved)
+        msg = tr("已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl、-force-vulkan）已移除，请改用图形后端下拉框。");
+    else
+        msg = tr("启动配置已保存");
+    QMessageBox::information(this, tr("提示"), msg);
 }
 
 void AdvancedTabPage::refreshIcons(const QString &color)

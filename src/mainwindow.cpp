@@ -871,8 +871,18 @@ void MainWindow::onLaunchClicked()
         return;
     }
 
+    // 组装最终启动参数：剔除保留的图形后端参数（下拉框统一管理），再按实例
+    // 图形后端选择与检测到的游戏版本附加渲染 API 参数（默认渲染器无附加参数）
+    const QString gameDir = !inst.path.isEmpty()
+        ? inst.path : QFileInfo(inst.exePath).absolutePath();
+    const ckan::GameVersion ver = ckan::GameInstance::detectVersionFromDir(gameDir);
+    QString args = ConfigManager::stripReservedGraphicsArgs(inst.launchArgs);
+    const QString backendParam = ConfigManager::graphicsBackendParam(inst.graphicsBackend, ver);
+    if (!backendParam.isEmpty())
+        args = args.isEmpty() ? backendParam : args + QLatin1Char(' ') + backendParam;
+
     bool launched = InstanceManager::instance().launchGame(
-        inst.exePath, inst.launchArgs, inst.launchMemoryMB, inst.launchHighPriority);
+        inst.exePath, args, inst.launchMemoryMB, inst.launchHighPriority);
     if (!launched) {
         QMessageBox::warning(this, tr("错误"), tr("启动游戏失败。"));
     }
