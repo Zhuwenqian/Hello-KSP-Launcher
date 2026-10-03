@@ -27,6 +27,26 @@ class QShowEvent;
 
 class QTimer;
 
+// 「文件」tab 后台构建的轻量清单节点树：与 UI 解耦，worker 线程内建好+排序，
+// 主线程只把**可见层**转成 QTreeWidgetItem，展开目录时才物化下一层（可承载十几万条目）。
+struct ModsContentsNode
+{
+    QString name;       // 本级名
+    qint64 size = -1;   // 文件字节；目录为 -1
+    bool isDir = false;
+    QList<ModsContentsNode*> children;
+    ~ModsContentsNode() { qDeleteAll(children); }
+};
+
+// 「文件」tab 后台探测/建树结果：root 空=压缩包未缓存且无已安装目录可展示；
+// fromZip 区分来源（决定状态栏文案与 GameData 根节点是否默认展开）。
+struct ModsContentsResult
+{
+    ModsContentsNode *root = nullptr;
+    QString error;
+    bool fromZip = false;
+};
+
 // 实例详情页的"模组管理"二级页：承载全部模组 UI
 // （搜索/筛选/标签/表格/详情四 tab/下载进度/操作按钮/导入与安装历史）。
 // 业务编排经内部的 ModsController（其持有真实 Qt 决策弹窗并转发操作与信号）；
@@ -36,6 +56,7 @@ class ModsTabPage : public QWidget
     Q_OBJECT
 public:
     explicit ModsTabPage(QWidget *parent = nullptr);
+    ~ModsTabPage() override;
 
 protected:
     // 首次显示时按真实可用高度精确还原分隔条持久化位置
@@ -89,6 +110,8 @@ private slots:
     // 模组详情四 tab
     void onSingleDownloadFinished(bool ok, const QString &identifier, const QString &error);
     void onContentsDownloadClicked();
+    // 「文件」tab 目录展开时按需物化下一层子节点（懒加载）
+    void onContentsItemExpanded(QTreeWidgetItem *item);
     void onReverseRelToggled(bool on);
     void onRelationItemExpanded(QTreeWidgetItem *item);
     void onVersionSelectionChanged();
@@ -117,6 +140,13 @@ private:
     void showMetaTab(const ckan::CkanModule &mod);
     // 「文件」tab 懒加载入口：清单已过期且当前模组有效时才真正构建（见 m_contentsStale）
     void ensureContentsLoaded();
+    // 后台建轻量节点树（缓存探测/zip 解析/目录递归/排序全在 worker）+ 主线程仅建可见层，
+    // 展开目录时才物化子级——大模组包（十几万条目）切 tab/展开都不卡 UI
+    void startContentsScan(const ckan::CkanModule &mod, const QString &downloadDir,
+                           const QString &gameDir, const QStringList &installedEntries);
+    void cancelContentsWork();
+    QTreeWidgetItem* createContentsItem(QTreeWidgetItem *parent, ModsContentsNode *node);
+    void populateContentsItem(QTreeWidgetItem *item);
     void showContentsTab(const ckan::CkanModule &mod);
     void showRelationshipsTab(const ckan::CkanModule &mod, bool reverse);
     void addRelationChildren(QTreeWidgetItem *parent, const QString &identifier, int depth);
@@ -171,6 +201,12 @@ private:
 
     QFutureWatcher<QStringList>* m_reverseWatcher = nullptr; // 反向关系扫描在途
     QFutureWatcher<QVector<ckan::CkanModule>>* m_modsLoadWatcher = nullptr;
+    // 后台建树在途 + 「文件」tab 可见层物化状态
+    QFutureWatcher<ModsContentsResult>* m_contentsScanWatcher = nullptr;
+    qint64 m_contentsGeneration = 0; // 递增代数：选中切换/重入即作废在途扫描与节点树
+    ModsContentsNode* m_contentsRoot = nullptr; // 后台建好的节点树根（展开物化的数据源）
+    QString m_contentsDoneStatus;          // 清单就绪后的状态栏文案
+    bool m_contentsExpandGameData = false; // 已安装目录模式：完成后展开 GameData 根节点
     QString m_currentModIdentifier;
     ckan::CkanModule m_currentMod; // 当前选中模组（供「文件」tab 懒加载时取用）
     bool m_contentsStale = true;   // 「文件」tab 清单是否待构建（懒加载：切到该 tab 才建树）

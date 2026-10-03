@@ -41,19 +41,83 @@ QString formatBytes(qint64 bytes)
     return QStringLiteral("%1 MB").arg(QString::number(bytes / 1024.0 / 1024.0, 'f', 1));
 }
 
-// 递归把 absDir 下所有内容加入 parent（子目录标记 dir 并可继续展开，文件显示大小）。
-// 供「文件」tab 无缓存但已安装时，直接浏览已安装模组目录。
-void addDirContentsToTree(QTreeWidgetItem *parent, const QString &absDir)
+// —— 「文件」tab 轻量节点树的后台构建（均在 worker 线程执行，与 UI 对象无关）——
+
+// 递归按名排序各级子节点（不区分大小写；与旧 QTreeWidget 排序的展示差异可忽略）
+void sortContentsTree(ModsContentsNode *node)
 {
-    QDir d(absDir);
-    const QFileInfoList infos = d.entryInfoList(
+    std::sort(node->children.begin(), node->children.end(),
+              [](const ModsContentsNode *a, const ModsContentsNode *b) {
+                  return QString::compare(a->name, b->name, Qt::CaseInsensitive) < 0;
+              });
+    for (ModsContentsNode *child : node->children)
+        if (child->isDir)
+            sortContentsTree(child);
+}
+
+// 把 zip 全部条目名组织为节点树：目录段经「相对路径→节点」哈希按需创建（worker 内 O(n)），
+// zip 目录条目（以 '/' 结尾）只建目录节点、不产生空名叶子。
+ModsContentsNode *buildZipContentsTree(const QStringList &names)
+{
+    auto root = new ModsContentsNode;
+    root->isDir = true;
+    QHash<QString, ModsContentsNode*> dirs;
+    dirs.insert(QString(), root);
+    auto ensureDir = [&dirs](ModsContentsNode *parent, const QString &name, const QString &path) {
+        const auto it = dirs.constFind(path);
+        if (it != dirs.constEnd())
+            return it.value();
+        auto node = new ModsContentsNode;
+        node->name = name;
+        node->isDir = true;
+        parent->children.append(node);
+        dirs.insert(path, node);
+        return node;
+    };
+    for (const QString &e : names) {
+        if (e.isEmpty()) continue;
+        QStringList segs = e.split('/');
+        const bool dirEntry = !segs.isEmpty() && segs.last().isEmpty();
+        while (!segs.isEmpty() && segs.last().isEmpty())
+            segs.removeLast();
+        if (segs.isEmpty()) continue;
+        ModsContentsNode *parent = root;
+        QString path;
+        for (int i = 0; i < segs.size() - 1; ++i) {
+            if (!path.isEmpty()) path += '/';
+            path += segs.at(i);
+            parent = ensureDir(parent, segs.at(i), path);
+        }
+        if (dirEntry) {
+            const QString name = segs.last();
+            ensureDir(parent, name, path.isEmpty() ? name : path + '/' + name);
+        } else {
+            auto node = new ModsContentsNode;
+            node->name = segs.last();
+            parent->children.append(node);
+        }
+    }
+    sortContentsTree(root);
+    return root;
+}
+
+// 递归把 absDir 下所有内容挂到 parent 节点（目录继续递归，文件带大小）
+void collectDirNodes(ModsContentsNode *parent, const QString &absDir)
+{
+    const QFileInfoList infos = QDir(absDir).entryInfoList(
         QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name | QDir::DirsFirst);
     for (const QFileInfo &fi : infos) {
-        QTreeWidgetItem *item = new QTreeWidgetItem(
-            parent, {fi.fileName(), fi.isFile() ? formatBytes(fi.size()) : QString()});
+        auto node = new ModsContentsNode;
+        node->name = fi.fileName();
         if (fi.isDir()) {
-            item->setData(0, Qt::UserRole, QStringLiteral("dir"));
-            addDirContentsToTree(item, fi.absoluteFilePath());
+            node->isDir = true;
+            parent->children.append(node);
+            collectDirNodes(node, fi.absoluteFilePath());
+        } else if (fi.isFile()) {
+            node->size = fi.size();
+            parent->children.append(node);
+        } else {
+            delete node;
         }
     }
 }
@@ -69,6 +133,12 @@ ModsTabPage::ModsTabPage(QWidget *parent)
     m_searchDebounceTimer->setInterval(150);
     connect(m_searchDebounceTimer, &QTimer::timeout, this, &ModsTabPage::onSearchDebounceTimeout);
     setTabActive(false);
+}
+
+ModsTabPage::~ModsTabPage()
+{
+    // 作废在途回调并释放节点树；worker 仅用按值副本，页面销毁安全
+    cancelContentsWork();
 }
 
 void ModsTabPage::setupUi()
@@ -260,6 +330,9 @@ void ModsTabPage::setupUi()
     m_contentsTree->setColumnWidth(0, 240);
     contentsLay->addWidget(m_contentsTree, 1);
     m_modDetailTabs->addTab(contentsWrap, tr("文件"));
+    // 目录展开时才物化下一层子节点：树规模与「展开过的目录」成正比，与总条目数无关
+    connect(m_contentsTree, &QTreeWidget::itemExpanded,
+            this, &ModsTabPage::onContentsItemExpanded);
 
     // ③ 关系（Relationships）tab：前向/反向树（懒加载）
     QWidget* relWrap = new QWidget(m_modDetailTabs);
@@ -908,6 +981,7 @@ void ModsTabPage::onModSelectionChanged()
         m_currentModIdentifier.clear();
         m_currentMod = ckan::CkanModule();
         m_contentsStale = true;
+        cancelContentsWork(); // 作废在途的清单扫描与建树
         m_metaText->clear();
         m_contentsTree->clear();
         m_relTree->clear();
@@ -1043,6 +1117,7 @@ void ModsTabPage::showMetaTab(const ckan::CkanModule &mod)
 
 void ModsTabPage::showContentsTab(const ckan::CkanModule &mod)
 {
+    cancelContentsWork(); // 作废在途扫描/建树（切模组或重入本函数均如此）
     m_contentsTree->clear();
     if (!m_modDetailTabs) return;
     // 无 install 规则的元包/虚拟包 → 没有实际文件
@@ -1052,71 +1127,145 @@ void ModsTabPage::showContentsTab(const ckan::CkanModule &mod)
         return;
     }
     m_contentsDownloadBtn->setVisible(true);
-    const QString zipPath =
-        ckan::ModuleInstaller::findCacheZip(CKanManager::instance().downloadDir(), mod);
-    if (zipPath.isEmpty()) {
-        // 压缩包未缓存：若该模组已安装（含手动安装 AD），直接浏览已安装目录；
-        // 第一层仍为 GameData，第二层才是模组文件夹。
-        const QStringList installedEntries =
-            CKanManager::instance().installedGameDataEntries(mod.identifier);
-        if (!installedEntries.isEmpty()) {
-            m_contentsStatusLabel->setText(tr("压缩包尚未缓存，以下为已安装目录："));
-            CKanManager &mgr = CKanManager::instance();
-            const QString gameDir = mgr.gameDir();
-            const QString prefix = QStringLiteral("GameData/");
-            QTreeWidgetItem *gd = new QTreeWidgetItem(m_contentsTree, {QStringLiteral("GameData"), QString()});
-            gd->setData(0, Qt::UserRole, QStringLiteral("dir"));
-            // 根层无展开指示符（rootIsDecorated(false)），默认展开以露出第二层模组文件夹
-            gd->setExpanded(true);
-            for (const QString &entry : installedEntries) {
-                if (!entry.startsWith(prefix, Qt::CaseInsensitive)) continue;
-                const QString abs = QDir(gameDir).filePath(entry);
-                const QFileInfo fi(abs);
-                QTreeWidgetItem *item = new QTreeWidgetItem(
-                    gd, {fi.fileName(), fi.isFile() ? formatBytes(fi.size()) : QString()});
-                if (fi.isDir()) {
-                    item->setData(0, Qt::UserRole, QStringLiteral("dir"));
-                    addDirContentsToTree(item, abs);
-                }
-            }
+    // 缓存探测（findCacheZipFast）在 worker 里做：主线程不做任何磁盘重活。
+    // 已安装条目是注册表内存查询，主线程预取后按值传给 worker 作无缓存时的展示来源。
+    const QStringList installedEntries =
+        CKanManager::instance().installedGameDataEntries(mod.identifier);
+    const QString gameDir = CKanManager::instance().gameDir();
+    m_contentsStatusLabel->setText(tr("正在读取文件清单..."));
+    startContentsScan(mod, CKanManager::instance().downloadDir(), gameDir, installedEntries);
+}
+
+// 取消在途清单扫描：递增代数使旧回调失效并释放节点树
+void ModsTabPage::cancelContentsWork()
+{
+    ++m_contentsGeneration;
+    delete m_contentsRoot;
+    m_contentsRoot = nullptr;
+    m_contentsExpandGameData = false;
+}
+
+// 后台完成全部磁盘/解析工作：轻量探测缓存 zip（findCacheZipFast，只读 central directory，
+// 不整文件读入不算哈希）→ 列条目建树；无缓存时回退递归扫描已安装目录；worker 内排序。
+// 主线程只物化可见层，十几万条目也不产生主线程全量开销；仅按值捕获副本，页面销毁不悬垂。
+void ModsTabPage::startContentsScan(const ckan::CkanModule &mod, const QString &downloadDir,
+                                    const QString &gameDir, const QStringList &installedEntries)
+{
+    auto watcher = new QFutureWatcher<ModsContentsResult>(this);
+    m_contentsScanWatcher = watcher;
+    const qint64 gen = ++m_contentsGeneration;
+    connect(watcher, &QFutureWatcher<ModsContentsResult>::finished,
+            this, [this, watcher, gen]() {
+        if (m_contentsScanWatcher != watcher) { watcher->deleteLater(); return; }
+        m_contentsScanWatcher = nullptr;
+        const ModsContentsResult result = watcher->result();
+        watcher->deleteLater();
+        if (gen != m_contentsGeneration) { // 已切换选中/重入，结果作废
+            delete result.root;
             return;
         }
-        m_contentsStatusLabel->setText(tr("压缩包尚未缓存。下载后才能查看文件清单。"));
-        return;
-    }
-    m_contentsStatusLabel->setText(tr("压缩包已缓存，列出内部文件："));
-    QStringList entries;
-    QString err;
-    if (ckan::ModuleInstaller::listZipEntries(zipPath, &entries, &err)) {
-        // 结构化为目录树（以 '/' 分割）。目录节点用「路径→节点」哈希定位，避免每条
-        // 记录逐层线性扫描子节点（大模组包数万条目时 O(n²) 建树会卡死主线程）。
-        QHash<QString, QTreeWidgetItem*> dirItems;
-        for (const QString &e : entries) {
-            if (e.isEmpty()) continue;
-            QStringList segs = e.split('/');
-            QTreeWidgetItem *parent = m_contentsTree->invisibleRootItem();
-            QString path;
-            const QString name = segs.takeLast();
-            for (const QString &dir : segs) {
-                if (!path.isEmpty()) path += '/';
-                path += dir;
-                const auto it = dirItems.constFind(path);
-                QTreeWidgetItem *child = (it != dirItems.constEnd()) ? it.value() : nullptr;
-                if (!child) {
-                    child = new QTreeWidgetItem(parent, {dir});
-                    child->setData(0, Qt::UserRole, QStringLiteral("dir"));
-                    dirItems.insert(path, child);
-                }
-                parent = child;
-            }
-            // zip 的目录条目以 '/' 结尾，takeLast 得到空名：目录节点已建，跳过空叶子
-            if (!name.isEmpty())
-                new QTreeWidgetItem(parent, {name, QString()});
+        if (!result.error.isEmpty()) {
+            m_contentsStatusLabel->setText(tr("无法读取压缩包：%1").arg(result.error));
+            return;
         }
-        m_contentsTree->sortItems(0, Qt::AscendingOrder);
-    } else {
-        m_contentsStatusLabel->setText(tr("无法读取压缩包：%1").arg(err));
+        if (!result.root) {
+            m_contentsStatusLabel->setText(tr("压缩包尚未缓存。下载后才能查看文件清单。"));
+            return;
+        }
+        m_contentsRoot = result.root;
+        m_contentsDoneStatus = result.fromZip
+            ? tr("压缩包已缓存，列出内部文件：")
+            : tr("压缩包尚未缓存，以下为已安装目录：");
+        m_contentsExpandGameData = !result.fromZip;
+        // 只物化第一层（通常就是 GameData 一个目录节点）：主线程开销与层级宽窄有关，
+        // 与包内总条目数无关；更深层在展开时经 onContentsItemExpanded 按需物化。
+        QTreeWidgetItem *rootItem = m_contentsTree->invisibleRootItem();
+        for (ModsContentsNode *child : m_contentsRoot->children) {
+            QTreeWidgetItem *it = createContentsItem(rootItem, child);
+            // 已安装目录模式与旧同步版一致：GameData 根节点默认展开露出模组文件夹
+            if (m_contentsExpandGameData && child->isDir
+                && child->name == QLatin1String("GameData")) {
+                populateContentsItem(it);
+                it->setExpanded(true);
+            }
+        }
+        m_contentsStatusLabel->setText(m_contentsDoneStatus);
+    });
+    watcher->setFuture(QtConcurrent::run([mod, downloadDir, gameDir, installedEntries]() {
+        ModsContentsResult r;
+        const QString zipPath = ckan::ModuleInstaller::findCacheZipFast(downloadDir, mod);
+        if (!zipPath.isEmpty()) {
+            QStringList names;
+            if (!ckan::ModuleInstaller::listZipEntries(zipPath, &names, &r.error)) {
+                r.root = nullptr;
+                return r;
+            }
+            r.root = buildZipContentsTree(names);
+            r.fromZip = true;
+            return r;
+        }
+        if (!installedEntries.isEmpty()) {
+            auto root = new ModsContentsNode;
+            root->isDir = true;
+            auto gd = new ModsContentsNode;
+            gd->name = QStringLiteral("GameData");
+            gd->isDir = true;
+            root->children.append(gd);
+            for (const QString &entry : installedEntries) {
+                if (!entry.startsWith(QStringLiteral("GameData/"), Qt::CaseInsensitive))
+                    continue; // 与旧同步版一致：仅展示 GameData 下的条目
+                const QString abs = QDir(gameDir).filePath(entry);
+                const QFileInfo fi(abs);
+                if (fi.isDir()) {
+                    auto node = new ModsContentsNode;
+                    node->name = fi.fileName();
+                    node->isDir = true;
+                    gd->children.append(node);
+                    collectDirNodes(node, abs);
+                } else if (fi.isFile()) {
+                    auto node = new ModsContentsNode;
+                    node->name = fi.fileName();
+                    node->size = fi.size();
+                    gd->children.append(node);
+                }
+            }
+            sortContentsTree(root);
+            r.root = root;
+        }
+        return r;
+    }));
+}
+
+// 把节点转为树上的一行；目录标记 dir 并始终显示展开指示符（子级未物化也能展开）
+QTreeWidgetItem *ModsTabPage::createContentsItem(QTreeWidgetItem *parent, ModsContentsNode *node)
+{
+    auto *item = new QTreeWidgetItem(parent, {node->name,
+        node->size >= 0 ? formatBytes(node->size) : QString()});
+    if (node->isDir) {
+        item->setData(0, Qt::UserRole, QStringLiteral("dir"));
+        item->setChildIndicatorPolicy(QTreeWidgetItem::ShowIndicator);
     }
+    // 挂节点指针：展开时据此物化子级（quintptr 走 QVariant 不依赖指针类型注册）
+    item->setData(0, Qt::UserRole + 1,
+                  QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(node)));
+    return item;
+}
+
+// 物化 item 的下一层子节点（幂等：已物化或无子级时跳过）
+void ModsTabPage::populateContentsItem(QTreeWidgetItem *item)
+{
+    if (!item || item->childCount() > 0) return;
+    const quintptr ptr = item->data(0, Qt::UserRole + 1).value<quintptr>();
+    auto *node = reinterpret_cast<ModsContentsNode *>(ptr);
+    if (!node) return;
+    for (ModsContentsNode *child : node->children)
+        createContentsItem(item, child);
+}
+
+// 目录展开回调：按需物化该层子节点
+void ModsTabPage::onContentsItemExpanded(QTreeWidgetItem *item)
+{
+    populateContentsItem(item);
 }
 
 void ModsTabPage::showRelationshipsTab(const ckan::CkanModule &mod, bool reverse)

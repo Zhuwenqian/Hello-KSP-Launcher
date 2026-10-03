@@ -207,6 +207,30 @@ QString ModuleInstaller::findCacheZip(const QString &downloadDir, const CkanModu
     return QString();
 }
 
+QString ModuleInstaller::findCacheZipFast(const QString &downloadDir, const CkanModule &mod)
+{
+    // 与 findCacheZip 相同的三种候选名，但校验只到「能按 zip 打开」为止：
+    // mz_zip_reader_init_file 仅读 central directory（毫秒级），不整文件读入、不算哈希。
+    const QString url = mod.downloadUrls.isEmpty() ? QString() : mod.downloadUrls.first();
+    const QStringList candidates = {
+        downloadDir + QLatin1Char('/') + officialCacheFileName(mod.identifier, mod.version, url),
+        downloadDir + QLatin1Char('/') + officialCacheFileName(mod.identifier, mod.version),
+        downloadDir + QLatin1Char('/') + mod.identifier + QLatin1Char('_')
+            + safeCacheFileName(mod.version) + QStringLiteral(".zip"),
+    };
+    for (const QString &path : candidates) {
+        if (!QFileInfo::exists(path))
+            continue;
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        if (mz_zip_reader_init_file(&zip, path.toUtf8().constData(), 0)) {
+            mz_zip_reader_end(&zip);
+            return path;
+        }
+    }
+    return QString();
+}
+
 qint64 ModuleInstaller::estimateRequiredBytes(const QVector<CkanModule> &modules, double bufferFactor)
 {
     qint64 total = 0;

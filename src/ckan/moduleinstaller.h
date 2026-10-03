@@ -113,6 +113,11 @@ public:
     // 均不存在或无效（有效 zip，声明 sha256 时一并校验）返回空字符串。
     static QString findCacheZip(const QString &downloadDir, const CkanModule &mod);
 
+    // 轻量版缓存探测：同样三种候选文件名，但只做存在性 + 能否作为 zip 打开
+    // （读 central directory，毫秒级，不整文件读入、不算 sha256）。
+    // 供「文件」tab 浏览清单等只读场景；安装前完整性校验仍用 findCacheZip。
+    static QString findCacheZipFast(const QString &downloadDir, const CkanModule &mod);
+
     // 估算安装/下载所需磁盘空间（字节）：非元包模块 downloadSize 之和 × bufferFactor（默认 1.15）。
     // 供磁盘空间预检使用；downloadSize 未知的模块按 1 字节计，避免误判为零。
     static qint64 estimateRequiredBytes(const QVector<CkanModule> &modules, double bufferFactor = 1.15);
