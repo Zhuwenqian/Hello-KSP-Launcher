@@ -169,6 +169,9 @@ public:
     // 把存储的图形后端选择换算为启动时附加的参数；""=版本默认渲染器无参数。
     // 与版本不符的选择按空处理（如 1.8 前的 DX12；1.8+ 的 DX11 即默认渲染器亦无参数）。
     static QString graphicsBackendParam(const QString &backend, const ckan::GameVersion &ver);
+    // 图形后端参数对应的显示名（如 -force-opengl→OpenGL）；空/未知值返回空串。
+    // 供崩溃分析弹窗等只读展示场景使用。
+    static QString graphicsBackendLabel(const QString &backend);
 
     QList<KSPInstance> instances() const;
     void addInstance(const KSPInstance& inst);

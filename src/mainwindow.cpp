@@ -889,6 +889,8 @@ void MainWindow::onLaunchClicked()
     const QString backendParam = ConfigManager::graphicsBackendParam(inst.graphicsBackend, ver);
     if (!backendParam.isEmpty())
         args = args.isEmpty() ? backendParam : args + QLatin1Char(' ') + backendParam;
+    // 崩溃分析弹窗首行展示本次启动所选图形后端；未选择（默认渲染器）为空不显示
+    m_launchedBackendParam = inst.graphicsBackend;
 
     bool launched = InstanceManager::instance().launchGame(
         inst.exePath, args, inst.launchMemoryMB, inst.launchHighPriority);
@@ -1025,6 +1027,14 @@ void MainWindow::maybeShowCrashAnalysis()
     }
 
     qInfo() << "[crash] 检测到游戏异常退出崩溃：" << title;
+
+    // 首行补充本次启动所选图形后端（用户在下拉框明确选择过时才显示，便于反馈给模组作者）
+    if (!m_launchedBackendParam.isEmpty()) {
+        text = tr("本次启动使用的图形后端：%1（%2）")
+                   .arg(ConfigManager::graphicsBackendLabel(m_launchedBackendParam),
+                        m_launchedBackendParam)
+               + "\n\n" + text;
+    }
 
     QMessageBox box(QMessageBox::Warning, title, text, QMessageBox::Ok, this);
 

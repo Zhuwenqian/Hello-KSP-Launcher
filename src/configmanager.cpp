@@ -288,6 +288,14 @@ QString ConfigManager::graphicsBackendParam(const QString &backend, const ckan::
     return QString(); // 未知值兜底
 }
 
+QString ConfigManager::graphicsBackendLabel(const QString &backend)
+{
+    if (backend == QLatin1String("-force-opengl")) return QStringLiteral("OpenGL");
+    if (backend == QLatin1String("-force-d3d11")) return QStringLiteral("DirectX 11");
+    if (backend == QLatin1String("-force-d3d12")) return QStringLiteral("DirectX 12");
+    return QString();
+}
+
 QStringList ConfigManager::compatibleVersions(const QString &instanceId,
                                               const ckan::GameVersion &detectedVersion) const
 {

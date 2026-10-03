@@ -9,6 +9,8 @@ struct InstanceKeyInfo {
     QString category;
     // 是否在游戏设置界面隐藏（隐藏的高级设置，值保存时保留不动）
     bool hidden = false;
+    // 是否用拖动条编辑（音量类设置：0.00~1.00，步进 0.01）
+    bool slider = false;
 };
 
 // 查询指定设置键（settings.cfg 键名）的显示名与分类；

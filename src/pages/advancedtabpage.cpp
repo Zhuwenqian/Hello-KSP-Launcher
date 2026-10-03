@@ -2,7 +2,9 @@
 #include "advancedtabpage.h"
 #include "../configmanager.h"
 #include "../iconutils.h"
+#include "../instancemanager.h"
 #include "../ckan/gameinstance.h"
+#include "../widgets/toggleswitch.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -12,6 +14,8 @@
 #include <QLabel>
 #include <QFrame>
 #include <QMessageBox>
+#include <QFileInfo>
+#include <QTimer>
 
 AdvancedTabPage::AdvancedTabPage(QWidget *parent)
     : QWidget(parent)
@@ -79,6 +83,39 @@ AdvancedTabPage::AdvancedTabPage(QWidget *parent)
     m_launchPriorityCombo->setMinimumHeight(36);
     layout->addWidget(m_launchPriorityCombo);
 
+    // 临时禁用 PhysicsRangeExtender：仅当实例安装了该插件（dll 或其 .disabled 残留态存在）才显示，
+    // 显隐与开关状态在 loadLaunchArgs 中按实例刷新
+    m_disablePreRow = new QWidget(panel);
+    QHBoxLayout* preLayout = new QHBoxLayout(m_disablePreRow);
+    preLayout->setContentsMargins(0, 0, 0, 0);
+    QLabel* preLabel = new QLabel(tr("临时禁用 PhysicsRangeExtender"), m_disablePreRow);
+    m_disablePreToggle = new ToggleSwitch(m_disablePreRow);
+    m_disablePreToggle->setToolTip(tr("开启后立即把插件 dll 重命名为 .disabled 使其在游戏运行期间失效，游戏退出后自动还原"));
+    preLayout->addWidget(preLabel);
+    preLayout->addStretch();
+    preLayout->addWidget(m_disablePreToggle);
+    m_disablePreRow->setVisible(false);
+    layout->addWidget(m_disablePreRow);
+    m_disablePreHint = new QLabel(tr("开启后该插件在游戏运行期间失效（dll 重命名为 .disabled），游戏退出后由启动器自动还原。"), panel);
+    m_disablePreHint->setStyleSheet("color: #888; font-size: 9pt;");
+    m_disablePreHint->setWordWrap(true);
+    m_disablePreHint->setVisible(false);
+    layout->addWidget(m_disablePreHint);
+    connect(m_disablePreToggle, &ToggleSwitch::toggled,
+            this, &AdvancedTabPage::onDisablePreToggled);
+    // 游戏退出后启动器自动还原了 dll，延迟一拍按磁盘实际状态同步开关显示
+    connect(&InstanceManager::instance(), &InstanceManager::gameFinished, this, [this]() {
+        if (m_preDllPath.isEmpty()) return;
+        QTimer::singleShot(0, this, [this]() {
+            const bool disabled = QFileInfo::exists(m_preDllPath + QStringLiteral(".disabled"));
+            if (m_disablePreToggle->isChecked() != disabled) {
+                m_preSyncing = true;
+                m_disablePreToggle->setChecked(disabled);
+                m_preSyncing = false;
+            }
+        });
+    });
+
     QWidget* btnBar = new QWidget(panel);
     QHBoxLayout* btnLayout = new QHBoxLayout(btnBar);
     btnLayout->setContentsMargins(0, 0, 0, 0);
@@ -115,6 +152,18 @@ void AdvancedTabPage::loadLaunchArgs(const QString &instanceId)
     m_launchMemorySpin->setValue(inst.launchMemoryMB);
     const int idx = m_launchPriorityCombo->findData(inst.launchHighPriority ? 1 : 0);
     m_launchPriorityCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+
+    // 临时禁用 PhysicsRangeExtender：检测「GameData/PhysicsRangeExtender/Plugins/PhysicsRangeExtender.dll」，
+    // 存在才显示该项；若只剩 .disabled 残留态（上次禁用后未还原）也显示并保持开启，便于手动还原。
+    m_preDllPath = inst.path + QStringLiteral("/GameData/PhysicsRangeExtender/Plugins/PhysicsRangeExtender.dll");
+    const bool dllExists = QFileInfo::exists(m_preDllPath);
+    const bool disabledExists = QFileInfo::exists(m_preDllPath + QStringLiteral(".disabled"));
+    const bool showPre = dllExists || disabledExists;
+    m_disablePreRow->setVisible(showPre);
+    m_disablePreHint->setVisible(showPre);
+    m_preSyncing = true;
+    m_disablePreToggle->setChecked(disabledExists);
+    m_preSyncing = false;
 }
 
 void AdvancedTabPage::rebuildBackendOptions(bool dx11Era)
@@ -158,4 +207,22 @@ void AdvancedTabPage::saveLaunchArgs()
 void AdvancedTabPage::refreshIcons(const QString &color)
 {
     m_saveLaunchArgsBtn->setIcon(IconUtils::tintedIcon(":/icons/save.svg", color));
+}
+
+void AdvancedTabPage::onDisablePreToggled(bool checked)
+{
+    if (m_preSyncing || m_preDllPath.isEmpty()) return;
+    InstanceManager &im = InstanceManager::instance();
+    const bool ok = checked ? im.disablePluginTemporarily(m_preDllPath)
+                            : im.restoreTempDisabledPlugin(m_preDllPath);
+    // 以磁盘实际状态为准：改名失败（如 dll 被占用）时回弹开关并提示
+    const bool disabledNow = QFileInfo::exists(m_preDllPath + QStringLiteral(".disabled"));
+    if (ok && disabledNow == checked) return;
+    m_preSyncing = true;
+    m_disablePreToggle->setChecked(!checked);
+    m_preSyncing = false;
+    QMessageBox::warning(this, tr("提示"),
+        checked
+            ? tr("无法禁用 PhysicsRangeExtender：文件可能被其他程序占用，请稍后重试。")
+            : tr("无法还原 PhysicsRangeExtender：文件可能被其他程序占用，请稍后重试。"));
 }

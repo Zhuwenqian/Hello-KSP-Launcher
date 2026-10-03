@@ -16,6 +16,7 @@ struct GameSetting {
     QString value;       // 值
     QString displayName; // 中文显示名
     QString category;    // 分类
+    bool slider = false; // 是否用拖动条编辑（音量类）
 };
 
 struct DLCDetection {
@@ -84,6 +85,14 @@ public:
     void stopGame();
     QString detectGameRoot(const QString& exePath) const;
     bool isValidKSPPath(const QString& path) const;
+
+    // 临时禁用插件：把 dll 重命名为「dll.disabled」并记录原路径，游戏进程退出后自动还原。
+    // dll 不存在但 .disabled 已存在时视为已处于禁用状态，仅接管记录（幂等）。
+    // 重命名失败（如文件被占用）返回 false。
+    bool disablePluginTemporarily(const QString &dllPath);
+    // 还原临时禁用的插件（去掉 .disabled 后缀并清除记录）。
+    // 无记录且 expectedDllPath 非空时按该路径兜底还原（启动器重启后记录丢失的场景）。
+    bool restoreTempDisabledPlugin(const QString &expectedDllPath = QString());
 
     // 存档管理
     QStringList listSaves(const QString& gamePath) const;
@@ -170,6 +179,7 @@ private:
     InstanceManager& operator=(const InstanceManager&) = delete;
 
     QProcess* m_gameProcess;
+    QString m_tempDisabledDll;           // 临时禁用插件的原始 dll 路径（空=无），游戏退出后还原
     QTimer* m_stopKillTimer = nullptr;   // 优雅终止超时后强制 kill（定期器回调，避免主线程阻塞等待）
     bool m_pendingHighPriority = false;  // 待 started 后应用的高优先级标记
     int  m_pendingMemoryLimitMB = 0;     // 待 started 后应用的内存限制（MB，0=不限）

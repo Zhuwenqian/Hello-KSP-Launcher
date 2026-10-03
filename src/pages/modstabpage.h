@@ -127,6 +127,9 @@ private:
     void onRegistryLockPollTick();
     // 将当前实例勾选的兼容版本区间应用到过滤代理与 CKanManager
     void applyCompatRange();
+    // 模组写操作（安装/升级/卸载/导入/装指定版本）开始：置操作在途标记并锁定操作按钮，
+    // 直至 operationFinished 才解锁（防止安装期间改选中/勾选把按钮重新点亮）。
+    void beginModOperation();
     void updateModActionButtons();
     void updateSelectAllButtonText();
     void setModButtonsEnabled(bool enabled);
@@ -212,6 +215,7 @@ private:
     bool m_contentsStale = true;   // 「文件」tab 清单是否待构建（懒加载：切到该 tab 才建树）
     bool m_modsReady = false;    // 索引与 DLL 扫描均就绪，模组模型已填充
     bool m_modsTabActive = false; // 当前是否正显示"模组管理"tab（用于加载提示/轮询）
+    bool m_operationRunning = false; // 安装/升级/卸载/导入在途：期间锁定全部操作按钮
     bool m_registryLockWaiting = false;
     QTimer* m_registryLockPollTimer = nullptr;
     // 待安装的 .ckan 导入标识符（索引就绪后自动触发批量安装）

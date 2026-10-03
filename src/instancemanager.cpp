@@ -2,6 +2,7 @@
 #include "processopt.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QDebug>
@@ -27,6 +28,8 @@ InstanceManager::~InstanceManager()
 #if defined(_WIN32)
     releaseMemoryJob();
 #endif
+    // 启动器退出时若插件仍处于临时禁用状态（如游戏是被强杀的），一并还原
+    restoreTempDisabledPlugin();
 }
 
 bool InstanceManager::launchGame(const QString &exePath, const QString &args,
@@ -44,9 +47,11 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args,
                 this, &InstanceManager::gameFinished);
         connect(m_gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                 this, [this](int, QProcess::ExitStatus) {
-            // 进程退出：停止优雅终止的强制 kill 定时器，并释放内存限制 Job
+            // 进程退出：停止优雅终止的强制 kill 定时器、释放内存限制 Job，
+            // 并还原「临时禁用插件」（游戏启动→退出一轮结束后恢复 dll 原名）
             if (m_stopKillTimer) m_stopKillTimer->stop();
             releaseMemoryJob();
+            restoreTempDisabledPlugin();
         });
         connect(m_gameProcess, &QProcess::errorOccurred, this, &InstanceManager::gameError);
     }
@@ -141,6 +146,48 @@ QString InstanceManager::detectGameRoot(const QString &exePath) const
 {
     QFileInfo fi(exePath);
     return fi.absolutePath();
+}
+
+bool InstanceManager::disablePluginTemporarily(const QString &dllPath)
+{
+    const QString disabledPath = dllPath + QStringLiteral(".disabled");
+    if (!QFileInfo::exists(dllPath)) {
+        // dll 不在：若 .disabled 已存在则视为已禁用（如上次会话遗留），接管记录便于游戏退出后自动还原
+        if (QFileInfo::exists(disabledPath)) {
+            m_tempDisabledDll = dllPath;
+            return true;
+        }
+        qWarning() << "[instance] 临时禁用插件失败：文件不存在" << dllPath;
+        return false;
+    }
+    if (!QFile::rename(dllPath, disabledPath)) {
+        qWarning() << "[instance] 临时禁用插件失败（文件可能被占用）：" << dllPath;
+        return false;
+    }
+    m_tempDisabledDll = dllPath;
+    qInfo() << "[instance] 已临时禁用插件：" << dllPath;
+    return true;
+}
+
+bool InstanceManager::restoreTempDisabledPlugin(const QString &expectedDllPath)
+{
+    QString dll = m_tempDisabledDll;
+    if (dll.isEmpty()) {
+        if (expectedDllPath.isEmpty()) return false;
+        dll = expectedDllPath;
+    }
+    const QString disabledPath = dll + QStringLiteral(".disabled");
+    if (QFileInfo::exists(disabledPath)) {
+        if (!QFile::rename(disabledPath, dll)) {
+            // 还原失败保留记录，游戏退出/启动器退出时可再次尝试
+            qWarning() << "[instance] 还原临时禁用插件失败（文件可能被占用）：" << disabledPath;
+            return false;
+        }
+        qInfo() << "[instance] 已还原临时禁用插件：" << dll;
+    }
+    if (m_tempDisabledDll == dll)
+        m_tempDisabledDll.clear();
+    return true;
 }
 
 bool InstanceManager::isValidKSPPath(const QString &path) const

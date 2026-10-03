@@ -54,6 +54,7 @@ QList<GameSetting> InstanceManager::loadGameSettings(const QString &gamePath) co
             if (ki.hidden) continue;
             s.displayName = ki.displayName;
             s.category = ki.category;
+            s.slider = ki.slider;
             settings.append(s);
         }
     }

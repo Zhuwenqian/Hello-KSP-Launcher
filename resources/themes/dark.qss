@@ -748,3 +748,22 @@ QSlider#kerbalSlider::handle:horizontal {
     border-radius: 7px;
     background-color: #dadada;
 }
+/* 游戏设置音量拖动条 + 右侧数字显示 */
+QSlider#volumeSlider::groove:horizontal {
+    height: 6px;
+    border-radius: 3px;
+    background-color: #4a4a4a; /* 滑块右侧（未填充） */
+}
+QSlider#volumeSlider::sub-page:horizontal {
+    background-color: #007acc; /* 滑块左侧（已填充） */
+    border-radius: 3px;
+}
+QSlider#volumeSlider::handle:horizontal {
+    width: 14px;
+    margin: -4px 0;
+    border-radius: 7px;
+    background-color: #dadada;
+}
+QLabel#volumeValueLabel {
+    color: #e0e0e0;
+}

@@ -582,6 +582,7 @@ void ModsTabPage::queueCkanInstall(const QStringList &identifiers)
     prepareMods();
     if (CKanManager::instance().indexReady()) {
         m_pendingCkanIdentifiers.clear();
+        beginModOperation();
         m_controller.requestInstallBatch(identifiers);
     } else {
         setDetailNote(tr("正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组..."));
@@ -964,6 +965,7 @@ void ModsTabPage::onIndexRefreshed(CKanManager::IndexRefreshStatus status,
     if (!m_pendingCkanIdentifiers.isEmpty()) {
         const QStringList pending = m_pendingCkanIdentifiers;
         m_pendingCkanIdentifiers.clear();
+        beginModOperation();
         m_controller.requestInstallBatch(pending);
     }
     // 部分仓库获取失败：提示用户（避免"静默缺失"）；页面不可见（如在设置页）时不弹窗
@@ -1012,6 +1014,7 @@ void ModsTabPage::onModDoubleClicked(const QModelIndex &index)
 void ModsTabPage::updateModActionButtons()
 {
     if (!m_installModBtn || !m_uninstallModBtn || !m_upgradeModBtn) return;
+    if (m_operationRunning) return; // 操作在途：按钮保持锁定，忽略选中/勾选变化
     CKanManager &mgr = CKanManager::instance();
     const QStringList checked = m_modsModel->checkedIdentifiers();
     const bool batch = checked.size() >= 2;
@@ -1471,6 +1474,7 @@ void ModsTabPage::onRelationItemExpanded(QTreeWidgetItem *item)
 
 void ModsTabPage::onVersionSelectionChanged()
 {
+    if (m_operationRunning) return; // 操作在途：版本安装按钮保持锁定
     m_versionsInstallBtn->setEnabled(m_versionsTree->currentItem() != nullptr);
 }
 
@@ -1494,7 +1498,7 @@ void ModsTabPage::onVersionInstallClicked()
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (go != QMessageBox::Yes) return;
     }
-    m_versionsInstallBtn->setEnabled(false);
+    beginModOperation();
     showDownloadProgress();
     m_controller.requestInstallVersion(mod);
 }
@@ -1503,7 +1507,7 @@ void ModsTabPage::onInstallModClicked()
 {
     const QStringList ids = m_modsModel->checkedIdentifiers();
     if (ids.size() >= 2) {
-        setModButtonsEnabled(false);
+        beginModOperation();
         showDownloadProgress();
         m_controller.requestInstallBatch(ids);
         return;
@@ -1513,10 +1517,7 @@ void ModsTabPage::onInstallModClicked()
         QMessageBox::information(this, tr("提示"), tr("请先选择或勾选一个模组。"));
         return;
     }
-    m_refreshModsBtn->setEnabled(false);
-    m_installModBtn->setEnabled(false);
-    m_uninstallModBtn->setEnabled(false);
-    m_upgradeModBtn->setEnabled(false);
+    beginModOperation();
     showDownloadProgress();
     m_controller.requestInstall(target);
 }
@@ -1531,7 +1532,7 @@ void ModsTabPage::onUninstallModClicked()
                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
             return;
         }
-        setModButtonsEnabled(false);
+        beginModOperation();
         showUninstallProgress(tr("正在卸载 %1 个模组...").arg(ids.size()));
         m_controller.requestUninstallBatch(ids);
         return;
@@ -1553,10 +1554,7 @@ void ModsTabPage::onUninstallModClicked()
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
-    m_refreshModsBtn->setEnabled(false);
-    m_installModBtn->setEnabled(false);
-    m_uninstallModBtn->setEnabled(false);
-    m_upgradeModBtn->setEnabled(false);
+    beginModOperation();
     showUninstallProgress(tr("正在卸载：%1").arg(name.isEmpty() ? target : name));
     m_controller.requestUninstall(target);
 }
@@ -1565,7 +1563,7 @@ void ModsTabPage::onUpgradeModClicked()
 {
     const QStringList ids = m_modsModel->checkedIdentifiers();
     if (ids.size() >= 2) {
-        setModButtonsEnabled(false);
+        beginModOperation();
         showDownloadProgress();
         m_controller.requestUpgradeBatch(ids);
         return;
@@ -1575,17 +1573,25 @@ void ModsTabPage::onUpgradeModClicked()
         QMessageBox::information(this, tr("提示"), tr("请先选择或勾选一个模组。"));
         return;
     }
-    setModButtonsEnabled(false);
+    beginModOperation();
     showDownloadProgress();
     m_controller.requestUpgrade(target);
 }
 
+void ModsTabPage::beginModOperation()
+{
+    m_operationRunning = true;
+    setModButtonsEnabled(false);
+}
+
 void ModsTabPage::setModButtonsEnabled(bool enabled)
 {
+    if (enabled && m_operationRunning) return; // 操作在途：保持锁定，直至 operationFinished
     m_refreshModsBtn->setEnabled(enabled);
     m_installModBtn->setEnabled(enabled);
     m_uninstallModBtn->setEnabled(enabled);
     m_upgradeModBtn->setEnabled(enabled);
+    m_importModBtn->setEnabled(enabled);
     if (!enabled) return;
     updateModActionButtons();
     updateSelectAllButtonText();
@@ -1624,6 +1630,7 @@ void ModsTabPage::onSelectAllClicked()
 
 void ModsTabPage::onModOperationFinished(bool ok, const QString &message)
 {
+    m_operationRunning = false; // 操作结束（成功/失败/取消均走此信号）：解锁操作按钮
     setModButtonsEnabled(true);
     hideDownloadProgress();
     if (ok) {
@@ -1706,7 +1713,7 @@ void ModsTabPage::onImportModClicked()
         tr("模组文件 (*.zip *.ckan)"));
     if (path.isEmpty()) return; // 用户取消
 
-    setModButtonsEnabled(false);
+    beginModOperation();
     showDownloadProgress();
     m_controller.requestImport(path);
 }

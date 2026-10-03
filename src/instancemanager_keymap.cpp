@@ -10,6 +10,7 @@ struct KeyInfo {
     QString displayNameEn; // 英文显示名
     QString category;
     bool hidden = false;
+    bool slider = false;   // 是否用拖动条编辑（音量类设置）
 };
 
 QMap<QString, KeyInfo> createKeyInfoMap() {
@@ -68,6 +69,14 @@ QMap<QString, KeyInfo> createKeyInfoMap() {
     m["SOUND_NORMALIZER_THRESHOLD"] = {"标准化阈值", "Normalizer Threshold", "音频"};
     m["SOUND_NORMALIZER_RESPONSIVENESS"] = {"标准化响应速度", "Normalizer Responsiveness", "音频"};
     m["SOUND_NORMALIZER_SKIPSAMPLES"] = {"标准化跳过采样数", "Normalizer Skip Samples", "音频"};
+
+    // 音量类设置在游戏设置界面用拖动条编辑（0.00~1.00，步进 0.01）
+    m["MASTER_VOLUME"].slider = true;
+    m["SHIP_VOLUME"].slider = true;
+    m["AMBIENCE_VOLUME"].slider = true;
+    m["MUSIC_VOLUME"].slider = true;
+    m["UI_VOLUME"].slider = true;
+    m["VOICE_VOLUME"].slider = true;
 
     // ===== 游戏玩法 (Gameplay) =====
     m["LANGUAGE"] = {"游戏语言", "Game Language", "游戏玩法", true};
@@ -367,6 +376,7 @@ InstanceKeyInfo instanceGetKeyInfo(const QString& key) {
             en.displayName = it.value().displayNameEn;
             en.category = it.value().category;
             en.hidden = it.value().hidden;
+            en.slider = it.value().slider;
             // Translate category names to English
             static const QMap<QString, QString> catMap = {
                 {"显示与图形", "Display & Graphics"},
@@ -393,7 +403,7 @@ InstanceKeyInfo instanceGetKeyInfo(const QString& key) {
             }
             return en;
         }
-        return {it.value().displayName, it.value().category, it.value().hidden};
+        return {it.value().displayName, it.value().category, it.value().hidden, it.value().slider};
     }
     return {key, "其他"};
 }

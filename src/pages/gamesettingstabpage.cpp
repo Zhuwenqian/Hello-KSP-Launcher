@@ -12,6 +12,18 @@
 #include <QMap>
 #include <QStyledItemDelegate>
 #include <QFont>
+#include <QSlider>
+#include <QLabel>
+
+namespace {
+// 音量值是否可解析为数值（解析失败时回退为普通文本编辑）
+bool isVolumeValue(const QString& value)
+{
+    bool ok = false;
+    value.toDouble(&ok);
+    return ok;
+}
+} // namespace
 
 // Custom delegate to control editing: only column 1 (value) editable
 class SettingsItemDelegate : public QStyledItemDelegate
@@ -110,6 +122,32 @@ void GameSettingsTabPage::loadGameSettings(const QString &gamePath)
                     item->setText(1, checked ? "True" : "False");
                 });
                 m_settingsTree->setItemWidget(item, 1, toggle);
+            } else if (s.slider && isVolumeValue(s.value)) {
+                // 音量类设置：拖动条编辑（0.00~1.00，步进 0.01），右侧保留数字显示
+                double val = qBound(0.0, s.value.toDouble(), 1.0);
+                // 值存 Qt::UserRole 而非 item 文本：行控件背景透明，item 文本会透出
+                // 显示成左边多一个数值；保存时优先读 UserRole
+                item->setData(1, Qt::UserRole, QString::number(val, 'f', 2));
+                QWidget* row = new QWidget(m_settingsTree);
+                QHBoxLayout* rowLayout = new QHBoxLayout(row);
+                rowLayout->setContentsMargins(4, 0, 4, 0);
+                rowLayout->setSpacing(8);
+                QSlider* slider = new QSlider(Qt::Horizontal, row);
+                slider->setObjectName("volumeSlider");
+                slider->setRange(0, 100); // 整数 0~100，每格对应 0.01
+                slider->setValue(qRound(val * 100));
+                QLabel* valLabel = new QLabel(QString::number(val, 'f', 2), row);
+                valLabel->setObjectName("volumeValueLabel");
+                valLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                valLabel->setFixedWidth(44);
+                connect(slider, &QSlider::valueChanged, this, [item, valLabel](int v) {
+                    const QString text = QString::number(v / 100.0, 'f', 2);
+                    valLabel->setText(text);
+                    item->setData(1, Qt::UserRole, text); // 回写值，保存设置时读取
+                });
+                rowLayout->addWidget(slider, 1);
+                rowLayout->addWidget(valLabel);
+                m_settingsTree->setItemWidget(item, 1, row);
             } else {
                 item->setText(1, s.value);
             }
@@ -151,7 +189,9 @@ bool GameSettingsTabPage::saveGameSettings()
             QTreeWidgetItem* item = categoryItem->child(j);
             QString originalKey = item->data(0, Qt::UserRole).toString();
             if (originalKey.isEmpty()) continue;
-            QString newValue = item->text(1);
+            // 音量滑块项的值存列 1 的 UserRole（item 文本会透出显示），普通项存文本
+            QString newValue = item->data(1, Qt::UserRole).toString();
+            if (newValue.isEmpty()) newValue = item->text(1);
             for (GameSetting& s : updatedSettings) {
                 if (s.key == originalKey) {
                     s.value = newValue;

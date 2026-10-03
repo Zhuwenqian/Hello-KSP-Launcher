@@ -132,6 +132,9 @@ private:
     QString m_currentTheme;
     bool m_gameRunning;
     bool m_stoppingGame;
+    // 本次启动所选图形后端（如 "-force-opengl"）；默认渲染器为空。
+    // 启动时快照，供崩溃分析弹窗首行展示（与崩溃时的实例切换解耦）。
+    QString m_launchedBackendParam;
 
     // 背景图精确重缩放的合并定时器：拖拽缩放期间不做逐帧平滑缩放（开销大、掉帧），
     // 停止 150ms 后触发一次 updateBackgroundPixmap 精缩（拖拽期间由 scaledContents 拉伸兜底）
