@@ -1,7 +1,7 @@
 // 整合包导入/导出流程控制器
 #include "modpackcontroller.h"
 #include "../ckanmanager.h"
-#include "../instancemanager.h"
+#include "../game/modpackexporter.h"
 #include "../configmanager.h"
 #include "ckan/modpackio.h"
 #include "appversion.h"
@@ -125,7 +125,7 @@ void ModpackController::exportAsZip()
     QCoreApplication::processEvents();
 
     bool cancelled = false;
-    const bool success = InstanceManager::instance().exportModpack(
+    const bool success = ModpackExporter::exportModpack(
         m_instance.path, zipFilePath, metaJson,
         [&](int progress) {
             if (cancelled || progressDialog.wasCanceled()) {

@@ -10,7 +10,8 @@
 #include <QProgressDialog>
 
 class QTimer;
-#include "../instancemanager.h"
+#include "../game/savemanager.h"
+#include "../game/backupmanager.h"
 
 class ShipTabPage;
 class QLineEdit;

@@ -7,7 +7,7 @@
 #include <QFutureWatcher>
 #include <QVector>
 #include "../configmanager.h"
-#include "../instancemanager.h"
+#include "../game/shipmanager.h"
 
 class QTabWidget;
 class QStackedWidget;

@@ -4,7 +4,6 @@
 #include <QTimer>
 #include <QIcon>
 #include <QHBoxLayout>
-#include "../instancemanager.h"
 #include "../iconutils.h"
 
 InstanceListPage::InstanceListPage(QWidget *parent)

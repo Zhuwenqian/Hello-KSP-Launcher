@@ -6,7 +6,9 @@
 
 #include "miniz.h"
 #include "steamdiscovery.h"
-#include "instancemanager.h"
+#include "game/gameprocessmanager.h"
+#include "game/shipmanager.h"
+#include "processopt.h"
 #include "updatemanager.h"
 #include "instanceiconmanager.h"
 #include "ckanmanager.h"
@@ -100,9 +102,9 @@ class TestValidKSPPath : public QObject
 {
     Q_OBJECT
 private:
-    InstanceManager &mgr;
+    bool (*m_isValid)(const QString &);
 public:
-    TestValidKSPPath() : mgr(InstanceManager::instance()) {}
+    TestValidKSPPath() : m_isValid(&GameProcessManager::isValidKSPPath) {}
 
 private slots:
     void freshInstallWithoutSettingsCfgIsValid()
@@ -115,7 +117,7 @@ private slots:
         exe.close();
         // 无 settings.cfg（全新未运行安装）应判为合法
         QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("settings.cfg"))));
-        QVERIFY(mgr.isValidKSPPath(dir.path()));
+        QVERIFY(m_isValid(dir.path()));
     }
 
     void missingGameDataIsInvalid()
@@ -125,7 +127,7 @@ private slots:
         QFile exe(dir.filePath(QStringLiteral("KSP.exe")));
         QVERIFY(exe.open(QIODevice::WriteOnly));
         exe.close();
-        QVERIFY(!mgr.isValidKSPPath(dir.path()));
+        QVERIFY(!m_isValid(dir.path()));
     }
 
     void missingExecutableIsInvalid()
@@ -137,7 +139,7 @@ private slots:
         QVERIFY(cfg.open(QIODevice::WriteOnly));
         cfg.close();
         // 仅有 settings.cfg + GameData、无 KSP 可执行文件，不应判为合法
-        QVERIFY(!mgr.isValidKSPPath(dir.path()));
+        QVERIFY(!m_isValid(dir.path()));
     }
 
     void unixExecutableFallbackIsValid()
@@ -148,7 +150,7 @@ private slots:
         QFile exe(dir.filePath(QStringLiteral("KSP.x86_64")));
         QVERIFY(exe.open(QIODevice::WriteOnly));
         exe.close();
-        QVERIFY(mgr.isValidKSPPath(dir.path()));
+        QVERIFY(m_isValid(dir.path()));
     }
 };
 
@@ -712,7 +714,7 @@ private slots:
             "}\n");
         f.close();
 
-        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        const ShipInfo info = ShipManager::loadCraftInfo(p);
         QCOMPARE(info.fileName, QStringLiteral("FFCraft.craft"));
         QCOMPARE(info.name, QStringLiteral("FFCraft"));
         QCOMPARE(info.version, QStringLiteral("1.12.5"));
@@ -735,7 +737,7 @@ private slots:
             "description = kept\n");
         f.close();
 
-        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        const ShipInfo info = ShipManager::loadCraftInfo(p);
         QCOMPARE(info.name, QStringLiteral("TopShip"));
         QCOMPARE(info.version, QStringLiteral("")); // 顶层无 version
         QCOMPARE(info.description, QStringLiteral("kept"));
@@ -751,7 +753,7 @@ private slots:
         f.write("version = 1.0\nPART\n{\n}\n");
         f.close();
 
-        const ShipInfo info = InstanceManager::instance().loadCraftInfo(p);
+        const ShipInfo info = ShipManager::loadCraftInfo(p);
         QCOMPARE(info.name, QStringLiteral("NoShip")); // name 回退为文件名（去 .craft）
         QCOMPARE(info.version, QStringLiteral("1.0"));
     }
@@ -772,9 +774,9 @@ private slots:
             f.close();
         }
 
-        const QStringList files = InstanceManager::instance().listCraftFiles(dir.path(), QStringLiteral("VAB"));
+        const QStringList files = ShipManager::listCraftFiles(dir.path(), QStringLiteral("VAB"));
         QCOMPARE(files, QStringList({QStringLiteral("A.craft"), QStringLiteral("B.craft")}));
-        QVERIFY(InstanceManager::instance().listCraftFiles(dir.path(), QStringLiteral("SPH")).isEmpty());
+        QVERIFY(ShipManager::listCraftFiles(dir.path(), QStringLiteral("SPH")).isEmpty());
     }
 
     void getShipThumbPathMatchesBaseNameAndReturnsEmptyWhenMissing()
@@ -787,12 +789,12 @@ private slots:
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.close();
 
-        const QString found = InstanceManager::instance().getShipThumbPath(
+        const QString found = ShipManager::getShipThumbPath(
             dir.path(), QStringLiteral("VAB"), QStringLiteral("Rocket.craft"));
         QVERIFY(found.endsWith(QStringLiteral("@thumbs/VAB/Rocket.png")));
-        QVERIFY(InstanceManager::instance().getShipThumbPath(
+        QVERIFY(ShipManager::getShipThumbPath(
                     dir.path(), QStringLiteral("VAB"), QStringLiteral("Nope.craft")).isEmpty());
-        QVERIFY(InstanceManager::instance().getShipThumbPath(
+        QVERIFY(ShipManager::getShipThumbPath(
                     dir.path(), QStringLiteral("SPH"), QStringLiteral("Rocket.craft")).isEmpty());
     }
 };

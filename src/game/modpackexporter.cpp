@@ -1,5 +1,5 @@
-// 实例管理器 - 整合包导出（GameData 打包为 ZIP）
-#include "instancemanager.h"
+// 整合包导出（GameData 打包为 ZIP）
+#include "modpackexporter.h"
 #include "miniz.h"
 #include "ckan/modpackio.h"
 #include <QDir>
@@ -135,10 +135,10 @@ void ensureExportDirs(mz_zip_archive& zip, const QString& dirZipPath, QSet<QStri
 
 } // namespace
 
-bool InstanceManager::exportModpack(const QString &gamePath, const QString &zipFilePath,
+bool ModpackExporter::exportModpack(const QString &gamePath, const QString &zipFilePath,
                                      const QByteArray &packageMetaJson,
                                      std::function<void(int progress)> progressCallback,
-                                     std::function<bool()> shouldCancel) const
+                                     std::function<bool()> shouldCancel)
 {
     QString gameDataPath = QDir(gamePath).filePath("GameData");
     QDir gameDataDir(gameDataPath);

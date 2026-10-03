@@ -11,7 +11,7 @@
 #include <QTimer>
 #include <QDesktopServices>
 #include <QUrl>
-#include "instancemanager.h"
+#include "game/gameprocessmanager.h"
 #include "playerloganalyzer.h"
 #include "iconutils.h"
 #include "backgroundmanager.h"
@@ -109,11 +109,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(&ConfigManager::instance(), &ConfigManager::currentInstanceChanged,
             this, &MainWindow::onCurrentInstanceChanged);
-    connect(&InstanceManager::instance(), &InstanceManager::gameStarted,
+    connect(&GameProcessManager::instance(), &GameProcessManager::gameStarted,
             this, &MainWindow::onGameStarted);
-    connect(&InstanceManager::instance(), &InstanceManager::gameFinished,
+    connect(&GameProcessManager::instance(), &GameProcessManager::gameFinished,
             this, &MainWindow::onGameFinished);
-    connect(&InstanceManager::instance(), &InstanceManager::gameError,
+    connect(&GameProcessManager::instance(), &GameProcessManager::gameError,
             this, &MainWindow::onGameError);
 
     onCurrentInstanceChanged();
@@ -710,8 +710,8 @@ void MainWindow::onAddInstanceRequested()
 
     if (exePath.isEmpty()) return;
 
-    QString rootPath = InstanceManager::instance().detectGameRoot(exePath);
-    if (!InstanceManager::instance().isValidKSPPath(rootPath)) {
+    QString rootPath = GameProcessManager::detectGameRoot(exePath);
+    if (!GameProcessManager::isValidKSPPath(rootPath)) {
         QMessageBox::warning(this, tr("错误"), tr("所选目录不是有效的KSP游戏目录，请确认包含KSP可执行文件和GameData文件夹。"));
         return;
     }
@@ -864,7 +864,7 @@ void MainWindow::onLaunchClicked()
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (ret == QMessageBox::Yes) {
             m_stoppingGame = true;
-            InstanceManager::instance().stopGame();
+            GameProcessManager::instance().stopGame();
         }
         return;
     }
@@ -892,7 +892,7 @@ void MainWindow::onLaunchClicked()
     // 崩溃分析弹窗首行展示本次启动所选图形后端；未选择（默认渲染器）为空不显示
     m_launchedBackendParam = inst.graphicsBackend;
 
-    bool launched = InstanceManager::instance().launchGame(
+    bool launched = GameProcessManager::instance().launchGame(
         inst.exePath, args, inst.launchMemoryMB, inst.launchHighPriority);
     if (!launched) {
         QMessageBox::warning(this, tr("错误"), tr("启动游戏失败。"));

@@ -85,7 +85,7 @@ void GameSettingsTabPage::loadGameSettings(const QString &gamePath)
 {
     m_gamePath = gamePath;
     m_settingsTree->clear();
-    m_currentSettings = InstanceManager::instance().loadGameSettings(gamePath);
+    m_currentSettings = GameSettingsManager::loadGameSettings(gamePath);
 
     // Group settings by category
     QMap<QString, QList<int>> categoryMap;
@@ -202,7 +202,7 @@ bool GameSettingsTabPage::saveGameSettings()
     }
     if (m_gamePath.isEmpty())
         return false;
-    bool ok = InstanceManager::instance().saveGameSettings(m_gamePath, updatedSettings);
+    bool ok = GameSettingsManager::saveGameSettings(m_gamePath, updatedSettings);
     if (ok) {
         m_currentSettings = updatedSettings;
         QMessageBox::information(this, tr("保存成功"), tr("游戏设置已保存！"));

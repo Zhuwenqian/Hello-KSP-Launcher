@@ -1,5 +1,5 @@
-// 实例管理器 - 存档备份管理
-#include "instancemanager.h"
+// 存档备份管理
+#include "backupmanager.h"
 #include "miniz.h"
 #include <QDir>
 #include <QFile>
@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
+#include <QProcess>
 
 namespace {
 
@@ -215,44 +216,12 @@ bool extractZipToDirectory(const QString& zipFilePath, const QString& destPath,
     return ok;
 }
 
-} // namespace
-
-QString InstanceManager::getBackupsRootDir() const
+// 将更早的单层结构 backups/{存档名}/ 与两层结构 backups/{实例名}/{存档名}/
+// 中的备份惰性迁移到 backups/{实例名-id前8位}/{存档名}/（访问存档时触发，幂等，冲突跳过）
+void migrateLegacyBackups(const QString &instanceName, const QString &instanceId,
+                          const QString &saveName)
 {
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString backupsDir = QDir(appDir).filePath("backups");
-    QDir dir(backupsDir);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-    return backupsDir;
-}
-
-QString InstanceManager::getBackupDirForSave(const QString &instanceName, const QString &instanceId,
-                                             const QString &saveName) const
-{
-    QString rootDir = getBackupsRootDir();
-    // 先迁移可能存在的旧结构备份，再返回新两级目录
-    migrateLegacyBackups(instanceName, instanceId, saveName);
-
-    // 第1级目录：{实例名}-{id前8位}（id为不带花括号的UUID，前8位即首段）
-    QString safeInstance = sanitizeFileName(instanceName);
-    QString idPrefix = instanceId.left(8); // UUID 首段，形如 550e8400
-    QString instanceDirName = idPrefix.isEmpty() ? safeInstance : safeInstance + "-" + idPrefix;
-    // 存档目录名只取清除非法字符后的纯存档名
-    QString safeSave = sanitizeFileName(saveName);
-    QString saveBackupDir = QDir(QDir(rootDir).filePath(instanceDirName)).filePath(safeSave);
-    QDir dir(saveBackupDir);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-    return saveBackupDir;
-}
-
-void InstanceManager::migrateLegacyBackups(const QString &instanceName, const QString &instanceId,
-                                           const QString &saveName) const
-{
-    QString rootDir = getBackupsRootDir();
+    QString rootDir = BackupManager::getBackupsRootDir();
     QString safeInstance = sanitizeFileName(instanceName);
     QString idPrefix = instanceId.left(8);
     QString instanceDirName = idPrefix.isEmpty() ? safeInstance : safeInstance + "-" + idPrefix;
@@ -305,8 +274,42 @@ void InstanceManager::migrateLegacyBackups(const QString &instanceName, const QS
     }
 }
 
-QList<BackupInfo> InstanceManager::listBackups(const QString &instanceName, const QString &instanceId,
-                                              const QString &saveName) const
+} // namespace
+
+QString BackupManager::getBackupsRootDir()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString backupsDir = QDir(appDir).filePath("backups");
+    QDir dir(backupsDir);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    return backupsDir;
+}
+
+QString BackupManager::getBackupDirForSave(const QString &instanceName, const QString &instanceId,
+                                             const QString &saveName)
+{
+    QString rootDir = getBackupsRootDir();
+    // 先迁移可能存在的旧结构备份，再返回新两级目录
+    migrateLegacyBackups(instanceName, instanceId, saveName);
+
+    // 第1级目录：{实例名}-{id前8位}（id为不带花括号的UUID，前8位即首段）
+    QString safeInstance = sanitizeFileName(instanceName);
+    QString idPrefix = instanceId.left(8); // UUID 首段，形如 550e8400
+    QString instanceDirName = idPrefix.isEmpty() ? safeInstance : safeInstance + "-" + idPrefix;
+    // 存档目录名只取清除非法字符后的纯存档名
+    QString safeSave = sanitizeFileName(saveName);
+    QString saveBackupDir = QDir(QDir(rootDir).filePath(instanceDirName)).filePath(safeSave);
+    QDir dir(saveBackupDir);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    return saveBackupDir;
+}
+
+QList<BackupInfo> BackupManager::listBackups(const QString &instanceName, const QString &instanceId,
+                                              const QString &saveName)
 {
     QList<BackupInfo> backups;
     QString backupDir = getBackupDirForSave(instanceName, instanceId, saveName);
@@ -350,10 +353,10 @@ QList<BackupInfo> InstanceManager::listBackups(const QString &instanceName, cons
     return backups;
 }
 
-bool InstanceManager::createBackup(const QString &saveFolderPath, const QString &instanceName,
-                                   const QString &instanceId, const QString &saveName,
-                                   const QString &note,
-                                   std::function<void(int progress)> progressCallback) const
+bool BackupManager::createBackup(const QString &saveFolderPath, const QString &instanceName,
+                                 const QString &instanceId, const QString &saveName,
+                                 const QString &note,
+                                 std::function<void(int progress)> progressCallback)
 {
     QDir saveDir(saveFolderPath);
     if (!saveDir.exists()) {
@@ -439,12 +442,12 @@ bool InstanceManager::createBackup(const QString &saveFolderPath, const QString 
     return true;
 }
 
-bool InstanceManager::deleteBackup(const QString &backupFilePath) const
+bool BackupManager::deleteBackup(const QString &backupFilePath)
 {
     return QFile::remove(backupFilePath);
 }
 
-bool InstanceManager::revealBackupInExplorer(const QString &backupFilePath) const
+bool BackupManager::revealBackupInExplorer(const QString &backupFilePath)
 {
     QFileInfo info(backupFilePath);
     if (!info.exists()) {
@@ -457,10 +460,10 @@ bool InstanceManager::revealBackupInExplorer(const QString &backupFilePath) cons
     return QProcess::startDetached("explorer", args);
 }
 
-bool InstanceManager::restoreBackup(const QString &backupFilePath, const QString &saveFolderPath,
-                                    const QString &instanceName, const QString &instanceId,
-                                    const QString &saveName,
-                                    std::function<void(int progress)> progressCallback) const
+bool BackupManager::restoreBackup(const QString &backupFilePath, const QString &saveFolderPath,
+                                  const QString &instanceName, const QString &instanceId,
+                                  const QString &saveName,
+                                  std::function<void(int progress)> progressCallback)
 {
     QFileInfo backupInfo(backupFilePath);
     if (!backupInfo.exists()) {
@@ -478,7 +481,7 @@ bool InstanceManager::restoreBackup(const QString &backupFilePath, const QString
     QFileInfoList entries = saveDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     if (!entries.isEmpty()) {
         if (progressCallback) progressCallback(1);
-        bool backupOk = createBackup(saveFolderPath, instanceName, instanceId, saveName, tr("恢复前"), progressCallback);
+        bool backupOk = createBackup(saveFolderPath, instanceName, instanceId, saveName, QObject::tr("恢复前"), progressCallback);
         if (!backupOk) {
             qWarning() << "Failed to create pre-restore backup; abort restore:" << saveFolderPath;
             return false;

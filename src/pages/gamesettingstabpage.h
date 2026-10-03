@@ -4,14 +4,14 @@
 #include <QWidget>
 #include <QList>
 
-#include "../instancemanager.h"
+#include "../game/gamesettingsmanager.h"
 
 class QTreeWidget;
 class QLineEdit;
 class QStyledItemDelegate;
 
 // 实例详情页「游戏设置」二级 tab：设置项树 + 实时搜索 + 保存。
-// 业务经 InstanceManager 读写 settings，页面自身持有设置缓存并负责过滤/回写。
+// 业务经 GameSettingsManager 读写 settings，页面自身持有设置缓存并负责过滤/回写。
 class GameSettingsTabPage : public QWidget
 {
     Q_OBJECT

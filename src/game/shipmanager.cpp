@@ -1,28 +1,22 @@
-#include "instancemanager.h"
+// 飞船域：craft 文件列举、解析、缩略图
+#include "shipmanager.h"
+#include "trash.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTextStream>
 
-#ifdef Q_OS_WIN
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <shellapi.h>
-#endif
-
-QString InstanceManager::getShipsDir(const QString &gamePath) const
+QString ShipManager::getShipsDir(const QString &gamePath)
 {
     return QDir(gamePath).filePath("Ships");
 }
 
-QStringList InstanceManager::listCraftFiles(const QString &gamePath, const QString &type) const
+QStringList ShipManager::listCraftFiles(const QString &gamePath, const QString &type)
 {
     return listCraftFilesIn(QDir(getShipsDir(gamePath)).filePath(type));
 }
 
-QStringList InstanceManager::listCraftFilesIn(const QString &dirPath) const
+QStringList ShipManager::listCraftFilesIn(const QString &dirPath)
 {
     QStringList result;
     QDir dir(dirPath);
@@ -40,7 +34,7 @@ QStringList InstanceManager::listCraftFilesIn(const QString &dirPath) const
     return result;
 }
 
-ShipInfo InstanceManager::loadCraftInfo(const QString &craftFilePath) const
+ShipInfo ShipManager::loadCraftInfo(const QString &craftFilePath)
 {
     ShipInfo info;
     info.fileName = QFileInfo(craftFilePath).fileName();
@@ -102,8 +96,8 @@ ShipInfo InstanceManager::loadCraftInfo(const QString &craftFilePath) const
     return info;
 }
 
-QString InstanceManager::getShipThumbPath(const QString &gamePath, const QString &type,
-                                          const QString &craftFileName) const
+QString ShipManager::getShipThumbPath(const QString &gamePath, const QString &type,
+                                          const QString &craftFileName)
 {
     // 缩略图与 craft 文件同名（去 .craft），位于 Ships/@thumbs/{type}/
     const QString base = QFileInfo(craftFileName).completeBaseName();
@@ -120,8 +114,8 @@ QString InstanceManager::getShipThumbPath(const QString &gamePath, const QString
     return QString();
 }
 
-QString InstanceManager::getPlayerShipThumbPath(const QString &gamePath, const QString &saveName,
-                                                const QString &type, const QString &craftFileName) const
+QString ShipManager::getPlayerShipThumbPath(const QString &gamePath, const QString &saveName,
+                                                const QString &type, const QString &craftFileName)
 {
     // 玩家自制载具缩略图在 游戏根目录/thumbs/，命名 <存档名>_<type>_<载具基名>.png，与 Ships/@thumbs
     // 的原版图不同目录。KSP 生成的缩略图固定 .png，故只查 .png；文件名做大小写不敏感匹配，
@@ -142,30 +136,7 @@ QString InstanceManager::getPlayerShipThumbPath(const QString &gamePath, const Q
     return QString();
 }
 
-bool InstanceManager::moveCraftToTrash(const QString &craftFilePath) const
+bool ShipManager::moveCraftToTrash(const QString &craftFilePath)
 {
-    QFileInfo info(craftFilePath);
-    if (!info.exists()) {
-        return false;
-    }
-
-#ifdef Q_OS_WIN
-    // 与 moveSaveToTrash 一致的回收站实现：SHFileOperation(FO_DELETE + FOF_ALLOWUNDO)
-    // 将单个 craft 文件移入系统回收站（可撤销）。pFrom 须以双 null 结尾的宽字符。
-    std::wstring ws = QDir::toNativeSeparators(craftFilePath).toStdWString();
-    std::vector<wchar_t> from(ws.begin(), ws.end());
-    from.push_back(L'\0');
-    from.push_back(L'\0');
-
-    SHFILEOPSTRUCT op = {};
-    op.hwnd = nullptr; // 界面已弹确认框，不需要系统再显示删除确认
-    op.wFunc = FO_DELETE;
-    op.pFrom = from.data();
-    op.pTo = nullptr;
-    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
-    return (SHFileOperation(&op) == 0);
-#else
-    // macOS / Linux 无统一回收站 API，直接永久删除文件
-    return QFile::remove(craftFilePath);
-#endif
+    return trashutil::moveToTrash(craftFilePath);
 }

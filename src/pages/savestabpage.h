@@ -9,7 +9,7 @@
 #include <QVector>
 #include <QPair>
 #include "../configmanager.h"
-#include "../instancemanager.h"
+#include "../game/savemanager.h"
 
 // 实例详情页 - 存档管理 tab。
 // 仅含存档列表；不含二级侧边栏/顶栏，导航与导出/导入/浏览均复用实例详情页。

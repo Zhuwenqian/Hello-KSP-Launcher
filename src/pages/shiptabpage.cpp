@@ -1,6 +1,6 @@
 #include "shiptabpage.h"
 #include "../iconutils.h"
-#include "../instancemanager.h"
+#include "../game/shipmanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTabWidget>
@@ -178,7 +178,7 @@ QString ShipTabPage::dirForType(int typeIndex) const
         // 预制件在存档根下（实例根/saves/存档名/Subassemblies），与 Ships/ 同级
         return QDir(m_shipsBasePath).filePath(QStringLiteral("Subassemblies"));
     }
-    return QDir(InstanceManager::instance().getShipsDir(m_shipsBasePath))
+    return QDir(ShipManager::getShipsDir(m_shipsBasePath))
         .filePath(QString::fromLatin1(kShipTypeNames[typeIndex]));
 }
 
@@ -273,15 +273,15 @@ void ShipTabPage::loadShips()
             if (i == kSubassembliesIdx) {
                 dir = QDir(base).filePath(QStringLiteral("Subassemblies"));
             } else {
-                dir = QDir(InstanceManager::instance().getShipsDir(base)).filePath(type);
+                dir = QDir(ShipManager::getShipsDir(base)).filePath(type);
             }
-            const QStringList craftFiles = InstanceManager::instance().listCraftFilesIn(dir);
+            const QStringList craftFiles = ShipManager::listCraftFilesIn(dir);
             out.reserve(out.size() + craftFiles.size());
             for (const QString& craftName : craftFiles) {
                 ShipListEntry e;
                 e.type = type;
                 e.craftPath = QDir(dir).filePath(craftName);
-                e.info = InstanceManager::instance().loadCraftInfo(e.craftPath);
+                e.info = ShipManager::loadCraftInfo(e.craftPath);
                 out.append(e);
             }
         }
@@ -442,7 +442,7 @@ void ShipTabPage::showDetail(const QString& path, int typeIndex)
 
 void ShipTabPage::loadDetail(const QString& path, int typeIndex)
 {
-    ShipInfo info = InstanceManager::instance().loadCraftInfo(path);
+    ShipInfo info = ShipManager::loadCraftInfo(path);
     m_detailName->setText(info.name);
     m_detailVersion->setText(tr("游戏版本: %1").arg(info.version.isEmpty() ? tr("未知") : info.version));
     m_detailPartCount->setText(tr("部件数: %1").arg(info.partCount));
@@ -455,14 +455,14 @@ void ShipTabPage::loadDetail(const QString& path, int typeIndex)
     QString thumb;
     if (typeIndex != kSubassembliesIdx) {
         const QString typeName = QString::fromLatin1(kShipTypeNames[typeIndex]);
-        thumb = InstanceManager::instance().getShipThumbPath(
+        thumb = ShipManager::getShipThumbPath(
             m_shipsBasePath, typeName, info.fileName);
         if (thumb.isEmpty() && m_saveMode) {
             // 存档飞船根 = 实例根/saves/存档名，向上两级得到游戏根目录，其下 thumbs/ 为玩家缩略图
             const QString saveName = QDir(m_shipsBasePath).dirName();
             const QString gameRoot = QDir::cleanPath(
                 QDir(m_shipsBasePath).filePath(QStringLiteral("../..")));
-            thumb = InstanceManager::instance().getPlayerShipThumbPath(
+            thumb = ShipManager::getPlayerShipThumbPath(
                 gameRoot, saveName, typeName, info.fileName);
         }
     }
@@ -506,7 +506,7 @@ void ShipTabPage::onDeleteShipClicked(const QString& craftPath, const QString& t
         return;
     }
 
-    if (InstanceManager::instance().moveCraftToTrash(craftPath)) {
+    if (ShipManager::moveCraftToTrash(craftPath)) {
         // 静默异步刷新两个类型列表
         loadShips();
     } else {
@@ -546,7 +546,7 @@ void ShipTabPage::importShipFiles(const QStringList& paths, int typeIndex)
     const QStringList existingNames = dir.entryList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
 
     // 禁止从本体自身目录导入：VAB/SPH 为其 Ships 子目录，预制件为其 Subassemblies 目录
-    const QString shipsDir = InstanceManager::instance().getShipsDir(m_shipsBasePath);
+    const QString shipsDir = ShipManager::getShipsDir(m_shipsBasePath);
     auto absOf = [](const QString& p) {
         return QDir::cleanPath(QFileInfo(p).absoluteFilePath());
     };

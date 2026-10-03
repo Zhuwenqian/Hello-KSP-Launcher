@@ -5,7 +5,7 @@
 #include <QList>
 
 // 跨平台的进程级启动选项工具（高优先级 / 内存限制）。
-// 独立小模块便于单测；仅在真实启动路径（InstanceManager::launchGame）执行副作用操作。
+// 独立小模块便于单测；仅在真实启动路径（GameProcessManager::launchGame）执行副作用操作。
 namespace processopt {
 
 // 一条结束浏览器进程的本地命令

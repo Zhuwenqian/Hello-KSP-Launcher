@@ -101,13 +101,14 @@ set(SOURCES
     src/debuglogger.cpp
     src/mainwindow.cpp
     src/configmanager.cpp
-    src/instancemanager.cpp
-    src/instancemanager_keymap.cpp
-    src/instancemanager_settings.cpp
-    src/instancemanager_saves.cpp
-    src/instancemanager_ships.cpp
-    src/instancemanager_backup.cpp
-    src/instancemanager_modpack.cpp
+    src/game/gameprocessmanager.cpp
+    src/game/gamesettingsmanager.cpp
+    src/game/settingskeymap.cpp
+    src/game/savemanager.cpp
+    src/game/shipmanager.cpp
+    src/game/backupmanager.cpp
+    src/game/modpackexporter.cpp
+    src/game/trash.cpp
     src/playerloganalyzer.cpp
     src/steamdiscovery.cpp
     src/iconutils.cpp
@@ -146,8 +147,13 @@ set(HEADERS
     src/mainwindow.h
     src/debuglogger.h
     src/configmanager.h
-    src/instancemanager.h
-    src/instancemanager_keymap.h
+    src/game/gameprocessmanager.h
+    src/game/gamesettingsmanager.h
+    src/game/settingskeymap.h
+    src/game/savemanager.h
+    src/game/shipmanager.h
+    src/game/backupmanager.h
+    src/game/modpackexporter.h
     src/steamdiscovery.h
     src/playerloganalyzer.h
     src/iconutils.h
@@ -293,12 +299,13 @@ add_test(NAME test_libckan COMMAND test_libckan)
 add_executable(test_launcher
     tests/test_launcher.cpp
     src/steamdiscovery.cpp
-    src/instancemanager.cpp
+    src/game/gameprocessmanager.cpp
+    src/game/shipmanager.cpp
+    src/game/trash.cpp
     src/processopt.cpp
     src/updatemanager.cpp
     src/instanceiconmanager.cpp
     src/playerloganalyzer.cpp
-    src/instancemanager_ships.cpp
     src/services/indexservice.cpp
     src/services/cacheservice.cpp
     src/services/installservice.cpp

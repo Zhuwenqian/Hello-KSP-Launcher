@@ -23,7 +23,6 @@ class QShowEvent;
 #include "modscontroller.h"
 #include "modtablemodel.h"
 #include "../configmanager.h"
-#include "../instancemanager.h"
 
 class QTimer;
 

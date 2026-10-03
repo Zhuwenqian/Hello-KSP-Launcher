@@ -1,60 +1,31 @@
-// 实例管理器 - 存档与 Kerbal 管理
-#include "instancemanager.h"
+// 存档域：存档列举、persistent.sfs 解析、小绿人编辑
+#include "savemanager.h"
+#include "trash.h"
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
 #include <QFileInfo>
-#include <string>
-#include <vector>
 
-#ifdef Q_OS_WIN
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <shellapi.h>
-#endif
+namespace {
 
-QString InstanceManager::getSavesDir(const QString &gamePath) const
-{
-    return QDir(gamePath).filePath("saves");
-}
-
-QString InstanceManager::getPersistentSfsPath(const QString &saveFolderPath) const
+QString getPersistentSfsPath(const QString &saveFolderPath)
 {
     return QDir(saveFolderPath).filePath("persistent.sfs");
 }
 
-bool InstanceManager::moveSaveToTrash(const QString &saveFolderPath) const
+} // namespace
+
+QString SaveManager::getSavesDir(const QString &gamePath)
 {
-    QFileInfo info(saveFolderPath);
-    if (!info.exists()) {
-        return false;
-    }
-
-#ifdef Q_OS_WIN
-    // Windows: SHFileOperation(FO_DELETE + FOF_ALLOWUNDO) 将整个文件夹移入回收站，可撤销。
-    // pFrom 必须以双 null 结尾，且为宽字符。
-    std::wstring ws = QDir::toNativeSeparators(saveFolderPath).toStdWString();
-    std::vector<wchar_t> from(ws.begin(), ws.end());
-    from.push_back(L'\0'); // 结尾双 null，保证即便有额外纠结也终止
-    from.push_back(L'\0');
-
-    SHFILEOPSTRUCT op = {};
-    op.hwnd = nullptr; // 我们自己已弹确认框，不需要系统再显示删除确认
-    op.wFunc = FO_DELETE;
-    op.pFrom = from.data();
-    op.pTo = nullptr;
-    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
-    return (SHFileOperation(&op) == 0);
-#else
-    // macOS / Linux 无统一回收站 API，直接永久删除整个文件夹。
-    QDir dir(saveFolderPath);
-    return dir.removeRecursively();
-#endif
+    return QDir(gamePath).filePath("saves");
 }
 
-QStringList InstanceManager::listSaves(const QString &gamePath) const
+bool SaveManager::moveSaveToTrash(const QString &saveFolderPath)
+{
+    return trashutil::moveToTrash(saveFolderPath);
+}
+
+QStringList SaveManager::listSaves(const QString &gamePath)
 {
     QStringList saves;
     QString savesPath = getSavesDir(gamePath);
@@ -77,7 +48,7 @@ QStringList InstanceManager::listSaves(const QString &gamePath) const
     return saves;
 }
 
-SaveInfo InstanceManager::loadSaveInfo(const QString &saveFolderPath) const
+SaveInfo SaveManager::loadSaveInfo(const QString &saveFolderPath)
 {
     SaveInfo info;
     info.folderName = QDir(saveFolderPath).dirName();
@@ -140,7 +111,7 @@ SaveInfo InstanceManager::loadSaveInfo(const QString &saveFolderPath) const
     return info;
 }
 
-QList<KerbalInfo> InstanceManager::loadKerbals(const QString &saveFolderPath) const
+QList<KerbalInfo> SaveManager::loadKerbals(const QString &saveFolderPath)
 {
     QList<KerbalInfo> kerbals;
 
@@ -242,7 +213,7 @@ QList<KerbalInfo> InstanceManager::loadKerbals(const QString &saveFolderPath) co
     return kerbals;
 }
 
-bool InstanceManager::saveKerbals(const QString &saveFolderPath, const QList<KerbalInfo> &kerbals) const
+bool SaveManager::saveKerbals(const QString &saveFolderPath, const QList<KerbalInfo> &kerbals)
 {
     QString sfsPath = getPersistentSfsPath(saveFolderPath);
     QFile file(sfsPath);
@@ -373,7 +344,7 @@ bool InstanceManager::saveKerbals(const QString &saveFolderPath, const QList<Ker
     return true;
 }
 
-bool InstanceManager::deleteKerbal(const QString &saveFolderPath, const QString &originalName) const
+bool SaveManager::deleteKerbal(const QString &saveFolderPath, const QString &originalName)
 {
     QString sfsPath = getPersistentSfsPath(saveFolderPath);
     QFile file(sfsPath);
@@ -483,7 +454,7 @@ bool InstanceManager::deleteKerbal(const QString &saveFolderPath, const QString 
     return true;
 }
 
-bool InstanceManager::renameKerbal(const QString &saveFolderPath, const QString &originalName, const QString &newName) const
+bool SaveManager::renameKerbal(const QString &saveFolderPath, const QString &originalName, const QString &newName)
 {
     QString sfsPath = getPersistentSfsPath(saveFolderPath);
     QFile file(sfsPath);

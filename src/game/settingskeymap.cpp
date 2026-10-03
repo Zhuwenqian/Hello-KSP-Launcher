@@ -1,5 +1,5 @@
 // 游戏设置键值表：settings.cfg 键名 -> 中/英文显示名/分类（含隐藏标记）
-#include "instancemanager_keymap.h"
+#include "settingskeymap.h"
 #include "configmanager.h"
 #include <QMap>
 
@@ -367,12 +367,12 @@ QMap<QString, KeyInfo> createKeyInfoMap() {
 
 } // namespace
 
-InstanceKeyInfo instanceGetKeyInfo(const QString& key) {
+SettingKeyInfo settingKeyInfo(const QString& key) {
     static QMap<QString, KeyInfo> info = createKeyInfoMap();
     auto it = info.find(key);
     if (it != info.end()) {
         if (ConfigManager::instance().language() == "en_US") {
-            InstanceKeyInfo en;
+            SettingKeyInfo en;
             en.displayName = it.value().displayNameEn;
             en.category = it.value().category;
             en.hidden = it.value().hidden;

@@ -5,7 +5,7 @@
 #include <QDir>
 #include <QMessageBox>
 #include <QtConcurrent/QtConcurrentRun>
-#include "../instancemanager.h"
+#include "../game/savemanager.h"
 
 SavesTabPage::SavesTabPage(QWidget *parent)
     : QWidget(parent)
@@ -48,12 +48,12 @@ void SavesTabPage::loadSaves()
     const QString gamePath = m_instance.path;
     auto future = QtConcurrent::run([gamePath]() {
         QVector<QPair<QString, SaveInfo>> out;
-        const QStringList saveNames = InstanceManager::instance().listSaves(gamePath);
-        const QString savesDir = InstanceManager::instance().getSavesDir(gamePath);
+        const QStringList saveNames = SaveManager::listSaves(gamePath);
+        const QString savesDir = SaveManager::getSavesDir(gamePath);
         out.reserve(saveNames.size());
         for (const QString& saveName : saveNames) {
             const QString savePath = QDir(savesDir).filePath(saveName);
-            out.append(qMakePair(savePath, InstanceManager::instance().loadSaveInfo(savePath)));
+            out.append(qMakePair(savePath, SaveManager::loadSaveInfo(savePath)));
         }
         return out;
     });
@@ -150,7 +150,7 @@ void SavesTabPage::onDeleteSaveClicked(const QString &saveFolderPath)
         return;
     }
 
-    if (InstanceManager::instance().moveSaveToTrash(saveFolderPath)) {
+    if (SaveManager::moveSaveToTrash(saveFolderPath)) {
         // 静默刷新列表
         loadSaves();
     } else {

@@ -1,4 +1,5 @@
-#include "instancemanager.h"
+// 游戏进程域管理器：启动/停止、进程选项、插件临时禁用
+#include "gameprocessmanager.h"
 #include "processopt.h"
 
 #include <QDir>
@@ -7,18 +8,18 @@
 #include <QProcess>
 #include <QDebug>
 
-InstanceManager& InstanceManager::instance()
+GameProcessManager& GameProcessManager::instance()
 {
-    static InstanceManager inst;
+    static GameProcessManager inst;
     return inst;
 }
 
-InstanceManager::InstanceManager(QObject *parent)
+GameProcessManager::GameProcessManager(QObject *parent)
     : QObject(parent), m_gameProcess(nullptr)
 {
 }
 
-InstanceManager::~InstanceManager()
+GameProcessManager::~GameProcessManager()
 {
     if (m_gameProcess && m_gameProcess->state() != QProcess::NotRunning) {
         m_gameProcess->kill();
@@ -32,8 +33,8 @@ InstanceManager::~InstanceManager()
     restoreTempDisabledPlugin();
 }
 
-bool InstanceManager::launchGame(const QString &exePath, const QString &args,
-                                 int memoryLimitMB, bool highPriority)
+bool GameProcessManager::launchGame(const QString &exePath, const QString &args,
+                                    int memoryLimitMB, bool highPriority)
 {
     if (m_gameProcess && m_gameProcess->state() != QProcess::NotRunning) {
         return false;
@@ -41,10 +42,10 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args,
 
     if (!m_gameProcess) {
         m_gameProcess = new QProcess(this);
-        connect(m_gameProcess, &QProcess::started, this, &InstanceManager::applyGameOptions);
-        connect(m_gameProcess, &QProcess::started, this, &InstanceManager::gameStarted);
+        connect(m_gameProcess, &QProcess::started, this, &GameProcessManager::applyGameOptions);
+        connect(m_gameProcess, &QProcess::started, this, &GameProcessManager::gameStarted);
         connect(m_gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, &InstanceManager::gameFinished);
+                this, &GameProcessManager::gameFinished);
         connect(m_gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                 this, [this](int, QProcess::ExitStatus) {
             // 进程退出：停止优雅终止的强制 kill 定时器、释放内存限制 Job，
@@ -53,7 +54,7 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args,
             releaseMemoryJob();
             restoreTempDisabledPlugin();
         });
-        connect(m_gameProcess, &QProcess::errorOccurred, this, &InstanceManager::gameError);
+        connect(m_gameProcess, &QProcess::errorOccurred, this, &GameProcessManager::gameError);
     }
 
     QFileInfo exeInfo(exePath);
@@ -92,7 +93,7 @@ bool InstanceManager::launchGame(const QString &exePath, const QString &args,
     return true;
 }
 
-void InstanceManager::applyGameOptions()
+void GameProcessManager::applyGameOptions()
 {
     if (!m_gameProcess) return;
     const qint64 pid = m_gameProcess->processId();
@@ -110,7 +111,7 @@ void InstanceManager::applyGameOptions()
     m_pendingMemoryLimitMB = 0;
 }
 
-void InstanceManager::releaseMemoryJob()
+void GameProcessManager::releaseMemoryJob()
 {
 #if defined(_WIN32)
     if (m_memoryJob) {
@@ -120,7 +121,7 @@ void InstanceManager::releaseMemoryJob()
 #endif
 }
 
-void InstanceManager::stopGame()
+void GameProcessManager::stopGame()
 {
     if (!m_gameProcess || m_gameProcess->state() == QProcess::NotRunning)
         return;
@@ -142,13 +143,13 @@ void InstanceManager::stopGame()
     m_stopKillTimer->start();
 }
 
-QString InstanceManager::detectGameRoot(const QString &exePath) const
+QString GameProcessManager::detectGameRoot(const QString &exePath)
 {
     QFileInfo fi(exePath);
     return fi.absolutePath();
 }
 
-bool InstanceManager::disablePluginTemporarily(const QString &dllPath)
+bool GameProcessManager::disablePluginTemporarily(const QString &dllPath)
 {
     const QString disabledPath = dllPath + QStringLiteral(".disabled");
     if (!QFileInfo::exists(dllPath)) {
@@ -169,7 +170,7 @@ bool InstanceManager::disablePluginTemporarily(const QString &dllPath)
     return true;
 }
 
-bool InstanceManager::restoreTempDisabledPlugin(const QString &expectedDllPath)
+bool GameProcessManager::restoreTempDisabledPlugin(const QString &expectedDllPath)
 {
     QString dll = m_tempDisabledDll;
     if (dll.isEmpty()) {
@@ -190,7 +191,7 @@ bool InstanceManager::restoreTempDisabledPlugin(const QString &expectedDllPath)
     return true;
 }
 
-bool InstanceManager::isValidKSPPath(const QString &path) const
+bool GameProcessManager::isValidKSPPath(const QString &path)
 {
     // settings.cfg 由游戏首次启动后生成，全新未运行过的安装没有该文件，因此不作为合法性必要条件。
     // 只需存在 KSP 可执行文件与 GameData 目录即可判定为有效的 KSP 游戏目录。

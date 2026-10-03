@@ -28,6 +28,9 @@ static int locateErrorOffset(const QString& content, PlayerLogAnalysis::Kind kin
     return -1;
 }
 
+// 按已知 kind 提取上下文（内部辅助）：不重复判定类型，避免与 analyzePlayerLog 互相递归。
+static QString extractPlayerLogContextFor(const QString &content, PlayerLogAnalysis::Kind kind);
+
 PlayerLogAnalysis analyzePlayerLog(const QString &content)
 {
     PlayerLogAnalysis result;
@@ -53,19 +56,31 @@ PlayerLogAnalysis analyzePlayerLog(const QString &content)
 
     if (result.kind == PlayerLogAnalysis::HardCrash
         || result.kind == PlayerLogAnalysis::OutOfMemory) {
-        result.context = extractPlayerLogContext(content);
+        result.context = extractPlayerLogContextFor(content, result.kind);
     }
     return result;
 }
 
 QString extractPlayerLogContext(const QString &content)
 {
-    const PlayerLogAnalysis analysis = analyzePlayerLog(content);
-    if (analysis.kind != PlayerLogAnalysis::HardCrash
-        && analysis.kind != PlayerLogAnalysis::OutOfMemory)
+    // 先按 analyzePlayerLog 同样规则判定类型，再交给内部辅助提取上下文
+    PlayerLogAnalysis::Kind kind = PlayerLogAnalysis::NoCrash;
+    if (content.contains(QStringLiteral("OutOfMemoryException"))
+        || content.contains(QStringLiteral("Out of memory"), Qt::CaseInsensitive)) {
+        kind = PlayerLogAnalysis::OutOfMemory;
+    } else if (analyzePlayerLog(content).kind == PlayerLogAnalysis::HardCrash) {
+        kind = PlayerLogAnalysis::HardCrash;
+    }
+    return extractPlayerLogContextFor(content, kind);
+}
+
+// 按已知 kind 提取上下文（内部辅助）：不重复判定类型，避免与 analyzePlayerLog 互相递归。
+static QString extractPlayerLogContextFor(const QString &content, PlayerLogAnalysis::Kind kind)
+{
+    if (kind != PlayerLogAnalysis::HardCrash && kind != PlayerLogAnalysis::OutOfMemory)
         return QString();
 
-    const int errOff = locateErrorOffset(content, analysis.kind);
+    const int errOff = locateErrorOffset(content, kind);
     if (errOff < 0)
         return QString();
 

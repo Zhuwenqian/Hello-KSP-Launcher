@@ -420,8 +420,8 @@ void SaveDetailPage::setSavePath(const QString &saveFolderPath, const QString &i
 
 void SaveDetailPage::loadSaveData()
 {
-    m_saveInfo = InstanceManager::instance().loadSaveInfo(m_saveFolderPath);
-    m_kerbals = InstanceManager::instance().loadKerbals(m_saveFolderPath);
+    m_saveInfo = SaveManager::loadSaveInfo(m_saveFolderPath);
+    m_kerbals = SaveManager::loadKerbals(m_saveFolderPath);
 
     // 填充存档信息
     m_infoTree->clear();
@@ -753,7 +753,7 @@ void SaveDetailPage::onKerbalDeleteRequested(int index)
         QMessageBox::Yes | QMessageBox::No);
     if (reply != QMessageBox::Yes) return;
 
-    if (InstanceManager::instance().deleteKerbal(m_saveFolderPath, k.originalName)) {
+    if (SaveManager::deleteKerbal(m_saveFolderPath, k.originalName)) {
         loadSaveData();
     } else {
         QMessageBox::warning(this, tr("移除失败"),
@@ -773,7 +773,7 @@ void SaveDetailPage::onKerbalRenameRequested(int index)
     newName = newName.trimmed();
     if (newName.isEmpty() || newName == k.name) return;
 
-    if (InstanceManager::instance().renameKerbal(m_saveFolderPath, k.originalName, newName)) {
+    if (SaveManager::renameKerbal(m_saveFolderPath, k.originalName, newName)) {
         loadSaveData();
     } else {
         QMessageBox::warning(this, tr("重命名失败"),
@@ -797,7 +797,7 @@ void SaveDetailPage::onSaveKerbalsClicked()
         }
     }
 
-    bool ok = InstanceManager::instance().saveKerbals(m_saveFolderPath, updatedKerbals);
+    bool ok = SaveManager::saveKerbals(m_saveFolderPath, updatedKerbals);
     if (ok) {
         m_kerbals = updatedKerbals;
         // 更新originalName为新名称，以便下次保存时正确匹配
@@ -850,7 +850,7 @@ void SaveDetailPage::refreshIcons(const QString &color)
 
 void SaveDetailPage::refreshBackupList()
 {
-    m_backups = InstanceManager::instance().listBackups(m_instanceName, m_instanceId, m_saveName);
+    m_backups = BackupManager::listBackups(m_instanceName, m_instanceId, m_saveName);
     rebuildBackupList();
 }
 
@@ -981,7 +981,7 @@ void SaveDetailPage::onCreateBackupClicked()
     connect(&watcher, &QFutureWatcher<bool>::finished, &loop, &QEventLoop::quit);
 
     QFuture<bool> future = QtConcurrent::run([&]() {
-        return InstanceManager::instance().createBackup(m_saveFolderPath, m_instanceName, m_instanceId, m_saveName,
+        return BackupManager::createBackup(m_saveFolderPath, m_instanceName, m_instanceId, m_saveName,
             QString(), [&](int p) {
                 QMetaObject::invokeMethod(&progress, [&, p]() {
                     if (p > lastProgress) {
@@ -1034,7 +1034,7 @@ void SaveDetailPage::onDeleteBackupClicked(const QString &filePath)
         QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes) {
-        if (InstanceManager::instance().deleteBackup(filePath)) {
+        if (BackupManager::deleteBackup(filePath)) {
             refreshBackupList();
         } else {
             QMessageBox::warning(this, tr("删除失败"), tr("无法删除备份文件，请检查文件是否被占用。"));
@@ -1044,7 +1044,7 @@ void SaveDetailPage::onDeleteBackupClicked(const QString &filePath)
 
 void SaveDetailPage::onRevealBackupClicked(const QString &filePath)
 {
-    if (!InstanceManager::instance().revealBackupInExplorer(filePath)) {
+    if (!BackupManager::revealBackupInExplorer(filePath)) {
         QMessageBox::warning(this, tr("错误"), tr("无法打开文件资源管理器。"));
     }
 }
@@ -1079,7 +1079,7 @@ void SaveDetailPage::onRestoreBackupClicked(const QString &filePath)
     connect(&watcher, &QFutureWatcher<bool>::finished, &loop, &QEventLoop::quit);
 
     QFuture<bool> future = QtConcurrent::run([&]() {
-        return InstanceManager::instance().restoreBackup(filePath, m_saveFolderPath,
+        return BackupManager::restoreBackup(filePath, m_saveFolderPath,
             m_instanceName, m_instanceId, m_saveName, [&](int p) {
                 QMetaObject::invokeMethod(&progress, [&, p]() {
                     if (p > lastProgress) {

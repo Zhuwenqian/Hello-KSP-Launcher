@@ -1,6 +1,6 @@
 // 实例详情页 - DLC tab
 #include "dlctabpage.h"
-#include "../instancemanager.h"
+#include "../game/gamesettingsmanager.h"
 #include <QVBoxLayout>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -23,7 +23,7 @@ DlcTabPage::DlcTabPage(QWidget *parent)
 void DlcTabPage::loadDLCs(const QString &gamePath)
 {
     m_dlcList->clear();
-    QList<DLCDetection> dlcs = InstanceManager::instance().detectDLCs(gamePath);
+    QList<DLCDetection> dlcs = GameSettingsManager::detectDLCs(gamePath);
 
     for (const DLCDetection& dlc : dlcs) {
         QWidget* itemWidget = new QWidget(m_dlcList);

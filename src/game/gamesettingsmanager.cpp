@@ -1,11 +1,12 @@
-// 实例管理器 - 游戏设置 / DLC 检测 / 模组列表
-#include "instancemanager.h"
-#include "instancemanager_keymap.h"
+// 游戏设置域：settings.cfg 解析/回写与 DLC 检测
+#include "gamesettingsmanager.h"
+#include "settingskeymap.h"
 #include <QDir>
 #include <QFile>
+#include <QMap>
 #include <QTextStream>
 
-QList<GameSetting> InstanceManager::loadGameSettings(const QString &gamePath) const
+QList<GameSetting> GameSettingsManager::loadGameSettings(const QString &gamePath)
 {
     QList<GameSetting> settings;
     QString settingsPath = QDir(gamePath).filePath("settings.cfg");
@@ -49,7 +50,7 @@ QList<GameSetting> InstanceManager::loadGameSettings(const QString &gamePath) co
             GameSetting s;
             s.key = key;
             s.value = line.mid(eqPos + 1).trimmed();
-            const InstanceKeyInfo ki = instanceGetKeyInfo(key);
+            const SettingKeyInfo ki = settingKeyInfo(key);
             // 隐藏高级设置不再展示（保留的原值在保存时不受影响）
             if (ki.hidden) continue;
             s.displayName = ki.displayName;
@@ -63,7 +64,7 @@ QList<GameSetting> InstanceManager::loadGameSettings(const QString &gamePath) co
     return settings;
 }
 
-bool InstanceManager::saveGameSettings(const QString &gamePath, const QList<GameSetting> &settings) const
+bool GameSettingsManager::saveGameSettings(const QString &gamePath, const QList<GameSetting> &settings)
 {
     QString settingsPath = QDir(gamePath).filePath("settings.cfg");
     QFile file(settingsPath);
@@ -130,7 +131,7 @@ bool InstanceManager::saveGameSettings(const QString &gamePath, const QList<Game
     return true;
 }
 
-QList<DLCDetection> InstanceManager::detectDLCs(const QString &gamePath) const
+QList<DLCDetection> GameSettingsManager::detectDLCs(const QString &gamePath)
 {
     QList<DLCDetection> dlcs;
 
@@ -147,24 +148,4 @@ QList<DLCDetection> InstanceManager::detectDLCs(const QString &gamePath) const
     dlcs.append(bg);
 
     return dlcs;
-}
-
-QStringList InstanceManager::listMods(const QString &gamePath) const
-{
-    QStringList mods;
-    QString gameDataPath = QDir(gamePath).filePath("GameData");
-    QDir gameData(gameDataPath);
-    if (!gameData.exists()) {
-        return mods;
-    }
-
-    QStringList entries = gameData.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-    QStringList excluded = {"Squad", "SquadExpansion"};
-    for (const QString& entry : entries) {
-        if (!excluded.contains(entry, Qt::CaseInsensitive)) {
-            mods.append(entry);
-        }
-    }
-
-    return mods;
 }

@@ -2,7 +2,7 @@
 #include "advancedtabpage.h"
 #include "../configmanager.h"
 #include "../iconutils.h"
-#include "../instancemanager.h"
+#include "../game/gameprocessmanager.h"
 #include "../ckan/gameinstance.h"
 #include "../widgets/toggleswitch.h"
 #include <QVBoxLayout>
@@ -104,7 +104,7 @@ AdvancedTabPage::AdvancedTabPage(QWidget *parent)
     connect(m_disablePreToggle, &ToggleSwitch::toggled,
             this, &AdvancedTabPage::onDisablePreToggled);
     // 游戏退出后启动器自动还原了 dll，延迟一拍按磁盘实际状态同步开关显示
-    connect(&InstanceManager::instance(), &InstanceManager::gameFinished, this, [this]() {
+    connect(&GameProcessManager::instance(), &GameProcessManager::gameFinished, this, [this]() {
         if (m_preDllPath.isEmpty()) return;
         QTimer::singleShot(0, this, [this]() {
             const bool disabled = QFileInfo::exists(m_preDllPath + QStringLiteral(".disabled"));
@@ -212,7 +212,7 @@ void AdvancedTabPage::refreshIcons(const QString &color)
 void AdvancedTabPage::onDisablePreToggled(bool checked)
 {
     if (m_preSyncing || m_preDllPath.isEmpty()) return;
-    InstanceManager &im = InstanceManager::instance();
+    GameProcessManager &im = GameProcessManager::instance();
     const bool ok = checked ? im.disablePluginTemporarily(m_preDllPath)
                             : im.restoreTempDisabledPlugin(m_preDllPath);
     // 以磁盘实际状态为准：改名失败（如 dll 被占用）时回弹开关并提示
