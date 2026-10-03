@@ -15,18 +15,18 @@ This release enriches the ship manager with part counts, search and player-made 
 ### Subassemblies (Saves Only)
 
 - **Third "Subassemblies" tab** (`shiptabpage.{h,cpp}`) — enabled via `setSubassembliesEnabled(true)` for the save detail page's ship manager; lists `<save root>/Subassemblies/` (sibling of `Ships/`). The instance manager stays VAB/SPH, as subassemblies belong to a single save.
-- **Fully wired** — import (button label follows the tab; directory auto-created on first import; importing from its own directory blocked), drag-and-drop, delete to trash, overwrite prompts, and the "（未检测到预制件）" empty state, all worded for subassemblies. Listed through the new `listCraftFilesIn(dir)` helper.
+- **Fully wired** — import (button label follows the tab; directory auto-created on first import; importing from its own directory blocked), drag-and-drop, delete to trash, overwrite prompts, and the "no subassemblies detected" empty state, all worded for subassemblies. Listed through the new `listCraftFilesIn(dir)` helper.
 
 ### Kerbal Management (Save Detail)
 
 - **Applicant/Crew tabs** (`savedetailpage.{h,cpp}`) — the kerbal list is split into a `QTabWidget` ("Applicants" / "Crew"); only `type == "Crew"` goes to the Crew page, everything else falls back to Applicants, with unrecognized types shown verbatim. Pane styling added to both `dark.qss` / `light.qss`.
 - **Search box** — case-insensitive name matching, or `@jobs:Pilot` filtering by trait (English trait name, case-insensitive partial match); the filter survives refreshes, with distinct "no kerbals detected" vs "no matching applicants/crew" empty states.
 - **Delete & rename** (`instancemanager_saves.cpp`) — a per-row "…" menu offers delete (removes the `KERBAL` block from `persistent.sfs`'s `ROSTER`) and rename (rewrites the `name =` line); both validate brace balance before and after writing, and write to disk immediately.
-- **Sliders for brave/dumb** — double-spin editors are replaced by permanent sliders (0–1.0, step 0.1) with a live value label; values are collected from a custom role on save. Styled in both themes. The gender combo shows 男/女 while still saving `Male`/`Female`; type/gender are translated on display.
+- **Sliders for brave/dumb** — double-spin editors are replaced by permanent sliders (0–1.0, step 0.1) with a live value label; values are collected from a custom role on save. Styled in both themes. The gender combo shows localized male/female labels while still saving `Male`/`Female`; type/gender are translated on display.
 
 ### Backup Date Filtering
 
-- **Time filter** (`savedetailpage.cpp`) — a search box on the backups toolbar tokenizes the query into digits: a single number matches any timestamp component (year/month/day/hour/minute/second), multiple numbers match the parts in order starting from year (e.g. `2026-01-01 12:30`, `10-02`). The list is cached so keystrokes don't re-read the disk; a "（没有匹配的备份）" empty state appears when nothing matches.
+- **Time filter** (`savedetailpage.cpp`) — a search box on the backups toolbar tokenizes the query into digits: a single number matches any timestamp component (year/month/day/hour/minute/second), multiple numbers match the parts in order starting from year (e.g. `2026-01-01 12:30`, `10-02`). The list is cached so keystrokes don't re-read the disk; a "no matching backups" empty state appears when nothing matches.
 
 ### Fixes & Behavior Changes
 
