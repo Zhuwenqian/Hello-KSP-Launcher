@@ -115,6 +115,8 @@ private:
     void showModDetails(const ckan::CkanModule &mod);
     void setDetailNote(const QString &text);
     void showMetaTab(const ckan::CkanModule &mod);
+    // 「文件」tab 懒加载入口：清单已过期且当前模组有效时才真正构建（见 m_contentsStale）
+    void ensureContentsLoaded();
     void showContentsTab(const ckan::CkanModule &mod);
     void showRelationshipsTab(const ckan::CkanModule &mod, bool reverse);
     void addRelationChildren(QTreeWidgetItem *parent, const QString &identifier, int depth);
@@ -170,6 +172,8 @@ private:
     QFutureWatcher<QStringList>* m_reverseWatcher = nullptr; // 反向关系扫描在途
     QFutureWatcher<QVector<ckan::CkanModule>>* m_modsLoadWatcher = nullptr;
     QString m_currentModIdentifier;
+    ckan::CkanModule m_currentMod; // 当前选中模组（供「文件」tab 懒加载时取用）
+    bool m_contentsStale = true;   // 「文件」tab 清单是否待构建（懒加载：切到该 tab 才建树）
     bool m_modsReady = false;    // 索引与 DLL 扫描均就绪，模组模型已填充
     bool m_modsTabActive = false; // 当前是否正显示"模组管理"tab（用于加载提示/轮询）
     bool m_registryLockWaiting = false;

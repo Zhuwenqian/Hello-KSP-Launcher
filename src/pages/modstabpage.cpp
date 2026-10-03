@@ -14,6 +14,7 @@
 #include <QDialogButtonBox>
 #include <QScrollArea>
 #include <QSet>
+#include <QHash>
 #include <QItemSelectionModel>
 #include <QTextEdit>
 #include <QListWidget>
@@ -394,7 +395,12 @@ void ModsTabPage::setupUi()
     m_stateSaveTimer->setInterval(300);
     connect(m_stateSaveTimer, &QTimer::timeout, this, &ModsTabPage::captureAndSaveListState);
     connect(m_modDetailTabs, &QTabWidget::currentChanged, this,
-            [this](int) { queueStateSave(); });
+            [this](int index) {
+                // 懒加载：首次切到「文件」tab 才解析压缩包并构建文件树
+                if (index == 1)
+                    ensureContentsLoaded();
+                queueStateSave();
+            });
     connect(hHeader, &QHeaderView::sortIndicatorChanged, this,
             [this](int, Qt::SortOrder) { queueStateSave(); });
     connect(m_modTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
@@ -900,6 +906,8 @@ void ModsTabPage::onModSelectionChanged()
     const QModelIndex idx = m_modTable->currentIndex();
     if (!idx.isValid()) {
         m_currentModIdentifier.clear();
+        m_currentMod = ckan::CkanModule();
+        m_contentsStale = true;
         m_metaText->clear();
         m_contentsTree->clear();
         m_relTree->clear();
@@ -973,10 +981,28 @@ void ModsTabPage::updateModActionButtons()
 void ModsTabPage::showModDetails(const ckan::CkanModule &mod)
 {
     if (!mod.isValid()) return;
+    m_currentMod = mod;
+    // 「文件」tab 懒加载：只标记过期，切到该 tab 才解析压缩包/扫描目录并建树，
+    // 避免选中已缓存的大模组包时主线程卡顿（用户大概率停留在元数据页）。
+    m_contentsStale = true;
     showMetaTab(mod);
-    showContentsTab(mod);
+    if (m_modDetailTabs->currentIndex() == 1)
+        ensureContentsLoaded(); // 用户正停在「文件」tab：切换选中时立即重建
+    else {
+        m_contentsTree->clear();
+        m_contentsStatusLabel->setText(tr("切换到「文件」页时加载文件清单。"));
+        m_contentsDownloadBtn->setVisible(true);
+    }
     showRelationshipsTab(mod, m_reverseRelCheck->isChecked());
     showVersionsTab(mod);
+}
+
+// 「文件」tab 懒加载入口：清单过期且当前模组有效时才真正构建
+void ModsTabPage::ensureContentsLoaded()
+{
+    if (!m_contentsStale || !m_currentMod.isValid()) return;
+    m_contentsStale = false;
+    showContentsTab(m_currentMod);
 }
 
 // 状态提示写入元数据 tab（用于加载/刷新等过程性信息）
@@ -1062,27 +1088,30 @@ void ModsTabPage::showContentsTab(const ckan::CkanModule &mod)
     QStringList entries;
     QString err;
     if (ckan::ModuleInstaller::listZipEntries(zipPath, &entries, &err)) {
-        // 结构化为目录树（以 '/' 分割）
+        // 结构化为目录树（以 '/' 分割）。目录节点用「路径→节点」哈希定位，避免每条
+        // 记录逐层线性扫描子节点（大模组包数万条目时 O(n²) 建树会卡死主线程）。
+        QHash<QString, QTreeWidgetItem*> dirItems;
         for (const QString &e : entries) {
             if (e.isEmpty()) continue;
             QStringList segs = e.split('/');
             QTreeWidgetItem *parent = m_contentsTree->invisibleRootItem();
+            QString path;
             const QString name = segs.takeLast();
             for (const QString &dir : segs) {
-                QTreeWidgetItem *child = nullptr;
-                for (int i = 0; i < parent->childCount(); ++i) {
-                    if (parent->child(i)->text(0) == dir
-                        && parent->child(i)->data(0, Qt::UserRole).toString() == QStringLiteral("dir")) {
-                        child = parent->child(i); break;
-                    }
-                }
+                if (!path.isEmpty()) path += '/';
+                path += dir;
+                const auto it = dirItems.constFind(path);
+                QTreeWidgetItem *child = (it != dirItems.constEnd()) ? it.value() : nullptr;
                 if (!child) {
                     child = new QTreeWidgetItem(parent, {dir});
                     child->setData(0, Qt::UserRole, QStringLiteral("dir"));
+                    dirItems.insert(path, child);
                 }
                 parent = child;
             }
-            new QTreeWidgetItem(parent, {name, QString()});
+            // zip 的目录条目以 '/' 结尾，takeLast 得到空名：目录节点已建，跳过空叶子
+            if (!name.isEmpty())
+                new QTreeWidgetItem(parent, {name, QString()});
         }
         m_contentsTree->sortItems(0, Qt::AscendingOrder);
     } else {
@@ -1266,7 +1295,14 @@ void ModsTabPage::onSingleDownloadFinished(bool ok, const QString &identifier,
         return;
     }
     const ckan::CkanModule mod = CKanManager::instance().latestOf(identifier);
-    if (mod.isValid()) showContentsTab(mod);
+    if (!mod.isValid()) return;
+    m_currentMod = mod;
+    if (m_modDetailTabs->currentIndex() == 1) {
+        m_contentsStale = false;
+        showContentsTab(mod); // 用户正看着「文件」tab：下载完成立即刷新清单
+    } else {
+        m_contentsStale = true; // 不在「文件」tab：留待切换时懒加载
+    }
 }
 
 void ModsTabPage::onReverseRelToggled(bool on)
