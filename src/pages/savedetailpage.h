@@ -8,6 +8,8 @@
 #include <QTreeWidget>
 #include <QListWidget>
 #include <QProgressDialog>
+
+class QTimer;
 #include "../instancemanager.h"
 
 class ShipTabPage;
@@ -80,6 +82,7 @@ private:
     // Kerbals页面
     QStackedWidget* m_kerbalsStack;
     QLineEdit* m_kerbalSearchEdit;
+    QTimer* m_kerbalSearchDebounce = nullptr; // 搜索防抖：populateKerbalList 全量重建列表，逐键触发开销大
     QTabWidget* m_kerbalTabWidget;
     QListWidget* m_applicantList; // type=Applicant（及未识别类型的兜底）
     QListWidget* m_crewList;      // type=Crew

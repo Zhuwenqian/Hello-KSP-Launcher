@@ -21,6 +21,7 @@
 #include <QAction>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QTimer>
 #include "../iconutils.h"
 
 // 类型(type)显示翻译：只改界面显示，SFS 文件内的 type 保持英文原文
@@ -276,7 +277,16 @@ void SaveDetailPage::setupKerbalsTab()
     m_kerbalSearchEdit = new QLineEdit(listPage);
     m_kerbalSearchEdit->setPlaceholderText(tr("搜索姓名，或 @jobs:职业英文（如 @jobs:Pilot）"));
     m_kerbalSearchEdit->setClearButtonEnabled(true);
-    connect(m_kerbalSearchEdit, &QLineEdit::textChanged, this, &SaveDetailPage::populateKerbalList);
+    // 搜索防抖 250ms：populateKerbalList 会清空并全量重建两个列表的 item widget，
+    // 逐键触发在大名单存档时闪烁卡顿；停止输入后再过滤一次。程序化刷新
+    // （loadSaveData 等）仍直接调 populateKerbalList，不经过防抖。
+    m_kerbalSearchDebounce = new QTimer(this);
+    m_kerbalSearchDebounce->setSingleShot(true);
+    m_kerbalSearchDebounce->setInterval(250);
+    connect(m_kerbalSearchDebounce, &QTimer::timeout, this, &SaveDetailPage::populateKerbalList);
+    connect(m_kerbalSearchEdit, &QLineEdit::textChanged, this, [this]() {
+        m_kerbalSearchDebounce->start();
+    });
     listLayout->addWidget(m_kerbalSearchEdit);
 
     // 类型分页：应聘者(Applicant) / 乘员(Crew)

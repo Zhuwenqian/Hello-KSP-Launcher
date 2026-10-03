@@ -15,6 +15,23 @@ static constexpr int kTransferTimeoutMs = 30000;
 Downloader::Downloader(QObject *parent)
     : QObject(parent)
 {
+    // 异步完成处理只在构造时连接一次：downloadAsync 每次调用都重连会叠加
+    // 多个处理器，一次 finished 触发多次。m_async 守卫保证同步下载
+    // （download/downloadProgressed，与异步共用 m_nam）的 reply 不会进入此处理器。
+    connect(&m_nam, &QNetworkAccessManager::finished, this, [this](QNetworkReply *reply) {
+        if (!m_async)
+            return;
+        const bool ok = reply->error() == QNetworkReply::NoError;
+        const QByteArray data = reply->readAll();
+        reply->deleteLater();
+        if (ok) {
+            emit finished(data, reply->url().toString());
+        } else if (m_attempt < m_mirrors.size()) {
+            startAttempt();
+        } else {
+            emit failed(m_currentUrl, tr("下载失败:%1").arg(reply->errorString()));
+        }
+    });
 }
 
 void Downloader::setProxyUrl(const QString &proxyUrl)
@@ -46,6 +63,7 @@ bool Downloader::download(const QString &url, const QStringList &mirrors,
                           QByteArray *out, QString *error,
                           const Validator &validator, bool preferMirror)
 {
+    m_async = false; // 同步模式：屏蔽构造时连接的异步 finished 处理器
     m_mirrors.clear();
     if (preferMirror) m_mirrors << mirrors << url;
     else              m_mirrors << url << mirrors;
@@ -104,6 +122,7 @@ bool Downloader::downloadProgressed(const QString &url, const QStringList &mirro
                                     std::atomic_bool *cancelFlag,
                                     int resumeAttempts, bool preferMirror)
 {
+    m_async = false; // 同步模式：屏蔽构造时连接的异步 finished 处理器
     m_mirrors.clear();
     if (preferMirror) m_mirrors << mirrors << url;
     else              m_mirrors << url << mirrors;
@@ -257,19 +276,6 @@ void Downloader::downloadAsync(const QString &url, const QStringList &mirrors)
     m_mirrors << url << mirrors;
     m_attempt = 0;
     m_data.clear();
-
-    connect(&m_nam, &QNetworkAccessManager::finished, this, [this](QNetworkReply *reply) {
-        const bool ok = reply->error() == QNetworkReply::NoError;
-        const QByteArray data = reply->readAll();
-        reply->deleteLater();
-        if (ok) {
-            emit finished(data, reply->url().toString());
-        } else if (m_attempt < m_mirrors.size()) {
-            startAttempt();
-        } else {
-            emit failed(m_currentUrl, tr("下载失败:%1").arg(reply->errorString()));
-        }
-    });
 
     startAttempt();
 }
