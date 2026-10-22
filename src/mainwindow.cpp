@@ -981,28 +981,36 @@ void MainWindow::onGameFinished(int exitCode, QProcess::ExitStatus status)
     }
 
     // 游戏非正常退出（闪退/崩溃通常对应非0退出码）且开启了崩溃日志分析时，读取 Player.log
-    // 尾部分析是否有硬崩溃或内存溢出，有则弹窗给出原因与建议。用户主动点"停止"不算异常退出。
-    if (!wasStoppedByButton
-        && exitCode != 0
-        && ConfigManager::instance().crashLogAnalysis()) {
-        maybeShowCrashAnalysis();
+    // 分析崩溃原因并弹窗。无论是否识别出明确原因都会提示，未知原因时展示日志末尾段落。
+    // 用户主动点"停止"不算异常退出。
+    if (!wasStoppedByButton && ConfigManager::instance().crashLogAnalysis()) {
+        maybeShowCrashAnalysis(exitCode);
     }
 }
 
-// 读取 KSP 的 Player.log 尾部，若检测到硬崩溃（Caught fatal signal）或内存溢出则弹窗提示，
-// 并提供"打开日志文件"入口方便用户把日志报告给模组作者。未崩溃/日志缺失/平台不支持时静默返回。
-void MainWindow::maybeShowCrashAnalysis()
+// 读取 KSP 的 Player.log 分析崩溃原因并弹窗，同时提供"打开日志文件"/"保存日志"入口方便
+// 反馈给模组作者。崩溃/内存不足给出对应原因与建议；识别不出原因时展示日志末尾段落；
+// 日志缺失也会提示。正常退出（退出码 0 且日志无崩溃痕迹）时不打扰用户。
+void MainWindow::maybeShowCrashAnalysis(int exitCode)
 {
     const QString logPath = playerlog::defaultKspPlayerLogPath();
-    if (logPath.isEmpty())
-        return;
+    const bool logExists = !logPath.isEmpty() && QFileInfo::exists(logPath);
 
     playerlog::PlayerLogAnalysis result;
-    if (QFileInfo::exists(logPath)) {
+    if (logExists) {
         result = playerlog::analyzePlayerLogFile(logPath);
     } else {
         result.kind = playerlog::PlayerLogAnalysis::LogMissing;
     }
+
+    const bool crashRecognized =
+        result.kind == playerlog::PlayerLogAnalysis::OutOfMemory
+        || result.kind == playerlog::PlayerLogAnalysis::NativeLoadOutOfMemory
+        || result.kind == playerlog::PlayerLogAnalysis::HardCrash;
+
+    // 退出码为 0 且日志里也没有崩溃痕迹：视为正常退出（或无法判断），不弹窗
+    if (exitCode == 0 && !crashRecognized)
+        return;
 
     QString title;
     QString text;
@@ -1014,6 +1022,17 @@ void MainWindow::maybeShowCrashAnalysis()
                   "· 降低游戏纹理质量\n"
                   "· 关闭不必要的后台应用\n"
                   "· 换用分辨率更低的星球包贴图");
+    } else if (result.kind == playerlog::PlayerLogAnalysis::NativeLoadOutOfMemory) {
+        title = tr("游戏在加载资源时崩溃（疑似原生内存不足）");
+        text = tr("崩溃日志显示：游戏在加载「%1」后立即崩溃并退出，且崩溃前 Mono 端没有抛出任何异常。\n\n"
+                  "这基本可以判定为游戏加载时的原生内存溢出——贴图、模型等资源由引擎原生代码解压"
+                  "和上传，不经过 Mono 栈，内存不足时游戏会直接闪退，日志里只留下原生崩溃转储。\n\n"
+                  "建议尝试：\n"
+                  "· 在实例设置中调高启动器的内存限制\n"
+                  "· 降低游戏纹理质量，或换用分辨率更低的星球包贴图\n"
+                  "· 减少已安装的模组数量，关闭不必要的后台应用\n"
+                  "· 若反复在同一资源处崩溃，也可能是该模组资源文件损坏，请重装对应模组")
+                   .arg(result.loadHint);
     } else if (result.kind == playerlog::PlayerLogAnalysis::HardCrash) {
         title = tr("游戏发生硬崩溃（Hard Crash）");
         text = tr("%1\n\n建议：\n"
@@ -1021,12 +1040,21 @@ void MainWindow::maybeShowCrashAnalysis()
                   "· 更新显卡驱动、验证游戏文件完整性\n"
                   "· 减少模组数量，必要时重装可疑模组")
                    .arg(playerlog::describeSigno(result.signo));
+    } else if (result.kind == playerlog::PlayerLogAnalysis::LogMissing) {
+        title = tr("游戏异常退出");
+        text = tr("游戏进程异常退出（退出码 %1），但没有找到 Player.log，无法进一步分析原因。\n\n"
+                  "可能的原因：模组冲突、内存不足、显卡驱动异常，或游戏被其他程序强制结束。")
+                   .arg(exitCode);
     } else {
-        // 日志缺失、无崩溃痕迹、或平台不支持日志路径：均无需打扰用户
-        return;
+        // 未识别出明确崩溃原因：仍弹窗，并展示日志末尾段落供排查
+        title = tr("游戏异常退出（未识别出明确原因）");
+        text = tr("游戏进程异常退出（退出码 %1），但没有在日志末尾识别出明确的崩溃原因。\n\n"
+                  "下方是日志末尾的段落，可据此排查崩溃前最后的操作或报错；"
+                  "也可以保存日志反馈给模组作者。")
+                   .arg(exitCode);
     }
 
-    qInfo() << "[crash] 检测到游戏异常退出崩溃：" << title;
+    qInfo() << "[crash] 游戏异常退出，弹窗提示：" << title;
 
     // 首行补充本次启动所选图形后端（用户在下拉框明确选择过时才显示，便于反馈给模组作者）
     if (!m_launchedBackendParam.isEmpty()) {
@@ -1038,12 +1066,12 @@ void MainWindow::maybeShowCrashAnalysis()
 
     QMessageBox box(QMessageBox::Warning, title, text, QMessageBox::Ok, this);
 
-    // 只读可复制的滚动文本框：展示关键错误前后文（崩溃标记往前 40 行为起点，到日志末尾）。
+    // 只读可复制的滚动文本框：识别出原因时展示关键错误前后文，未知原因时展示日志末尾
     auto *logView = new QPlainTextEdit(&box);
     logView->setReadOnly(true);
     logView->setMinimumHeight(240);
     logView->setPlainText(result.context.isEmpty()
-                              ? tr("（未提取到关键错误上下文）")
+                              ? tr("（日志为空或无法读取）")
                               : result.context);
 
     // 插入到按钮行之前，占据额外纵向空间
@@ -1051,11 +1079,15 @@ void MainWindow::maybeShowCrashAnalysis()
     if (boxLayout)
         boxLayout->insertWidget(boxLayout->count() - 1, logView, 1);
 
-    QPushButton *openLogBtn = box.addButton(tr("打开日志文件"), QMessageBox::HelpRole);
-    QPushButton *saveLogBtn = box.addButton(tr("保存日志"), QMessageBox::ActionRole);
+    QPushButton *openLogBtn = nullptr;
+    QPushButton *saveLogBtn = nullptr;
+    if (logExists) {
+        openLogBtn = box.addButton(tr("打开日志文件"), QMessageBox::HelpRole);
+        saveLogBtn = box.addButton(tr("保存日志"), QMessageBox::ActionRole);
+    }
     box.exec();
 
-    if (box.clickedButton() == saveLogBtn) {
+    if (saveLogBtn && box.clickedButton() == saveLogBtn) {
         const QString zipPath = packLogToZip(logPath);
         if (zipPath.isEmpty()) {
             QMessageBox::warning(this, title, tr("日志打包失败，请确认日志文件存在且可读取。"));
@@ -1154,14 +1186,13 @@ QString MainWindow::packLogToZip(const QString& logPath)
 void MainWindow::onGameError(QProcess::ProcessError error)
 {
     Q_UNUSED(error);
-    bool wasStoppedByButton = m_stoppingGame;
-    resetLaunchButton();
-    // 按钮主动终止会触发 errorOccurred(Crashed)，此时不应误报"进程发生错误"
-    if (wasStoppedByButton)
+    // 进程级错误（如启动失败/崩溃）只做状态复位，不再单独弹「游戏进程发生错误」；
+    // 异常退出的提示统一由 onGameFinished 的崩溃日志分析窗口负责。
+    if (m_stoppingGame)
         return;
+    resetLaunchButton();
     showNormal();
     activateWindow();
-    QMessageBox::warning(this, tr("错误"), tr("游戏进程发生错误。"));
 }
 
 void MainWindow::onCurrentInstanceChanged()

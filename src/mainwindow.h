@@ -74,8 +74,8 @@ private:
     // 最小化无动画；此函数在 show 后把这两个底层样式位补回(不补 WS_CAPTION，保持自绘无边框外观)。
     void applyNativeFrameStyle();
 #endif
-    // 游戏异常退出后读取 Player.log 尾部分析崩溃原因并弹窗（见 onGameFinished）
-    void maybeShowCrashAnalysis();
+    // 游戏异常退出后读取 Player.log 尾部分析崩溃原因并弹窗（无论是否识别出原因都会提示）
+    void maybeShowCrashAnalysis(int exitCode);
     // 将指定的日志文件整体打包为 zip 到启动器目录，返回 zip 绝对路径（失败返回空字符串）
     QString packLogToZip(const QString& logPath);
     

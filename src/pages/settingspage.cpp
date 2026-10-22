@@ -151,9 +151,9 @@ void SettingsPage::setupUI()
     debugModeLabel->setObjectName("settingLabel");
     generalLayout->addRow(debugModeLabel, m_debugModeToggle);
 
-    // 游戏崩溃日志分析：游戏异常退出后读取 Player.log 尾部，检测硬崩溃/内存溢出并弹窗
+    // 游戏崩溃日志分析：游戏异常退出后读取 Player.log，弹窗展示崩溃原因与相关日志段落（未识别出原因也弹窗）
     m_crashAnalysisToggle = new ToggleSwitch(generalGroup);
-    m_crashAnalysisToggle->setToolTip(tr("游戏异常退出时，分析 KSP 的 Player.log 末尾是否发生硬崩溃（Caught fatal signal）或内存溢出（OutOfMemoryException），有则弹窗给出原因与建议"));
+    m_crashAnalysisToggle->setToolTip(tr("游戏异常退出时，分析 KSP 的 Player.log 并弹窗展示崩溃原因与相关日志段落；未识别出明确原因时也会弹窗并展示日志末尾内容"));
     connect(m_crashAnalysisToggle, &ToggleSwitch::toggled, this,
             [](bool checked) { ConfigManager::instance().setCrashLogAnalysis(checked); });
     QLabel* crashAnalysisLabel = new QLabel(tr("游戏崩溃日志分析："), generalGroup);

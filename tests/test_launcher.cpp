@@ -576,6 +576,19 @@ private slots:
         QCOMPARE(playerlog::analyzePlayerLog(QString()).kind, PlayerLogAnalysis::NoCrash);
     }
 
+    void noCrashStillProvidesTailContext()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 无法判定崩溃原因时，仍要给出日志末尾段落供弹窗展示
+        QString content;
+        for (int i = 0; i < 60; ++i)
+            content += QStringLiteral("line %1\n").arg(i);
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(content);
+        QCOMPARE(r.kind, PlayerLogAnalysis::NoCrash);
+        QVERIFY(r.context.contains(QStringLiteral("line 59")));
+        QVERIFY(!r.context.contains(QStringLiteral("line 19"))); // 只取末尾 40 行
+    }
+
     void segfaultSigno11Detected()
     {
         using playerlog::PlayerLogAnalysis;
@@ -612,6 +625,55 @@ private slots:
         const PlayerLogAnalysis r = playerlog::analyzePlayerLog(
             QStringLiteral("OutOfMemoryException: Out of memory\nCaught fatal signal - signo:11"));
         QCOMPARE(r.kind, PlayerLogAnalysis::OutOfMemory);
+    }
+
+    void nativeLoadCrashDetected()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 真实样本：加载 MBM 贴图后直接出现 Unity 原生崩溃转储，崩溃前 Mono 端无异常
+        const QString tail = QStringLiteral(
+            "Load MBM texture: KFC/parts/CVAccessories/paint_relief-61 \n"
+            "(Filename: C:\\buildslave\\unity\\build\\Runtime/Export/Debug/Debug.bindings.h Line: 35)\n"
+            "\n"
+            "Crash!!!\n"
+            "SymInit: Symbol-SearchPath: '.;D:\\Game\\Kerbal Space Program;'\n"
+            "========== OUTPUTTING STACK TRACE ==================\n"
+            "\n"
+            "0x00007FFBEA559CD9 (UnityPlayer) UnityMain\n"
+            "0x0000014823C9C6C9 (Mono JIT Code) (wrapper managed-to-native) "
+            "UnityEngine.Texture2D:Compress (UnityEngine.Texture2D,bool)\n"
+            "========== END OF STACKTRACE ===========\n");
+        const PlayerLogAnalysis r = playerlog::analyzePlayerLog(tail);
+        QCOMPARE(r.kind, PlayerLogAnalysis::NativeLoadOutOfMemory);
+        QVERIFY(r.loadHint.contains(QStringLiteral("paint_relief-61")));
+        QVERIFY(r.context.contains(QStringLiteral("Crash!!!")));
+        QCOMPARE(r.signo, -1);
+    }
+
+    void nativeLoadCrashRequiresNoManagedException()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 崩溃前 Mono 端已抛托管异常：属于模组代码/资源问题，不算原生内存溢出
+        const QString tail = QStringLiteral(
+            "Load MBM texture: Broken/asset \n"
+            "(Filename: Debug.bindings.h Line: 35)\n"
+            "NullReferenceException: Object reference not set to an instance of an object\n"
+            "  at MBMReader.ReadTexture2D (byte[] data)\n"
+            "Crash!!!\n"
+            "========== OUTPUTTING STACK TRACE ==================\n");
+        QVERIFY(playerlog::analyzePlayerLog(tail).kind
+                != PlayerLogAnalysis::NativeLoadOutOfMemory);
+    }
+
+    void crashDumpWithoutLoadLineIsNotNativeLoadOom()
+    {
+        using playerlog::PlayerLogAnalysis;
+        // 崩溃前不是加载日志行：不归入加载阶段原生内存溢出
+        const QString tail = QStringLiteral(
+            "[Scenarios] Expanding...\n"
+            "Crash!!!\n"
+            "========== OUTPUTTING STACK TRACE ==================\n");
+        QCOMPARE(playerlog::analyzePlayerLog(tail).kind, PlayerLogAnalysis::NoCrash);
     }
 
     void missingFileReturnsLogMissing()

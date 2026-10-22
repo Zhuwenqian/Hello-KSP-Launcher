@@ -144,7 +144,7 @@
 <context>
     <name>AdvancedTabPage</name>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="30"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="34"/>
         <source>启动配置</source>
         <translation type="unfinished">启动配置</translation>
     </message>
@@ -153,7 +153,7 @@
         <translation type="obsolete">在这里配置该实例的启动方式：附加启动参数、内存上限与进程优先级。</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="50"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="54"/>
         <source>自定义启动参数</source>
         <translation type="unfinished">自定义启动参数</translation>
     </message>
@@ -162,71 +162,97 @@
         <translation type="obsolete">输入启动参数，多个参数用空格分隔，例如：-force-d3d11 -popupwindow</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="40"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="44"/>
         <source>图形后端（实验性）</source>
         <translation>图形后端（实验性）</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="57"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="61"/>
         <source>内存限制（MB）</source>
         <translation type="unfinished">内存限制（MB）</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="61"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="65"/>
         <source>不限制</source>
         <translation type="unfinished">不限制</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="69"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="73"/>
         <source>此处为系统级进程内存上限，0 表示不限制。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="75"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="79"/>
         <source>进程优先级</source>
         <translation type="unfinished">进程优先级</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="77"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="81"/>
         <source>低</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="78"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="82"/>
         <source>高</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="86"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="91"/>
+        <source>临时禁用 PhysicsRangeExtender</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="93"/>
+        <source>开启后立即把插件 dll 重命名为 .disabled 使其在游戏运行期间失效，游戏退出后自动还原</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="99"/>
+        <source>开启后该插件在游戏运行期间失效（dll 重命名为 .disabled），游戏退出后由启动器自动还原。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="123"/>
         <source> 确认保存</source>
         <translation type="unfinished"> 确认保存</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="124"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="173"/>
         <source>DirectX 11（默认）</source>
         <translation>DirectX 11（默认）</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="128"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="177"/>
         <source>DirectX 9（默认）</source>
         <translation>DirectX 9（默认）</translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="226"/>
+        <source>无法禁用 PhysicsRangeExtender：文件可能被其他程序占用，请稍后重试。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/pages/advancedtabpage.cpp" line="227"/>
+        <source>无法还原 PhysicsRangeExtender：文件可能被其他程序占用，请稍后重试。</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl）已移除，请改用图形后端下拉框。</source>
         <translation type="vanished">已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl）已移除，请改用图形后端下拉框。</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="155"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="204"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="224"/>
         <source>提示</source>
         <translation type="unfinished">提示</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="150"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="199"/>
         <source>已保存。高优先级将在启动时结束 Edge/Chrome/Firefox 的所有进程，并提升游戏进程优先级。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="34"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="38"/>
         <source>在这里配置该实例的启动方式：图形后端、附加启动参数、内存上限与进程优先级。</source>
         <translation>在这里配置该实例的启动方式：图形后端、附加启动参数、内存上限与进程优先级。</translation>
     </message>
@@ -235,22 +261,22 @@
         <translation type="vanished">图形后端</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="44"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="48"/>
         <source>决定游戏使用的渲染 API；对应启动参数由启动器自动附加，无需在自定义启动参数中填写。</source>
         <translation>决定游戏使用的渲染 API；对应启动参数由启动器自动附加，无需在自定义启动参数中填写。</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="52"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="56"/>
         <source>输入启动参数，多个参数用空格分隔，例如：-popupwindow -screen-fullscreen 0</source>
         <translation>输入启动参数，多个参数用空格分隔，例如：-popupwindow -screen-fullscreen 0</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="152"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="201"/>
         <source>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl、-force-vulkan）已移除，请改用图形后端下拉框。</source>
         <translation>已保存。启动参数中的图形后端参数（-force-d3d9/10/11/12、-force-opengl、-force-vulkan）已移除，请改用图形后端下拉框。</translation>
     </message>
     <message>
-        <location filename="../src/pages/advancedtabpage.cpp" line="154"/>
+        <location filename="../src/pages/advancedtabpage.cpp" line="203"/>
         <source>启动配置已保存</source>
         <translation type="unfinished">启动配置已保存</translation>
     </message>
@@ -523,42 +549,42 @@
 <context>
     <name>GameSettingsTabPage</name>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="40"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="52"/>
         <source>设置项</source>
         <translation type="unfinished">设置项</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="40"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="52"/>
         <source>值</source>
         <translation type="unfinished">值</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="50"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="62"/>
         <source>搜索设置项...</source>
         <translation type="unfinished">搜索设置项...</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="59"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="71"/>
         <source> 保存设置</source>
         <translation type="unfinished"> 保存设置</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="168"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="208"/>
         <source>保存成功</source>
         <translation type="unfinished">保存成功</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="168"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="208"/>
         <source>游戏设置已保存！</source>
         <translation type="unfinished">游戏设置已保存！</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="170"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="210"/>
         <source>保存失败</source>
         <translation type="unfinished">保存失败</translation>
     </message>
     <message>
-        <location filename="../src/pages/gamesettingstabpage.cpp" line="170"/>
+        <location filename="../src/pages/gamesettingstabpage.cpp" line="210"/>
         <source>无法保存游戏设置，请检查文件权限。</source>
         <translation type="unfinished">无法保存游戏设置，请检查文件权限。</translation>
     </message>
@@ -1430,39 +1456,39 @@
 <context>
     <name>InstanceListPage</name>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="28"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="27"/>
         <source> 返回</source>
         <translation> 返回</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="32"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="31"/>
         <source>实例列表</source>
         <translation>实例列表</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="52"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="51"/>
         <source> 添加实例</source>
         <translation> 添加实例</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="65"/>
-        <location filename="../src/pages/instancelistpage.cpp" line="154"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="64"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="153"/>
         <source>重命名实例</source>
         <translation>重命名实例</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="66"/>
-        <location filename="../src/pages/instancelistpage.cpp" line="166"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="65"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="165"/>
         <source>删除实例</source>
         <translation>删除实例</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="154"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="153"/>
         <source>请输入新的实例名称：</source>
         <translation>请输入新的实例名称：</translation>
     </message>
     <message>
-        <location filename="../src/pages/instancelistpage.cpp" line="167"/>
+        <location filename="../src/pages/instancelistpage.cpp" line="166"/>
         <source>确定要从启动器列表中移除实例 &quot;%1&quot; 吗？
 游戏文件不会被删除。</source>
         <translation>确定要从启动器列表中移除实例 &quot;%1&quot; 吗？
@@ -1472,9 +1498,8 @@
 <context>
     <name>InstanceManager</name>
     <message>
-        <location filename="../src/instancemanager_backup.cpp" line="481"/>
         <source>恢复前</source>
-        <translation>恢复前</translation>
+        <translation type="vanished">恢复前</translation>
     </message>
 </context>
 <context>
@@ -1536,7 +1561,7 @@
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="522"/>
-        <location filename="../src/mainwindow.cpp" line="1171"/>
+        <location filename="../src/mainwindow.cpp" line="1202"/>
         <source>未选择实例</source>
         <translation>未选择实例</translation>
     </message>
@@ -1577,7 +1602,6 @@
         <location filename="../src/mainwindow.cpp" line="874"/>
         <location filename="../src/mainwindow.cpp" line="879"/>
         <location filename="../src/mainwindow.cpp" line="898"/>
-        <location filename="../src/mainwindow.cpp" line="1164"/>
         <source>错误</source>
         <translation>错误</translation>
     </message>
@@ -1600,6 +1624,11 @@
         <location filename="../src/mainwindow.cpp" line="879"/>
         <source>找不到游戏可执行文件，请检查实例路径。</source>
         <translation>找不到游戏可执行文件，请检查实例路径。</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1074"/>
+        <source>（日志为空或无法读取）</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>高优先级启动</source>
@@ -1643,12 +1672,12 @@
         <translation> 停止</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1010"/>
+        <location filename="../src/mainwindow.cpp" line="1018"/>
         <source>游戏因内存不足而崩溃</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1011"/>
+        <location filename="../src/mainwindow.cpp" line="1019"/>
         <source>检测到游戏因内存溢出（Out of Memory）而崩溃。
 
 建议尝试：
@@ -1660,12 +1689,30 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1018"/>
+        <location filename="../src/mainwindow.cpp" line="1026"/>
+        <source>游戏在加载资源时崩溃（疑似原生内存不足）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1027"/>
+        <source>崩溃日志显示：游戏在加载「%1」后立即崩溃并退出，且崩溃前 Mono 端没有抛出任何异常。
+
+这基本可以判定为游戏加载时的原生内存溢出——贴图、模型等资源由引擎原生代码解压和上传，不经过 Mono 栈，内存不足时游戏会直接闪退，日志里只留下原生崩溃转储。
+
+建议尝试：
+· 在实例设置中调高启动器的内存限制
+· 降低游戏纹理质量，或换用分辨率更低的星球包贴图
+· 减少已安装的模组数量，关闭不必要的后台应用
+· 若反复在同一资源处崩溃，也可能是该模组资源文件损坏，请重装对应模组</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1037"/>
         <source>游戏发生硬崩溃（Hard Crash）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1019"/>
+        <location filename="../src/mainwindow.cpp" line="1038"/>
         <source>%1
 
 建议：
@@ -1675,45 +1722,63 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1033"/>
-        <source>本次启动使用的图形后端：%1（%2）</source>
-        <translation>本次启动使用的图形后端：%1（%2）</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1046"/>
-        <source>（未提取到关键错误上下文）</source>
+        <location filename="../src/mainwindow.cpp" line="1044"/>
+        <source>游戏异常退出</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1054"/>
-        <source>打开日志文件</source>
+        <location filename="../src/mainwindow.cpp" line="1045"/>
+        <source>游戏进程异常退出（退出码 %1），但没有找到 Player.log，无法进一步分析原因。
+
+可能的原因：模组冲突、内存不足、显卡驱动异常，或游戏被其他程序强制结束。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1055"/>
-        <source>保存日志</source>
+        <location filename="../src/mainwindow.cpp" line="1050"/>
+        <source>游戏异常退出（未识别出明确原因）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1051"/>
+        <source>游戏进程异常退出（退出码 %1），但没有在日志末尾识别出明确的崩溃原因。
+
+下方是日志末尾的段落，可据此排查崩溃前最后的操作或报错；也可以保存日志反馈给模组作者。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1061"/>
+        <source>本次启动使用的图形后端：%1（%2）</source>
+        <translation>本次启动使用的图形后端：%1（%2）</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1085"/>
+        <source>打开日志文件</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1086"/>
+        <source>保存日志</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1093"/>
         <source>日志打包失败，请确认日志文件存在且可读取。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1064"/>
+        <location filename="../src/mainwindow.cpp" line="1096"/>
         <source>日志已保存到启动器目录：
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1089"/>
+        <location filename="../src/mainwindow.cpp" line="1121"/>
         <source>日志</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1164"/>
         <source>游戏进程发生错误。</source>
-        <translation>游戏进程发生错误。</translation>
+        <translation type="vanished">游戏进程发生错误。</translation>
     </message>
 </context>
 <context>
@@ -2036,7 +2101,7 @@
     </message>
     <message>
         <location filename="../src/pages/modstabpage.cpp" line="166"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1410"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1408"/>
         <source>已安装</source>
         <translation type="unfinished">已安装</translation>
     </message>
@@ -2047,13 +2112,13 @@
     </message>
     <message>
         <location filename="../src/pages/modstabpage.cpp" line="168"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1414"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1412"/>
         <source>未安装</source>
         <translation type="unfinished">未安装</translation>
     </message>
     <message>
         <location filename="../src/pages/modstabpage.cpp" line="175"/>
-        <location filename="../src/pages/modstabpage.cpp" line="835"/>
+        <location filename="../src/pages/modstabpage.cpp" line="833"/>
         <source>全部标签</source>
         <translation type="unfinished">全部标签</translation>
     </message>
@@ -2064,7 +2129,7 @@
     </message>
     <message>
         <location filename="../src/pages/modstabpage.cpp" line="186"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1611"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1609"/>
         <source> 全选</source>
         <translation type="unfinished"> 全选</translation>
     </message>
@@ -2074,189 +2139,189 @@
         <translation type="unfinished">显示不兼容</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="197"/>
-        <location filename="../src/pages/modstabpage.cpp" line="867"/>
+        <location filename="../src/pages/modstabpage.cpp" line="196"/>
+        <location filename="../src/pages/modstabpage.cpp" line="865"/>
         <source> 兼容版本</source>
         <translation type="unfinished"> 兼容版本</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="284"/>
+        <location filename="../src/pages/modstabpage.cpp" line="283"/>
         <source>就绪</source>
         <translation type="unfinished">就绪</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="287"/>
+        <location filename="../src/pages/modstabpage.cpp" line="286"/>
         <source> 取消</source>
         <translation type="unfinished"> 取消</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="305"/>
+        <location filename="../src/pages/modstabpage.cpp" line="304"/>
         <source>选中一个模组查看详情</source>
         <translation type="unfinished">选中一个模组查看详情</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="306"/>
+        <location filename="../src/pages/modstabpage.cpp" line="305"/>
         <source>元数据</source>
         <translation type="unfinished">元数据</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="315"/>
+        <location filename="../src/pages/modstabpage.cpp" line="314"/>
         <source>仅显示已缓存的压缩包内容。</source>
         <translation type="unfinished">仅显示已缓存的压缩包内容。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="318"/>
+        <location filename="../src/pages/modstabpage.cpp" line="317"/>
         <source> 下载压缩包</source>
         <translation type="unfinished"> 下载压缩包</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="327"/>
-        <location filename="../src/pages/modstabpage.cpp" line="332"/>
+        <location filename="../src/pages/modstabpage.cpp" line="326"/>
+        <location filename="../src/pages/modstabpage.cpp" line="331"/>
         <source>文件</source>
         <translation type="unfinished">文件</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="327"/>
-        <location filename="../src/pages/modstabpage.cpp" line="360"/>
+        <location filename="../src/pages/modstabpage.cpp" line="326"/>
+        <location filename="../src/pages/modstabpage.cpp" line="359"/>
         <source>大小</source>
         <translation type="unfinished">大小</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="342"/>
+        <location filename="../src/pages/modstabpage.cpp" line="341"/>
         <source>显示反向关系（哪些模组依赖/引用当前模组）</source>
         <translation type="unfinished">显示反向关系（哪些模组依赖/引用当前模组）</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="346"/>
-        <location filename="../src/pages/modstabpage.cpp" line="352"/>
+        <location filename="../src/pages/modstabpage.cpp" line="345"/>
+        <location filename="../src/pages/modstabpage.cpp" line="351"/>
         <source>关系</source>
         <translation type="unfinished">关系</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="346"/>
+        <location filename="../src/pages/modstabpage.cpp" line="345"/>
         <source>模组</source>
         <translation type="unfinished">模组</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="360"/>
-        <location filename="../src/pages/modstabpage.cpp" line="376"/>
+        <location filename="../src/pages/modstabpage.cpp" line="359"/>
+        <location filename="../src/pages/modstabpage.cpp" line="375"/>
         <source>版本</source>
         <translation type="unfinished">版本</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="360"/>
+        <location filename="../src/pages/modstabpage.cpp" line="359"/>
         <source>发布日期</source>
         <translation type="unfinished">发布日期</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="360"/>
+        <location filename="../src/pages/modstabpage.cpp" line="359"/>
         <source>状态</source>
         <translation type="unfinished">状态</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="369"/>
+        <location filename="../src/pages/modstabpage.cpp" line="368"/>
         <source> 安装此版本</source>
         <translation type="unfinished"> 安装此版本</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="406"/>
+        <location filename="../src/pages/modstabpage.cpp" line="405"/>
         <source> 导入模组</source>
         <translation type="unfinished"> 导入模组</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="411"/>
+        <location filename="../src/pages/modstabpage.cpp" line="410"/>
         <source> 安装历史</source>
         <translation type="unfinished"> 安装历史</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="416"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1023"/>
+        <location filename="../src/pages/modstabpage.cpp" line="415"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1021"/>
         <source> 安装</source>
         <translation type="unfinished"> 安装</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="422"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1024"/>
+        <location filename="../src/pages/modstabpage.cpp" line="421"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1022"/>
         <source> 升级</source>
         <translation type="unfinished"> 升级</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="428"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1025"/>
+        <location filename="../src/pages/modstabpage.cpp" line="427"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1023"/>
         <source> 卸载</source>
         <translation type="unfinished"> 卸载</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="451"/>
+        <location filename="../src/pages/modstabpage.cpp" line="450"/>
         <source>正在处理 %1 ... %2%</source>
         <translation type="unfinished">正在处理 %1 ... %2%</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="456"/>
+        <location filename="../src/pages/modstabpage.cpp" line="455"/>
         <source>正在安装：%1</source>
         <translation type="unfinished">正在安装：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="548"/>
-        <location filename="../src/pages/modstabpage.cpp" line="677"/>
+        <location filename="../src/pages/modstabpage.cpp" line="547"/>
+        <location filename="../src/pages/modstabpage.cpp" line="675"/>
         <source>正在加载 CKAN 仓库索引，请稍候...</source>
         <translation type="unfinished">正在加载 CKAN 仓库索引，请稍候...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="679"/>
+        <location filename="../src/pages/modstabpage.cpp" line="677"/>
         <source>正在扫描已安装的 DLL，请稍候...</source>
         <translation type="unfinished">正在扫描已安装的 DLL，请稍候...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="588"/>
+        <location filename="../src/pages/modstabpage.cpp" line="587"/>
         <source>正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组...</source>
         <translation type="unfinished">正在加载 CKAN 仓库索引，就绪后将自动开始安装所选模组...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="614"/>
-        <location filename="../src/pages/modstabpage.cpp" line="627"/>
+        <location filename="../src/pages/modstabpage.cpp" line="612"/>
+        <location filename="../src/pages/modstabpage.cpp" line="625"/>
         <source>等待其他程序释放注册表锁...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="623"/>
+        <location filename="../src/pages/modstabpage.cpp" line="621"/>
         <source>注册表已锁定</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="624"/>
+        <location filename="../src/pages/modstabpage.cpp" line="622"/>
         <source>当前实例注册表已上锁，正在被其他程序（官方 CKAN 或另一个启动器）使用。
 
 请您关闭其他启动器实例或官方 CKAN 后，本启动器会自动继续加载模组列表。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="691"/>
+        <location filename="../src/pages/modstabpage.cpp" line="689"/>
         <source>仓库索引已就绪，共 %1 个模组。</source>
         <translation type="unfinished">仓库索引已就绪，共 %1 个模组。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="868"/>
+        <location filename="../src/pages/modstabpage.cpp" line="866"/>
         <source>仅按当前实例实际版本判断兼容性</source>
         <translation type="unfinished">仅按当前实例实际版本判断兼容性</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="870"/>
+        <location filename="../src/pages/modstabpage.cpp" line="868"/>
         <source> 兼容版本(%1)</source>
         <translation type="unfinished"> 兼容版本(%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="871"/>
+        <location filename="../src/pages/modstabpage.cpp" line="869"/>
         <source>已勾选：%1</source>
         <translation type="unfinished">已勾选：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="884"/>
+        <location filename="../src/pages/modstabpage.cpp" line="882"/>
         <source>兼容版本设置</source>
         <translation type="unfinished">兼容版本设置</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="888"/>
+        <location filename="../src/pages/modstabpage.cpp" line="886"/>
         <source>勾选需要兼容的 KSP 版本（1.0 ~ 1.12）。
 勾选后，KSP 版本落在所选区间内的模组均视为兼容。
 全部取消勾选则仅按当前实例实际版本判断。</source>
@@ -2265,348 +2330,348 @@
 全部取消勾选则仅按当前实例实际版本判断。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="907"/>
+        <location filename="../src/pages/modstabpage.cpp" line="905"/>
         <source>KSP %1</source>
         <translation type="unfinished">KSP %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="917"/>
+        <location filename="../src/pages/modstabpage.cpp" line="915"/>
         <source>确定</source>
         <translation type="unfinished">确定</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="918"/>
+        <location filename="../src/pages/modstabpage.cpp" line="916"/>
         <source>取消</source>
         <translation type="unfinished">取消</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="938"/>
+        <location filename="../src/pages/modstabpage.cpp" line="936"/>
         <source>正在刷新仓库索引...</source>
         <translation type="unfinished">正在刷新仓库索引...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="951"/>
+        <location filename="../src/pages/modstabpage.cpp" line="949"/>
         <source>已取消仓库索引加载。</source>
         <translation type="unfinished">已取消仓库索引加载。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="956"/>
+        <location filename="../src/pages/modstabpage.cpp" line="954"/>
         <source>仓库索引刷新失败：%1</source>
         <translation type="unfinished">仓库索引刷新失败：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="957"/>
+        <location filename="../src/pages/modstabpage.cpp" line="955"/>
         <source>刷新失败</source>
         <translation type="unfinished">刷新失败</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="957"/>
+        <location filename="../src/pages/modstabpage.cpp" line="955"/>
         <source>无法获取仓库索引：
 %1</source>
         <translation type="unfinished">无法获取仓库索引：
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="973"/>
+        <location filename="../src/pages/modstabpage.cpp" line="971"/>
         <source>仓库刷新</source>
         <translation type="unfinished">仓库刷新</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="974"/>
+        <location filename="../src/pages/modstabpage.cpp" line="972"/>
         <source>部分仓库获取失败，已用其他仓库/旧缓存：
 %1</source>
         <translation type="unfinished">部分仓库获取失败，已用其他仓库/旧缓存：
 %1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1023"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1021"/>
         <source> 安装 (%1)</source>
         <translation type="unfinished"> 安装 (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1024"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1022"/>
         <source> 升级 (%1)</source>
         <translation type="unfinished"> 升级 (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1025"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1023"/>
         <source> 卸载 (%1)</source>
         <translation type="unfinished"> 卸载 (%1)</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1098"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1096"/>
         <source>标识符：%1</source>
         <translation type="unfinished">标识符：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1100"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1098"/>
         <source>描述：%1</source>
         <translation type="unfinished">描述：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1102"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1100"/>
         <source>作者：%1</source>
         <translation type="unfinished">作者：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1104"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1102"/>
         <source>许可：%1</source>
         <translation type="unfinished">许可：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1110"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1108"/>
         <source>KSP 版本：%1</source>
         <translation type="unfinished">KSP 版本：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1112"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1110"/>
         <source>发布日期：%1</source>
         <translation type="unfinished">发布日期：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1114"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1112"/>
         <source>下载大小：%1</source>
         <translation type="unfinished">下载大小：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1116"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1114"/>
         <source>安装大小：%1</source>
         <translation type="unfinished">安装大小：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1128"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1126"/>
         <source>元数据包，不包含文件。</source>
         <translation type="unfinished">元数据包，不包含文件。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1181"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1179"/>
         <source>压缩包尚未缓存，以下为已安装目录：</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1175"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1173"/>
         <source>压缩包尚未缓存。下载后才能查看文件清单。</source>
         <translation type="unfinished">压缩包尚未缓存。下载后才能查看文件清单。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1180"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1178"/>
         <source>压缩包已缓存，列出内部文件：</source>
         <translation type="unfinished">压缩包已缓存，列出内部文件：</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1171"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1169"/>
         <source>无法读取压缩包：%1</source>
         <translation type="unfinished">无法读取压缩包：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1070"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1068"/>
         <source>切换到「文件」页时加载文件清单。</source>
         <translation>切换到「文件」页时加载文件清单。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1138"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1136"/>
         <source>正在读取文件清单...</source>
         <translation>正在读取文件清单...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1281"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1279"/>
         <source>扫描中...</source>
         <translation type="unfinished">扫描中...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1294"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1292"/>
         <source>没有模组依赖或引用此模组。</source>
         <translation type="unfinished">没有模组依赖或引用此模组。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1301"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1299"/>
         <source>引用/依赖</source>
         <translation type="unfinished">引用/依赖</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1329"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1370"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1327"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1368"/>
         <source>冲突</source>
         <translation type="unfinished">冲突</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1330"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1364"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1328"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1362"/>
         <source>依赖</source>
         <translation type="unfinished">依赖</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1334"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1332"/>
         <source>...</source>
         <translation type="unfinished">...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1343"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1341"/>
         <source>此模组没有依赖、推荐、建议或冲突关系。</source>
         <translation type="unfinished">此模组没有依赖、推荐、建议或冲突关系。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1358"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1356"/>
         <source>（仓库无此模组/虚拟包：%1）</source>
         <translation type="unfinished">（仓库无此模组/虚拟包：%1）</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1360"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1358"/>
         <source>（无依赖或冲突）</source>
         <translation type="unfinished">（无依赖或冲突）</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1385"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1383"/>
         <source>仓库无其它版本记录。</source>
         <translation type="unfinished">仓库无其它版本记录。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1410"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1425"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1408"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1423"/>
         <source>已安装(AD)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1436"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1434"/>
         <source>正在下载压缩包...</source>
         <translation type="unfinished">正在下载压缩包...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1446"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1444"/>
         <source>下载失败：%1</source>
         <translation type="unfinished">下载失败：%1</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1495"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1493"/>
         <source>切换版本</source>
         <translation type="unfinished">切换版本</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1496"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1494"/>
         <source>当前已安装 %1，即将降级到 %2。
 是否继续？</source>
         <translation type="unfinished">当前已安装 %1，即将降级到 %2。
 是否继续？</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1517"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1542"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1573"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1515"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1540"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1571"/>
         <source>提示</source>
         <translation type="unfinished">提示</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1517"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1542"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1573"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1515"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1540"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1571"/>
         <source>请先选择或勾选一个模组。</source>
         <translation type="unfinished">请先选择或勾选一个模组。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1529"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1527"/>
         <source>确认批量卸载</source>
         <translation type="unfinished">确认批量卸载</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1530"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1528"/>
         <source>确定要卸载已勾选的 %1 个模组吗？</source>
         <translation type="unfinished">确定要卸载已勾选的 %1 个模组吗？</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1536"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1534"/>
         <source>正在卸载 %1 个模组...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1551"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1549"/>
         <source>确认卸载</source>
         <translation type="unfinished">确认卸载</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1552"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1550"/>
         <source>确定要卸载模组 %1 吗？</source>
         <translation type="unfinished">确定要卸载模组 %1 吗？</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1558"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1556"/>
         <source>正在卸载：%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1611"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1609"/>
         <source> 清空</source>
         <translation type="unfinished"> 清空</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1643"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1641"/>
         <source>完成</source>
         <translation type="unfinished">完成</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1646"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1644"/>
         <source>操作失败</source>
         <translation type="unfinished">操作失败</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1654"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1652"/>
         <source>准备下载...</source>
         <translation type="unfinished">准备下载...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1672"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1670"/>
         <source>
 
 将连同 %1 个依赖模组一并卸载；取消时这些依赖与目标一起恢复。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1695"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1693"/>
         <source>正在下载：%1  %2 / %3</source>
         <translation type="unfinished">正在下载：%1  %2 / %3</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1705"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1703"/>
         <source>正在取消...</source>
         <translation type="unfinished">正在取消...</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1712"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1710"/>
         <source>导入模组</source>
         <translation type="unfinished">导入模组</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1713"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1711"/>
         <source>模组文件 (*.zip *.ckan)</source>
         <translation type="unfinished">模组文件 (*.zip *.ckan)</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1725"/>
-        <location filename="../src/pages/modstabpage.cpp" line="1730"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1723"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1728"/>
         <source>安装历史</source>
         <translation type="unfinished">安装历史</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1725"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1723"/>
         <source>尚未绑定游戏实例。</source>
         <translation type="unfinished">尚未绑定游戏实例。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1739"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1737"/>
         <source>选择左侧快照查看其安装内容</source>
         <translation type="unfinished">选择左侧快照查看其安装内容</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1747"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1745"/>
         <source>关闭</source>
         <translation type="unfinished">关闭</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1756"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1754"/>
         <source>暂无安装历史。完成一次安装/卸载/升级后会自动生成快照。</source>
         <translation type="unfinished">暂无安装历史。完成一次安装/卸载/升级后会自动生成快照。</translation>
     </message>
     <message>
-        <location filename="../src/pages/modstabpage.cpp" line="1767"/>
+        <location filename="../src/pages/modstabpage.cpp" line="1765"/>
         <source>无法读取：%1</source>
         <translation type="unfinished">无法读取：%1</translation>
     </message>
@@ -2682,9 +2747,14 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/instancemanager_backup.cpp" line="340"/>
+        <location filename="../src/game/backupmanager.cpp" line="343"/>
         <source>恢复前备份</source>
         <translation>恢复前备份</translation>
+    </message>
+    <message>
+        <location filename="../src/game/backupmanager.cpp" line="484"/>
+        <source>恢复前</source>
+        <translation type="unfinished">恢复前</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="40"/>
@@ -3689,7 +3759,7 @@
     </message>
     <message>
         <location filename="../src/pages/settingspage.cpp" line="156"/>
-        <source>游戏异常退出时，分析 KSP 的 Player.log 末尾是否发生硬崩溃（Caught fatal signal）或内存溢出（OutOfMemoryException），有则弹窗给出原因与建议</source>
+        <source>游戏异常退出时，分析 KSP 的 Player.log 并弹窗展示崩溃原因与相关日志段落；未识别出明确原因时也会弹窗并展示日志末尾内容</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

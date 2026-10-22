@@ -20,13 +20,22 @@ struct PlayerLogAnalysis {
         LogMissing, // 日志文件不存在/无法读取（或启动器不支持该平台日志路径）
         NoCrash,    // 日志尾部未发现崩溃痕迹
         HardCrash,  // 检测到 Unity 原生崩溃（Caught fatal signal - signo:N）
-        OutOfMemory // 检测到内存溢出（OutOfMemoryException / Out of memory）
+        OutOfMemory, // 检测到内存溢出（OutOfMemoryException / Out of memory）
+        // 加载资源时的原生崩溃转储：日志里有 "Crash!!!" + 堆栈段，崩溃紧跟在 "Load xxx"
+        // 之类的加载日志行之后，且崩溃前 Mono 端没有抛任何托管异常。这类崩溃不走 Mono 栈
+        // （资源解压/上传由引擎原生代码完成），基本可判定为加载阶段的原生内存溢出；
+        // 个别情况是模组资源文件损坏。
+        NativeLoadOutOfMemory
     };
     Kind kind = LogMissing;
     int signo = -1; // 仅当 kind == HardCrash 时有意义（见 describeSigno），否则为 -1
+    // 仅当 kind == NativeLoadOutOfMemory 时填充：崩溃前最后一条有意义的日志行
+    // （通常是 "Load MBM texture: xxx"），供弹窗指出崩溃时正在加载的资源。
+    QString loadHint;
     // 关键错误上下文：以关键错误（崩溃标记/OOM）所在行为基准，往前回溯 kContextLeadingLines
-    // 行作为起点，一直到 content 末尾的文本。仅当 kind 为 HardCrash / OutOfMemory 时填充，
-    // 其余情况为空。供弹窗的滚动文本框展示。
+    // 行作为起点，一直到 content 末尾的文本。有明确崩溃类型（HardCrash / OutOfMemory /
+    // NativeLoadOutOfMemory）时按该规则填充；未识别出崩溃原因（NoCrash）时退化为日志末尾
+    // kContextLeadingLines 行，供「未知原因」弹窗展示。
     QString context;
 };
 
