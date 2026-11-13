@@ -1961,7 +1961,7 @@ Continue?</translation>
     <message>
         <location filename="../src/game/backupmanager.cpp" line="484"/>
         <source>恢复前</source>
-        <translation type="unfinished">Before restore</translation>
+        <translation>Before restore</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="40"/>

@@ -1,33 +1,24 @@
 # 发布说明
-> **重要提示 / Important Note:** 本 Release 含有更新器（`updater.exe`）的更新。如果您正在使用早期的 v1.2.0 系列版本，由于其自带的老版更新器无法获取到自身的新二进制，自动更新可能无法替换本组件——届时请手动替换 `updater.exe`。
->
-> This release ships an updated built-in updater (`updater.exe`). If you are still on the older v1.2.0 series, its built-in updater cannot fetch its own new binary, so the auto-update may fail to replace this component — please replace `updater.exe` manually in that case.
 
-## v1.4.2 — 图形后端选择、PRE 临时禁用、音量拖动条与模组操作锁定（2026-10-03）
+> **长期支持（LTS）公告：** Hello KSP Launcher 的功能已进入稳定、完整阶段。由于作者精力有限，**此项目将很长一段时间不再更新**。v1.4.3 为**长期支持版**，也是可预见未来内的最后一个计划版本，请保留本安装包。问题反馈仍然欢迎，但修复可能间隔很久。
 
-本次更新为高级页新增按实例的图形后端选择与 PhysicsRangeExtender 临时禁用开关，游戏设置音量项改为拖动条，模组操作全程锁定按钮防止并发写操作，并修复浏览大体积缓存包时的界面卡顿、更新器失败流程可能清空安装目录的问题、下载续传错位与背景图缩放掉帧。
+## v1.4.3 — 长期支持版：更聪明的崩溃诊断、崩溃弹窗始终提示与图标换装（2026-11-13）
 
-### 启动配置
+本次更新围绕崩溃诊断展开：启动器现在能识别游戏加载资源时的原生内存溢出，无法判断原因时也始终弹出崩溃报告，并修复了日志分析中的无限递归——此前遇到特定崩溃日志时启动器自己会栈溢出。此外还更新了若干操作图标，并整理了实例管理的内部代码结构。
 
-- **图形后端选择（实验性）**（`configmanager.{h,cpp}`、`advancedtabpage.{h,cpp}`、`mainwindow.cpp`）——自定义启动参数框上方新增按实例的下拉框。选项跟随检测到的游戏版本：1.8 前默认 DirectX 9（无参数），可选 OpenGL（`-force-opengl`）、DirectX 11（`-force-d3d11`）；1.8 及以上默认 DirectX 11，可选 OpenGL、DirectX 12（`-force-d3d12`）。6 个保留 `-force-*` 渲染参数在保存与启动时都会从自定义启动参数中剔除，旧配置残留也不会传给游戏。选择按实例持久化（`HKSPL.json` 的 `graphicsBackend`），不经高级页直接启动同样生效；与版本不符的选择静默回退默认渲染器。当下拉框明确选择过后端时，崩溃分析弹窗首行显示「本次启动使用的图形后端：OpenGL（-force-opengl）」，便于直接反馈给模组作者。
-- **临时禁用 PhysicsRangeExtender**（`instancemanager.{h,cpp}`、`advancedtabpage.{h,cpp}`）——进程优先级下方新增开关（仅当 `GameData\PhysicsRangeExtender\Plugins\PhysicsRangeExtender.dll` 存在时显示），点击立即把 DLL 改名为 `.disabled`（无需「确认保存」），游戏退出后自动还原——含强杀路径与启动器关闭。开关反映磁盘实际状态：上次运行残留的 `.disabled` 显示为开启状态，可手动还原；改名失败（DLL 被占用）时开关回弹并弹警告。
+### 崩溃诊断
 
-### 游戏设置
+- **崩溃报告始终弹窗**（`playerloganalyzer.{h,cpp}`、`mainwindow.{h,cpp}`、`pages/settingspage.cpp`）——此前只有游戏以非零退出码结束才弹分析窗口。现在只要退出码非零**或**日志含崩溃痕迹就会弹窗；即便分析不出明确原因也会弹出，标题为「游戏异常退出（未识别出明确原因）」，正文附退出码并展示**日志末尾 40 行**作为上下文。只有退出码为 0 且日志无崩溃痕迹时才静默返回。`Player.log` 缺失时同样给出提示与可能原因。原先单独的「游戏进程发生错误」弹窗已删除（启动失败仍由启动流程提示），「打开日志文件 / 保存日志」仅在日志确实存在时提供。
+- **加载阶段的原生内存溢出识别**（`playerloganalyzer.{h,cpp}`、`mainwindow.cpp`、`pages/settingspage.cpp`）——新增崩溃类型 `NativeLoadOutOfMemory`，用于识别这类日志：日志在一条 `Load ...` 之后紧接着 Unity 原生崩溃转储（`Crash!!!` 后跟 `OUTPUTTING STACK TRACE` 退出），且之前没有托管异常——贴图/模型的解压与上传走引擎原生代码，不经 Mono 栈。弹窗会显示崩溃前的最后一条日志（如 `Load MBM texture: KFC/parts/...`），说明原生路径的成因，并分别给出「内存不足」与「模组资源损坏」两类建议。三项判定条件任一不满足时，回落到既有的内存溢出 / `Caught fatal signal` 判定。
+- **修复日志分析的无限递归**（`playerloganalyzer.cpp`）——`analyzePlayerLog` 与 `extractPlayerLogContext` 相互递归调用，日志只要含 `Caught fatal signal` 或内存溢出标记就会栈溢出——恰好在最需要崩溃弹窗时把启动器自己搞崩。上下文提取改为经由接收已判定类型的内部辅助函数，公开接口签名不变。
 
-- **音量拖动条**（`instancemanager_keymap.{h,cpp}`、`instancemanager_settings.cpp`、`gamesettingstabpage.cpp`、`dark.qss` / `light.qss`）——主音量/飞船/环境/音乐/界面/语音音量项改为拖动条（0–1，步进 0.01），右侧两位小数数字显示随拖动实时更新。slider 标记随 keymap 数据透传而非按键名硬编码；解析失败的值仍回退普通文本编辑，保存走既有路径（数值从 `Qt::UserRole` 读取，不会透过透明行底透出重影）。
+### 界面
 
-### 模组管理
+- **操作图标换装**（`gen_icons.py`、`resources.qrc`、`pages/instancedetailpage.cpp`、`pages/modstabpage.cpp`、`pages/savedetailpage.cpp`）——新增并注册 `export.svg`（右弯分享箭头）用于「导出整合包」，`kerbal.svg`（小绿人轮廓）用于「管理小绿人」；「导入整合包」「导入模组」改用下载图标，「存档信息」改用列表图标，兼容版本按钮仅保留文字。
 
-- **操作锁定**（`modstabpage.{h,cpp}`）——安装/升级/卸载（含导入）按钮在任一模组操作全程保持禁用，直至 `operationFinished`（成功/失败/取消均统一走该信号）才解锁。此前操作进行中时切换选中行、勾选/取消勾选、全选，或后台索引/DLL 扫描完成回填，都会重算按钮状态把已禁用的按钮重新点亮，允许并发触发第二次写操作。所有入口均已覆盖——包括版本历史安装与 `.ckan` 整合包自动批量安装（这两条路径原先完全不锁）。取消按钮保持可用，并经同一流程解锁。
-- **「文件」tab 浏览大包不再卡顿**（`modstabpage.{h,cpp}`、`moduleinstaller.{h,cpp}`）——选中缓存中的 1 GB 模组包曾让界面卡住数秒。修复两层根因：详情加载不再抢先构建文件树（未切到「文件」tab 前仅显示提示；已停在「文件」tab 时切换选中仍立即重建），文件树改由后台线程构建（`QtConcurrent::run`）。新增 `findCacheZipFast()` 仅读 zip central directory（毫秒级）识别缓存包，不再把整个文件读进内存算哈希；实际安装前的完整性校验仍用完整 SHA256。子节点按需懒物化（UI 开销与展开过的目录成正比，与包内总条目数无关），目录排序移至后台线程，快速连续切换选中经代数计数取消过期扫描。
+### 内部重构
 
-### 修复
-
-- **更新器失败流程**（`updater/main.cpp`）——`fatal()` 现在真正终止进程。此前更新包缺失或损坏时仅记录错误后**继续执行**，清空应用目录并搬运空 stage——最坏情况启动器被清空且新版未就位。`fatal()` 同时清除 `.updating` 标记，更新失败后旧版仍可正常启动。
-- **下载健壮性**（`ckan/downloader.cpp`）——同步下载补传输超时（服务器停滞不再永久挂起事件循环）；HTTP ≥ 400 状态响应不再把错误页 body 追加进 partial 文件并从错误偏移续传——改为放弃当前镜像换下一个；仅真正的传输中断才同址续传。
-- **Downloader 异步处理器叠加**（`ckan/downloader.{h,cpp}`）——异步完成处理器改为构造函数中连接一次，不再每次 `downloadAsync()` 都重复 connect（此前每次调用叠加一个处理器，一次 reply 触发多次完成路径）。
-- **背景缩放性能**（`mainwindow.{h,cpp}`）——窗口缩放不再每个事件都做一次平滑重缩放；拖拽期间由 `scaledContents` 即时拉伸现有位图兜底，停止缩放 150 ms 后由空闲定时器触发一次精确重缩放消除模糊。
-- **小绿人搜索防抖**（`savedetailpage.{h,cpp}`）——小绿人搜索框输入防抖 250 ms，不再每敲一键就清空重建两个列表；程序化刷新仍立即填充并保留搜索词。
+- **按域拆分 `InstanceManager`**（`src/game/`）——原先约 2300 行、包揽进程/存档/小绿人/飞船/备份/整合包/键位/游戏设置/DLC 的上帝类，拆分为 `GameProcessManager`、`GameSettingsManager`（含 `settingskeymap`）、`SaveManager`、`ShipManager`、`BackupManager`、`ModpackExporter`，并用共享的 `trash` 工具替换了两份重复的 Windows 回收站实现。行为零改动；删除了无人调用的 `listMods`。
 
 ### 技术栈
 
